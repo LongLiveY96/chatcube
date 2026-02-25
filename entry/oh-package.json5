@@ -1,0 +1,13 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "Please describe the basic information.",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@luvi/lv-markdown-in": "^3.2.5"
+  },
+  "devDependencies": {},
+  "dynamicDependencies": {}
+}

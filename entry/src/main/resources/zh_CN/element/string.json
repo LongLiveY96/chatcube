@@ -1,0 +1,1640 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "AI聊天应用"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "AI对话助手"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "ChatCube"
+    },
+    {
+      "name": "app_name",
+      "value": "ChatCube"
+    },
+    {
+      "name": "model_manage_title",
+      "value": "服务商管理"
+    },
+    {
+      "name": "input_placeholder",
+      "value": "输入消息..."
+    },
+    {
+      "name": "enabled_services",
+      "value": "已启用服务"
+    },
+    {
+      "name": "api_key",
+      "value": "API Key"
+    },
+    {
+      "name": "base_url",
+      "value": "代理地址"
+    },
+    {
+      "name": "available_models",
+      "value": "可用模型"
+    },
+    {
+      "name": "test_connection",
+      "value": "测试连接"
+    },
+    {
+      "name": "save_config",
+      "value": "保存配置"
+    },
+    {
+      "name": "refresh_list",
+      "value": "刷新列表"
+    },
+    {
+      "name": "connected",
+      "value": "已连接"
+    },
+    {
+      "name": "recommended",
+      "value": "推荐使用"
+    },
+    {
+      "name": "tab_assistant",
+      "value": "助手"
+    },
+    {
+      "name": "tab_chat",
+      "value": "对话"
+    },
+    {
+      "name": "tab_settings",
+      "value": "设置"
+    },
+    {
+      "name": "internet_permission_reason",
+      "value": "此应用需要联网以与 AI 服务通信。"
+    },
+    {
+      "name": "permission_keep_background_running",
+      "value": "此应用需要后台运行权限，以便在退到后台时继续完成长回复任务。"
+    },
+    {
+      "name": "permission_publish_notification",
+      "value": "此应用需要通知权限，以便在后台回复完成后提醒你。"
+    },
+    {
+      "name": "permission_detect_gesture",
+      "value": "此应用需要手势检测权限，用于根据握姿自适应按钮位置。"
+    },
+    {
+      "name": "new_chat",
+      "value": "新建对话"
+    },
+    {
+      "name": "no_sessions",
+      "value": "暂无对话记录"
+    },
+    {
+      "name": "start_new_chat",
+      "value": "点击上方按钮开始新对话"
+    },
+    {
+      "name": "loading",
+      "value": "加载中..."
+    },
+    {
+      "name": "connection_success",
+      "value": "连接成功"
+    },
+    {
+      "name": "connection_failed",
+      "value": "连接失败"
+    },
+    {
+      "name": "config_saved",
+      "value": "配置已保存"
+    },
+    {
+      "name": "select_model",
+      "value": "选择模型"
+    },
+    {
+      "name": "delete",
+      "value": "删除"
+    },
+    {
+      "name": "cancel",
+      "value": "取消"
+    },
+    {
+      "name": "delete_session_confirm",
+      "value": "确定要删除这个对话吗？"
+    },
+    {
+      "name": "model_tag_openai",
+      "value": "OpenAI"
+    },
+    {
+      "name": "model_tag_claude",
+      "value": "Claude"
+    },
+    {
+      "name": "model_tag_gemini",
+      "value": "Gemini"
+    },
+    {
+      "name": "model_tag_other",
+      "value": "其他"
+    },
+    {
+      "name": "add_custom_provider",
+      "value": "添加自定义服务商"
+    },
+    {
+      "name": "provider_name",
+      "value": "服务商名称"
+    },
+    {
+      "name": "api_style",
+      "value": "API 风格"
+    },
+    {
+      "name": "api_path_optional",
+      "value": "API 路径 (可选)"
+    },
+    {
+      "name": "model_list",
+      "value": "模型列表"
+    },
+    {
+      "name": "add",
+      "value": "添加"
+    },
+    {
+      "name": "save",
+      "value": "保存"
+    },
+    {
+      "name": "filter_models_placeholder",
+      "value": "筛选模型..."
+    },
+    {
+      "name": "theme_system",
+      "value": "跟随系统"
+    },
+    {
+      "name": "theme_light",
+      "value": "浅色"
+    },
+    {
+      "name": "theme_dark",
+      "value": "深色"
+    },
+    {
+      "name": "language_system",
+      "value": "跟随系统"
+    },
+    {
+      "name": "language_zh_cn",
+      "value": "简体中文"
+    },
+    {
+      "name": "language_en_us",
+      "value": "English"
+    },
+    {
+      "name": "settings_dark_mode",
+      "value": "主题"
+    },
+    {
+      "name": "settings_language",
+      "value": "语言"
+    },
+    {
+      "name": "settings_model_config",
+      "value": "模型配置"
+    },
+    {
+      "name": "settings_model_manage",
+      "value": "服务商管理"
+    },
+    {
+      "name": "settings_model_manage_desc",
+      "value": "配置 AI 服务商"
+    },
+    {
+      "name": "settings_app_settings",
+      "value": "应用设置"
+    },
+    {
+      "name": "settings_tools_center",
+      "value": "工具服务"
+    },
+    {
+      "name": "settings_tools_center_desc",
+      "value": "查看内置工具并配置联网搜索服务"
+    },
+    {
+      "name": "settings_hand_adaptive",
+      "value": "智感握姿"
+    },
+    {
+      "name": "hand_adaptive_title",
+      "value": "智感握姿"
+    },
+    {
+      "name": "hand_adaptive_master_title",
+      "value": "启用握姿自适应"
+    },
+    {
+      "name": "hand_adaptive_master_desc",
+      "value": "识别握持手并调整新建对话按钮位置，提升单手操作可达性。"
+    },
+    {
+      "name": "hand_adaptive_new_chat_title",
+      "value": "新建对话按钮"
+    },
+    {
+      "name": "hand_adaptive_new_chat_desc",
+      "value": "自适应悬浮新建对话按钮的位置。"
+    },
+    {
+      "name": "hand_adaptive_disabled",
+      "value": "已关闭"
+    },
+    {
+      "name": "hand_adaptive_summary_new_chat",
+      "value": "仅新建对话"
+    },
+    {
+      "name": "hand_adaptive_summary_none",
+      "value": "未选择快捷项"
+    },
+    {
+      "name": "hand_adaptive_unsupported",
+      "value": "设备不支持"
+    },
+    {
+      "name": "hand_adaptive_unsupported_tip",
+      "value": "当前设备可能不支持握持手感知（801），按钮将保持默认位置。"
+    },
+    {
+      "name": "settings_notifications",
+      "value": "通知"
+    },
+    {
+      "name": "settings_notifications_enabled",
+      "value": "已开启"
+    },
+    {
+      "name": "notification_enabled_title",
+      "value": "允许通知提醒"
+    },
+    {
+      "name": "notification_enabled_desc",
+      "value": "关闭后将不再发送后台和应用内提醒"
+    },
+    {
+      "name": "notification_on_complete_title",
+      "value": "回复完成提醒"
+    },
+    {
+      "name": "notification_on_complete_desc",
+      "value": "后台完成回复后提醒并支持点击跳转"
+    },
+    {
+      "name": "notification_on_failed_title",
+      "value": "回复失败提醒"
+    },
+    {
+      "name": "notification_on_failed_desc",
+      "value": "请求失败时发送提醒，便于及时重试"
+    },
+    {
+      "name": "notification_disabled",
+      "value": "已关闭"
+    },
+    {
+      "name": "notification_summary_all",
+      "value": "完成和失败都提醒"
+    },
+    {
+      "name": "notification_summary_complete",
+      "value": "仅完成时提醒"
+    },
+    {
+      "name": "notification_summary_failed",
+      "value": "仅失败时提醒"
+    },
+    {
+      "name": "notification_summary_none",
+      "value": "提醒项均关闭"
+    },
+    {
+      "name": "notification_system_settings_tip",
+      "value": "如果你只能在“其他通知”里看到消息，或锁屏/桌面不弹提醒，请前往系统通知设置开启横幅与锁屏显示。"
+    },
+    {
+      "name": "notification_open_system_settings",
+      "value": "打开系统通知设置"
+    },
+    {
+      "name": "notification_open_settings_failed",
+      "value": "打开系统通知设置失败，请手动前往系统设置"
+    },
+    {
+      "name": "settings_about",
+      "value": "关于"
+    },
+    {
+      "name": "settings_about_chatcube",
+      "value": "关于 ChatCube"
+    },
+    {
+      "name": "settings_version",
+      "value": "版本 1.0.0"
+    },
+    {
+      "name": "settings_privacy_policy",
+      "value": "隐私政策"
+    },
+    {
+      "name": "settings_data_management",
+      "value": "数据管理"
+    },
+    {
+      "name": "settings_export_data",
+      "value": "导出数据"
+    },
+    {
+      "name": "settings_export_data_desc",
+      "value": "导出对话、附件和配置"
+    },
+    {
+      "name": "settings_import_data",
+      "value": "导入数据"
+    },
+    {
+      "name": "settings_import_data_desc",
+      "value": "从备份文件恢复数据"
+    },
+    {
+      "name": "export_title",
+      "value": "导出数据"
+    },
+    {
+      "name": "export_select_sessions",
+      "value": "选择会话"
+    },
+    {
+      "name": "export_all_sessions",
+      "value": "全部会话"
+    },
+    {
+      "name": "export_options",
+      "value": "导出选项"
+    },
+    {
+      "name": "export_include_attachments",
+      "value": "包含附件"
+    },
+    {
+      "name": "export_include_providers",
+      "value": "包含供应商配置"
+    },
+    {
+      "name": "export_include_api_keys",
+      "value": "包含 API Key"
+    },
+    {
+      "name": "export_include_api_keys_warning",
+      "value": "⚠️ 敏感信息"
+    },
+    {
+      "name": "export_include_preferences",
+      "value": "包含用户偏好"
+    },
+    {
+      "name": "export_start",
+      "value": "开始导出"
+    },
+    {
+      "name": "export_progress",
+      "value": "导出进度"
+    },
+    {
+      "name": "export_success",
+      "value": "导出成功"
+    },
+    {
+      "name": "export_failed",
+      "value": "导出失败"
+    },
+    {
+      "name": "import_title",
+      "value": "导入数据"
+    },
+    {
+      "name": "import_select_file",
+      "value": "选择文件"
+    },
+    {
+      "name": "import_preview",
+      "value": "导入预览"
+    },
+    {
+      "name": "import_conflict_strategy",
+      "value": "冲突处理策略"
+    },
+    {
+      "name": "import_strategy_skip",
+      "value": "跳过重复项"
+    },
+    {
+      "name": "import_strategy_overwrite",
+      "value": "覆盖本地数据"
+    },
+    {
+      "name": "import_strategy_ask",
+      "value": "逐个询问"
+    },
+    {
+      "name": "import_options",
+      "value": "导入选项"
+    },
+    {
+      "name": "import_providers",
+      "value": "导入供应商配置"
+    },
+    {
+      "name": "import_preferences",
+      "value": "导入用户偏好"
+    },
+    {
+      "name": "import_start",
+      "value": "开始导入"
+    },
+    {
+      "name": "import_progress",
+      "value": "导入进度"
+    },
+    {
+      "name": "import_success",
+      "value": "导入成功"
+    },
+    {
+      "name": "import_failed",
+      "value": "导入失败"
+    },
+    {
+      "name": "settings_default_model",
+      "value": "默认模型"
+    },
+    {
+      "name": "settings_default_model_desc",
+      "value": "聊天、标题生成、翻译"
+    },
+    {
+      "name": "regenerate_title",
+      "value": "重新生成标题"
+    },
+    {
+      "name": "delete_chat",
+      "value": "删除对话"
+    },
+    {
+      "name": "generating_title",
+      "value": "生成标题中..."
+    },
+    {
+      "name": "danger_zone",
+      "value": "危险操作"
+    },
+    {
+      "name": "web_search_failed",
+      "value": "网页获取失败"
+    },
+    {
+      "name": "web_search",
+      "value": "联网搜索"
+    },
+    {
+      "name": "weather_query",
+      "value": "天气查询"
+    },
+    {
+      "name": "chat_toolbar_web_search",
+      "value": "联网查询"
+    },
+    {
+      "name": "chat_toolbar_reasoning",
+      "value": "推理"
+    },
+    {
+      "name": "chat_toolbar_reasoning_off",
+      "value": "关闭"
+    },
+    {
+      "name": "chat_toolbar_reasoning_low",
+      "value": "轻度推理"
+    },
+    {
+      "name": "chat_toolbar_reasoning_medium",
+      "value": "中度推理"
+    },
+    {
+      "name": "chat_toolbar_reasoning_high",
+      "value": "重度推理"
+    },
+    {
+      "name": "search_service_config",
+      "value": "搜索服务"
+    },
+    {
+      "name": "search_engine",
+      "value": "搜索引擎"
+    },
+    {
+      "name": "search_engine_current",
+      "value": "当前设置："
+    },
+    {
+      "name": "search_engine_runtime_hint",
+      "value": "聊天里的搜索卡片会显示实际执行引擎；Exa 失败会自动回退 Bing（本地）。"
+    },
+    {
+      "name": "search_query_optimization",
+      "value": "搜索词优化"
+    },
+    {
+      "name": "search_query_optimization_hint",
+      "value": "仅对 Bing（本地）生效。用于把口语输入改写为更可检索的关键词。"
+    },
+    {
+      "name": "search_query_optimization_exa_hint",
+      "value": "Exa 模式下会默认跳过该优化，避免重复改写。"
+    },
+    {
+      "name": "search_exa_api_key",
+      "value": "Exa API Key"
+    },
+    {
+      "name": "search_exa_base_url",
+      "value": "Exa 服务地址"
+    },
+    {
+      "name": "search_exa_key_required",
+      "value": "选择 Exa 时请先填写 API Key"
+    },
+    {
+      "name": "search_base_url_invalid",
+      "value": "Exa 服务地址格式错误，请使用 http/https"
+    },
+    {
+      "name": "search_config_saved",
+      "value": "搜索配置已保存"
+    },
+    {
+      "name": "search_discard_changes_title",
+      "value": "放弃修改？"
+    },
+    {
+      "name": "search_discard_changes_message",
+      "value": "当前修改尚未保存，确定要退出吗？"
+    },
+    {
+      "name": "search_discard_changes",
+      "value": "放弃修改"
+    },
+    {
+      "name": "search_continue_editing",
+      "value": "继续编辑"
+    },
+    {
+      "name": "search_optimization_model",
+      "value": "搜索优化模型"
+    },
+    {
+      "name": "search_optimization_desc",
+      "value": "联网搜索时优化查询关键词（默认使用硅基流动）"
+    },
+    {
+      "name": "system_service",
+      "value": "系统服务"
+    },
+    {
+      "name": "select_models",
+      "value": "选择模型"
+    },
+    {
+      "name": "widget_new_chat_name",
+      "value": "新对话"
+    },
+    {
+      "name": "widget_new_chat_desc",
+      "value": "快速开始新的AI对话"
+    },
+    {
+      "name": "search_sessions_placeholder",
+      "value": "搜索对话..."
+    },
+    {
+      "name": "no_search_results",
+      "value": "未找到结果"
+    },
+    {
+      "name": "try_different_keyword",
+      "value": "试试其他关键词"
+    },
+    {
+      "name": "select_conversations",
+      "value": "选择对话"
+    },
+    {
+      "name": "filter_all",
+      "value": "全部"
+    },
+    {
+      "name": "filter_favorite",
+      "value": "收藏"
+    },
+    {
+      "name": "group_today",
+      "value": "今天"
+    },
+    {
+      "name": "group_yesterday",
+      "value": "昨天"
+    },
+    {
+      "name": "group_last_7_days",
+      "value": "近 7 天"
+    },
+    {
+      "name": "group_older",
+      "value": "更早"
+    },
+    {
+      "name": "time_just_now",
+      "value": "刚刚"
+    },
+    {
+      "name": "time_minutes_ago_suffix",
+      "value": "分钟前"
+    },
+    {
+      "name": "time_hours_ago_suffix",
+      "value": "小时前"
+    },
+    {
+      "name": "time_days_ago_suffix",
+      "value": "天前"
+    },
+    {
+      "name": "session_no_preview",
+      "value": "暂无消息摘要"
+    },
+    {
+      "name": "no_favorite_sessions",
+      "value": "暂无收藏对话"
+    },
+    {
+      "name": "favorite_sessions_hint",
+      "value": "长按对话可收藏，便于后续快速筛选"
+    },
+    {
+      "name": "menu_multi_select",
+      "value": "多选"
+    },
+    {
+      "name": "menu_share",
+      "value": "分享"
+    },
+    {
+      "name": "menu_favorite",
+      "value": "收藏"
+    },
+    {
+      "name": "menu_unfavorite",
+      "value": "取消收藏"
+    },
+    {
+      "name": "menu_copy",
+      "value": "复制"
+    },
+    {
+      "name": "menu_regenerate",
+      "value": "重新生成"
+    },
+    {
+      "name": "menu_edit",
+      "value": "编辑"
+    },
+    {
+      "name": "menu_read_aloud",
+      "value": "朗读"
+    },
+    {
+      "name": "menu_stop_read_aloud",
+      "value": "停止朗读"
+    },
+    {
+      "name": "translation_label",
+      "value": "翻译"
+    },
+    {
+      "name": "translation_loading",
+      "value": "正在翻译..."
+    },
+    {
+      "name": "translation_clear",
+      "value": "清空翻译"
+    },
+    {
+      "name": "reasoning_process",
+      "value": "思考过程"
+    },
+    {
+      "name": "reasoning_thinking",
+      "value": "正在思考"
+    },
+    {
+      "name": "favorite_models_empty_title",
+      "value": "暂无收藏模型"
+    },
+    {
+      "name": "favorite_models_empty_desc",
+      "value": "点击模型右侧心形按钮添加收藏"
+    },
+    {
+      "name": "share_title",
+      "value": "分享对话"
+    },
+    {
+      "name": "share_mode_image",
+      "value": "图片"
+    },
+    {
+      "name": "share_mode_markdown",
+      "value": "Markdown"
+    },
+    {
+      "name": "share_mode_text",
+      "value": "纯文本"
+    },
+    {
+      "name": "share_button",
+      "value": "分享"
+    },
+    {
+      "name": "sharing",
+      "value": "分享中..."
+    },
+    {
+      "name": "delete_messages",
+      "value": "删除消息"
+    },
+    {
+      "name": "messages_deleted",
+      "value": "已删除选中消息"
+    },
+    {
+      "name": "save_and_send",
+      "value": "保存并发送"
+    },
+    {
+      "name": "message_saved",
+      "value": "消息已保存"
+    },
+    {
+      "name": "edit_message_placeholder",
+      "value": "编辑消息..."
+    },
+    {
+      "name": "editing_message",
+      "value": "正在编辑"
+    },
+    {
+      "name": "settings_color_theme",
+      "value": "主题配色"
+    },
+    {
+      "name": "theme_color_default",
+      "value": "默认主题"
+    },
+    {
+      "name": "theme_color_default_desc",
+      "value": "经典蓝色"
+    },
+    {
+      "name": "theme_color_yuanbao",
+      "value": "元宝护眼"
+    },
+    {
+      "name": "theme_color_yuanbao_desc",
+      "value": "暖色调护眼"
+    },
+    {
+      "name": "theme_color_claude",
+      "value": "Claude"
+    },
+    {
+      "name": "theme_color_claude_desc",
+      "value": "橄榄绿调"
+    },
+    {
+      "name": "theme_color_chatgpt",
+      "value": "ChatGPT"
+    },
+    {
+      "name": "theme_color_chatgpt_desc",
+      "value": "深灰色调"
+    },
+    {
+      "name": "theme_color_violet",
+      "value": "紫罗兰"
+    },
+    {
+      "name": "theme_color_violet_desc",
+      "value": "神秘优雅"
+    },
+    {
+      "name": "theme_color_mint",
+      "value": "薄荷绿"
+    },
+    {
+      "name": "theme_color_mint_desc",
+      "value": "清新自然"
+    },
+    {
+      "name": "theme_color_sunset",
+      "value": "日落橙"
+    },
+    {
+      "name": "theme_color_sunset_desc",
+      "value": "活力温暖"
+    },
+    {
+      "name": "screenshot_banner_title",
+      "value": "检测到新图片"
+    },
+    {
+      "name": "screenshot_banner_subtitle",
+      "value": "点击图片添加"
+    },
+    {
+      "name": "provider_detail_title",
+      "value": "供应商详情"
+    },
+    {
+      "name": "provider_detail_not_found",
+      "value": "未找到供应商"
+    },
+    {
+      "name": "action_back",
+      "value": "返回"
+    },
+    {
+      "name": "action_close",
+      "value": "关闭"
+    },
+    {
+      "name": "provider_api_config",
+      "value": "API 配置"
+    },
+    {
+      "name": "provider_models_manage",
+      "value": "模型管理"
+    },
+    {
+      "name": "provider_api_key_placeholder",
+      "value": "请输入 API Key"
+    },
+    {
+      "name": "provider_base_url_placeholder",
+      "value": "例如: https://api.openai.com/v1"
+    },
+    {
+      "name": "provider_api_path_placeholder",
+      "value": "例如: /chat/completions"
+    },
+    {
+      "name": "provider_fetch_models",
+      "value": "获取模型"
+    },
+    {
+      "name": "provider_fetching",
+      "value": "获取中"
+    },
+    {
+      "name": "provider_enable_all",
+      "value": "全部开启"
+    },
+    {
+      "name": "provider_disable_all",
+      "value": "全部关闭"
+    },
+    {
+      "name": "provider_no_models",
+      "value": "暂无模型"
+    },
+    {
+      "name": "provider_no_models_hint",
+      "value": "点击上方「获取模型」按钮获取可用模型"
+    },
+    {
+      "name": "provider_models_not_found",
+      "value": "未找到匹配的模型"
+    },
+    {
+      "name": "title_generate_failed_config",
+      "value": "标题生成失败，请检查模型配置"
+    },
+    {
+      "name": "chat_created",
+      "value": "已创建新对话"
+    },
+    {
+      "name": "chat_empty",
+      "value": "暂无对话内容"
+    },
+    {
+      "name": "title_updated",
+      "value": "标题已更新"
+    },
+    {
+      "name": "message_deleted",
+      "value": "消息已删除"
+    },
+    {
+      "name": "message_content_empty",
+      "value": "消息内容不能为空"
+    },
+    {
+      "name": "action_failed_retry",
+      "value": "操作失败，请重试"
+    },
+    {
+      "name": "save_failed_retry",
+      "value": "保存失败，请重试"
+    },
+    {
+      "name": "selected_message_not_found",
+      "value": "未找到选中的消息"
+    },
+    {
+      "name": "provider_required_before_chat",
+      "value": "请先配置 AI 服务商"
+    },
+    {
+      "name": "api_key_required",
+      "value": "请先配置 API Key"
+    },
+    {
+      "name": "back_press_exit_hint",
+      "value": "再按一次退出应用"
+    },
+    {
+      "name": "conversation_deleted",
+      "value": "对话已删除"
+    },
+    {
+      "name": "assistant_coming_soon",
+      "value": "AI 助手功能即将上线"
+    },
+    {
+      "name": "theme_switched",
+      "value": "主题已切换"
+    },
+    {
+      "name": "conversation_favorited",
+      "value": "已收藏对话"
+    },
+    {
+      "name": "conversation_unfavorited",
+      "value": "已取消收藏"
+    },
+    {
+      "name": "conversations_deleted",
+      "value": "已删除选中对话"
+    },
+    {
+      "name": "single_session_share_only",
+      "value": "目前只支持单个对话分享"
+    },
+    {
+      "name": "conversation_content_empty",
+      "value": "对话内容为空"
+    },
+    {
+      "name": "provider_testing_connection",
+      "value": "正在测试连接..."
+    },
+    {
+      "name": "provider_fetching_models",
+      "value": "正在获取模型列表..."
+    },
+    {
+      "name": "provider_fetch_models_failed",
+      "value": "获取模型失败"
+    },
+    {
+      "name": "provider_models_refreshed",
+      "value": "模型列表已更新"
+    },
+    {
+      "name": "provider_enabled",
+      "value": "服务商已启用"
+    },
+    {
+      "name": "provider_disabled",
+      "value": "服务商已停用"
+    },
+    {
+      "name": "provider_all_models_enabled",
+      "value": "已开启所有模型"
+    },
+    {
+      "name": "provider_all_models_disabled",
+      "value": "已关闭所有模型"
+    },
+    {
+      "name": "provider_group_models_enabled",
+      "value": "已开启该分组所有模型"
+    },
+    {
+      "name": "provider_group_models_disabled",
+      "value": "已关闭该分组所有模型"
+    },
+    {
+      "name": "provider_model_saved",
+      "value": "模型配置已保存"
+    },
+    {
+      "name": "model_switched",
+      "value": "模型已切换"
+    },
+    {
+      "name": "task_parallel_limit_reached",
+      "value": "并行任务已达上限（最多3个）"
+    },
+    {
+      "name": "task_alert_view",
+      "value": "查看"
+    },
+    {
+      "name": "url_fetch_failed",
+      "value": "网页获取失败"
+    },
+    {
+      "name": "delete_selected_messages_confirm",
+      "value": "确定要删除选中的消息吗？"
+    },
+    {
+      "name": "delete_selected_conversations_confirm",
+      "value": "确定要删除选中的对话吗？"
+    },
+    {
+      "name": "provider_model_deleted",
+      "value": "模型已删除"
+    },
+    {
+      "name": "provider_icon_updated",
+      "value": "图标已更新"
+    },
+    {
+      "name": "provider_default_icon_reset",
+      "value": "已重置为预设图标"
+    },
+    {
+      "name": "provider_name_required",
+      "value": "请输入服务商名称"
+    },
+    {
+      "name": "base_url_required",
+      "value": "请输入 Base URL"
+    },
+    {
+      "name": "provider_added",
+      "value": "服务商已添加"
+    },
+    {
+      "name": "provider_models_selected",
+      "value": "模型选择已保存"
+    },
+    {
+      "name": "import_file_copy_failed",
+      "value": "文件复制失败"
+    },
+    {
+      "name": "import_file_select_failed",
+      "value": "文件选择失败"
+    },
+    {
+      "name": "import_file_parse_failed",
+      "value": "文件解析失败"
+    },
+    {
+      "name": "export_select_session_required",
+      "value": "请至少选择一个会话"
+    },
+    {
+      "name": "image_not_found",
+      "value": "图片不存在"
+    },
+    {
+      "name": "image_saved_to_album",
+      "value": "已保存到相册"
+    },
+    {
+      "name": "image_save_failed",
+      "value": "保存失败"
+    },
+    {
+      "name": "share_no_content",
+      "value": "没有可分享的内容"
+    },
+    {
+      "name": "share_context_unavailable",
+      "value": "分享失败：无法获取应用上下文"
+    },
+    {
+      "name": "share_failed",
+      "value": "分享失败"
+    },
+    {
+      "name": "share_snapshot_failed",
+      "value": "截图失败，请重试"
+    },
+    {
+      "name": "copy_success",
+      "value": "已复制"
+    },
+    {
+      "name": "provider_moved_up",
+      "value": "已上移"
+    },
+    {
+      "name": "provider_moved_down",
+      "value": "已下移"
+    },
+    {
+      "name": "provider_deleted",
+      "value": "服务商已删除"
+    },
+    {
+      "name": "api_style_openai_desc",
+      "value": "兼容 OpenAI API 格式，如 OpenAI、DeepSeek、Ollama 等"
+    },
+    {
+      "name": "api_style_anthropic_desc",
+      "value": "Anthropic Claude API 格式"
+    },
+    {
+      "name": "api_style_google_desc",
+      "value": "Google Gemini API 格式"
+    },
+    {
+      "name": "provider_name_placeholder",
+      "value": "自定义服务商"
+    },
+    {
+      "name": "model_input_placeholder",
+      "value": "输入模型名称"
+    },
+    {
+      "name": "disabled_services",
+      "value": "已停用服务"
+    },
+    {
+      "name": "search_try_other_keywords",
+      "value": "请尝试其他关键词"
+    },
+    {
+      "name": "provider_disabled_badge",
+      "value": "已停用"
+    },
+    {
+      "name": "provider_menu_move_up",
+      "value": "上移"
+    },
+    {
+      "name": "provider_menu_move_down",
+      "value": "下移"
+    },
+    {
+      "name": "provider_menu_enable",
+      "value": "启用"
+    },
+    {
+      "name": "provider_menu_disable",
+      "value": "停用"
+    },
+    {
+      "name": "delete_provider_title",
+      "value": "删除供应商"
+    },
+    {
+      "name": "delete_provider_confirm",
+      "value": "确定要删除该供应商吗？此操作不可恢复。"
+    },
+    {
+      "name": "icon_click_edit",
+      "value": "点击图标编辑"
+    },
+    {
+      "name": "icon_text_button",
+      "value": "文字图标"
+    },
+    {
+      "name": "icon_reset_button",
+      "value": "重置"
+    },
+    {
+      "name": "icon_type_preset",
+      "value": "预设图标"
+    },
+    {
+      "name": "icon_type_text",
+      "value": "文字图标"
+    },
+    {
+      "name": "icon_type_unset",
+      "value": "未设置"
+    },
+    {
+      "name": "icon_edit_title",
+      "value": "编辑图标"
+    },
+    {
+      "name": "icon_edit_text_title",
+      "value": "编辑文字图标"
+    },
+    {
+      "name": "icon_text_input_label",
+      "value": "图标文字（1-2个字符）"
+    },
+    {
+      "name": "icon_background_color",
+      "value": "背景颜色"
+    },
+    {
+      "name": "icon_random_generate",
+      "value": "随机生成"
+    },
+    {
+      "name": "icon_none",
+      "value": "无"
+    },
+    {
+      "name": "icon_transparent_hint",
+      "value": "透明（适合 Emoji）"
+    },
+    {
+      "name": "icon_select_color",
+      "value": "选择"
+    },
+    {
+      "name": "icon_color_picker_title",
+      "value": "选择背景颜色"
+    },
+    {
+      "name": "assistant_center_title",
+      "value": "智能体中心"
+    },
+    {
+      "name": "assistant_center_subtitle",
+      "value": "任务化执行"
+    },
+    {
+      "name": "assistant_template_section",
+      "value": "助手模板"
+    },
+    {
+      "name": "assistant_input_section",
+      "value": "任务输入"
+    },
+    {
+      "name": "assistant_input_placeholder",
+      "value": "输入任务目标、约束和上下文信息..."
+    },
+    {
+      "name": "assistant_run_button",
+      "value": "一键执行助手任务"
+    },
+    {
+      "name": "assistant_recent_section",
+      "value": "最近任务"
+    },
+    {
+      "name": "assistant_recent_empty",
+      "value": "暂无任务记录"
+    },
+    {
+      "name": "assistant_select_template_first",
+      "value": "请先选择一个助手模板"
+    },
+    {
+      "name": "assistant_input_required",
+      "value": "请输入任务内容"
+    },
+    {
+      "name": "assistant_task_pending",
+      "value": "待执行"
+    },
+    {
+      "name": "assistant_task_running",
+      "value": "执行中"
+    },
+    {
+      "name": "assistant_task_completed",
+      "value": "已完成"
+    },
+    {
+      "name": "assistant_task_failed",
+      "value": "执行失败"
+    },
+    {
+      "name": "assistant_task_no_session",
+      "value": "该任务暂无可打开会话"
+    },
+    {
+      "name": "huawei_agent_section",
+      "value": "华为官方智能体入口"
+    },
+    {
+      "name": "huawei_agent_config_hint",
+      "value": "提示：不同设备的官方智能体包名和能力名可能不同，请按实际设备配置。"
+    },
+    {
+      "name": "huawei_agent_feature_switch",
+      "value": "启用官方智能体入口"
+    },
+    {
+      "name": "huawei_agent_launch_button",
+      "value": "拉起"
+    },
+    {
+      "name": "huawei_agent_launch_success",
+      "value": "已尝试拉起官方智能体"
+    },
+    {
+      "name": "huawei_agent_launch_failed",
+      "value": "拉起失败，请检查设备支持与入口配置"
+    },
+    {
+      "name": "huawei_agent_add_entry",
+      "value": "添加智能体入口"
+    },
+    {
+      "name": "huawei_agent_name_placeholder",
+      "value": "入口名称（例如：小艺智能体）"
+    },
+    {
+      "name": "huawei_agent_bundle_placeholder",
+      "value": "BundleName（包名）"
+    },
+    {
+      "name": "huawei_agent_ability_placeholder",
+      "value": "AbilityName（页面能力名）"
+    },
+    {
+      "name": "huawei_agent_save_entry",
+      "value": "保存入口"
+    },
+    {
+      "name": "huawei_agent_entry_required",
+      "value": "请完整填写入口名称、包名和能力名"
+    },
+    {
+      "name": "huawei_agent_entry_added",
+      "value": "官方智能体入口已添加"
+    },
+    {
+      "name": "tools_center_title",
+      "value": "工具服务"
+    },
+    {
+      "name": "tools_center_refresh",
+      "value": "刷新"
+    },
+    {
+      "name": "tools_builtin_section",
+      "value": "内置工具"
+    },
+    {
+      "name": "tools_builtin_section_desc",
+      "value": "应用内置工具能力。"
+    },
+    {
+      "name": "search_service_config_desc",
+      "value": "内置 web_search 工具的联网执行后端。"
+    },
+    {
+      "name": "common_web_page",
+      "value": "网页"
+    },
+    {
+      "name": "common_invalid_link",
+      "value": "无效链接"
+    },
+    {
+      "name": "model_picker_select_all",
+      "value": "全选"
+    },
+    {
+      "name": "model_picker_deselect_all",
+      "value": "取消全选"
+    },
+    {
+      "name": "model_picker_added",
+      "value": "已添加"
+    },
+    {
+      "name": "default_model_section_chat",
+      "value": "默认聊天模型"
+    },
+    {
+      "name": "default_model_role_chat",
+      "value": "聊天"
+    },
+    {
+      "name": "default_model_desc_chat",
+      "value": "新对话默认使用的模型"
+    },
+    {
+      "name": "default_model_section_title_generation",
+      "value": "标题生成模型"
+    },
+    {
+      "name": "default_model_role_title_generation",
+      "value": "标题生成"
+    },
+    {
+      "name": "default_model_desc_title_generation",
+      "value": "自动生成对话标题"
+    },
+    {
+      "name": "default_model_section_translate",
+      "value": "翻译模型"
+    },
+    {
+      "name": "default_model_role_translate",
+      "value": "翻译"
+    },
+    {
+      "name": "default_model_desc_translate",
+      "value": "消息翻译功能"
+    },
+    {
+      "name": "default_model_current_selection",
+      "value": "当前选择："
+    },
+    {
+      "name": "default_model_no_provider",
+      "value": "暂无可用的模型供应商"
+    },
+    {
+      "name": "default_model_no_provider_hint",
+      "value": "请先添加并启用服务商"
+    },
+    {
+      "name": "default_model_clear_selection",
+      "value": "清除选择"
+    },
+    {
+      "name": "default_model_prompt_edit_title_title",
+      "value": "编辑标题 Prompt"
+    },
+    {
+      "name": "default_model_prompt_edit_title_translate",
+      "value": "编辑翻译 Prompt"
+    },
+    {
+      "name": "default_model_prompt_variables",
+      "value": "可用变量:"
+    },
+    {
+      "name": "default_model_prompt_title_variables_hint",
+      "value": "{content} - 对话内容\\n{locale} - 语言"
+    },
+    {
+      "name": "default_model_prompt_translate_variables_hint",
+      "value": "{source_text} - 原文\\n{target_lang} - 目标语言"
+    },
+    {
+      "name": "default_model_reset_prompt",
+      "value": "重置为默认"
+    },
+    {
+      "name": "default_model_select_chat_model",
+      "value": "选择聊天模型"
+    },
+    {
+      "name": "default_model_select_title_model",
+      "value": "选择标题生成模型"
+    },
+    {
+      "name": "default_model_select_search_model",
+      "value": "选择搜索优化模型"
+    },
+    {
+      "name": "default_model_select_translate_model",
+      "value": "选择翻译模型"
+    },
+    {
+      "name": "default_model_unconfigured",
+      "value": "未配置"
+    },
+    {
+      "name": "default_model_prompt_template",
+      "value": "Prompt 模板"
+    },
+    {
+      "name": "default_model_prompt_template_default",
+      "value": "默认"
+    },
+    {
+      "name": "default_model_prompt_template_custom",
+      "value": "自定义"
+    },
+    {
+      "name": "common_details",
+      "value": "详情"
+    },
+    {
+      "name": "common_collapse",
+      "value": "收起"
+    },
+    {
+      "name": "common_expand",
+      "value": "展开"
+    },
+    {
+      "name": "tool_call_args_label",
+      "value": "参数: "
+    },
+    {
+      "name": "tool_call_result_label",
+      "value": "结果: "
+    },
+    {
+      "name": "tool_call_executing",
+      "value": "执行中..."
+    },
+    {
+      "name": "tool_call_completed",
+      "value": "执行完成"
+    },
+    {
+      "name": "function_calling_not_supported",
+      "value": "当前模型不支持工具调用，请切换支持 Function Calling 的模型"
+    },
+    {
+      "name": "match_icons",
+      "value": "匹配图标"
+    },
+    {
+      "name": "matching_icons",
+      "value": "正在匹配图标..."
+    },
+    {
+      "name": "match_icons_failed",
+      "value": "图标数据加载失败"
+    },
+    {
+      "name": "settings_system_prompt",
+      "value": "系统提示词"
+    },
+    {
+      "name": "settings_system_prompt_desc",
+      "value": "自定义 AI 行为指令"
+    },
+    {
+      "name": "system_prompt_edit_title",
+      "value": "系统提示词"
+    },
+    {
+      "name": "system_prompt_hint",
+      "value": "自定义系统提示词会注入到所有对话中，包括普通聊天、联网搜索和工具调用场景。"
+    },
+    {
+      "name": "system_prompt_variables_hint",
+      "value": "可用变量：{{current_time}}、{{current_date}}、{{current_clock}}、{{current_weekday}}、{{current_lunar}}"
+    },
+    {
+      "name": "system_prompt_placeholder",
+      "value": "输入自定义系统提示词..."
+    },
+    {
+      "name": "system_prompt_clear",
+      "value": "重置为默认"
+    },
+    {
+      "name": "system_prompt_saved",
+      "value": "系统提示词已保存"
+    }
+  ]
+}

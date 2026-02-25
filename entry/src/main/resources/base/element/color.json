@@ -1,0 +1,140 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#F1F3F5"
+    },
+    {
+      "name": "primary",
+      "value": "#007DFF"
+    },
+    {
+      "name": "primary_light",
+      "value": "#E6F2FF"
+    },
+    {
+      "name": "background",
+      "value": "#F1F3F5"
+    },
+    {
+      "name": "surface",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "text_primary",
+      "value": "#191919"
+    },
+    {
+      "name": "text_secondary",
+      "value": "#999999"
+    },
+    {
+      "name": "text_tertiary",
+      "value": "#CCCCCC"
+    },
+    {
+      "name": "divider",
+      "value": "#E5E5E5"
+    },
+    {
+      "name": "brand_openai",
+      "value": "#10A37F"
+    },
+    {
+      "name": "brand_anthropic",
+      "value": "#D97757"
+    },
+    {
+      "name": "brand_azure",
+      "value": "#0078D4"
+    },
+    {
+      "name": "brand_deepseek",
+      "value": "#4E46DC"
+    },
+    {
+      "name": "brand_google",
+      "value": "#4285F4"
+    },
+    {
+      "name": "brand_custom",
+      "value": "#6B7280"
+    },
+    {
+      "name": "status_success",
+      "value": "#22C55E"
+    },
+    {
+      "name": "status_error",
+      "value": "#EF4444"
+    },
+    {
+      "name": "chat_user_bubble",
+      "value": "#007DFF"
+    },
+    {
+      "name": "chat_ai_bubble",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "code_background",
+      "value": "#F6F8FA"
+    },
+    {
+      "name": "markdown_title",
+      "value": "#191919"
+    },
+    {
+      "name": "markdown_text",
+      "value": "#333333"
+    },
+    {
+      "name": "markdown_quote_bg",
+      "value": "#F5F5F5"
+    },
+    {
+      "name": "markdown_link",
+      "value": "#007DFF"
+    },
+    {
+      "name": "markdown_link_bg",
+      "value": "#14007DFF"
+    },
+    {
+      "name": "markdown_code_bg",
+      "value": "#EBEBEB"
+    },
+    {
+      "name": "markdown_code_text",
+      "value": "#C41D7F"
+    },
+    {
+      "name": "markdown_table_bg",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "markdown_table_header_bg",
+      "value": "#F5F5F5"
+    },
+    {
+      "name": "markdown_table_alt_bg",
+      "value": "#FAFAFA"
+    },
+    {
+      "name": "markdown_table_border",
+      "value": "#E5E5E5"
+    },
+    {
+      "name": "toolbar_btn_bg",
+      "value": "#08000000"
+    },
+    {
+      "name": "bubble_border",
+      "value": "#0F000000"
+    },
+    {
+      "name": "model_icon_bg",
+      "value": "#F5F5F5"
+    }
+  ]
+}

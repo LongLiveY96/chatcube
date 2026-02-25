@@ -1,0 +1,20 @@
+/node_modules
+/oh_modules
+/local.properties
+/.idea
+**/build
+/.hvigor
+.cxx
+/.clangd
+/.clang-format
+/.clang-tidy
+**/.test
+/.appanalyzer
+.ace-tool/
+.agent/
+.claude/
+
+.codeartsdoer
+
+# 签名配置（包含密钥密码和本地路径）
+build-profile.json5

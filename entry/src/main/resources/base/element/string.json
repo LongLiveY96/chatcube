@@ -1,0 +1,1640 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "AI Chat Application"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "AI Chat Box"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "ChatCube"
+    },
+    {
+      "name": "app_name",
+      "value": "ChatCube"
+    },
+    {
+      "name": "model_manage_title",
+      "value": "Provider Management"
+    },
+    {
+      "name": "input_placeholder",
+      "value": "Type a message..."
+    },
+    {
+      "name": "enabled_services",
+      "value": "Enabled Services"
+    },
+    {
+      "name": "api_key",
+      "value": "API Key"
+    },
+    {
+      "name": "base_url",
+      "value": "Base URL"
+    },
+    {
+      "name": "available_models",
+      "value": "Available Models"
+    },
+    {
+      "name": "test_connection",
+      "value": "Test Connection"
+    },
+    {
+      "name": "save_config",
+      "value": "Save Config"
+    },
+    {
+      "name": "refresh_list",
+      "value": "Refresh List"
+    },
+    {
+      "name": "connected",
+      "value": "Connected"
+    },
+    {
+      "name": "recommended",
+      "value": "Recommended"
+    },
+    {
+      "name": "tab_assistant",
+      "value": "Assistant"
+    },
+    {
+      "name": "tab_chat",
+      "value": "Chat"
+    },
+    {
+      "name": "tab_settings",
+      "value": "Settings"
+    },
+    {
+      "name": "internet_permission_reason",
+      "value": "This app requires internet access to communicate with AI services."
+    },
+    {
+      "name": "permission_keep_background_running",
+      "value": "This app requires background running permission to continue long-running reply tasks in the background."
+    },
+    {
+      "name": "permission_publish_notification",
+      "value": "This app needs notification permission to alert you when background replies complete."
+    },
+    {
+      "name": "permission_detect_gesture",
+      "value": "This app needs gesture detection permission to adapt button positions based on holding hand."
+    },
+    {
+      "name": "new_chat",
+      "value": "New Chat"
+    },
+    {
+      "name": "no_sessions",
+      "value": "No conversations yet"
+    },
+    {
+      "name": "start_new_chat",
+      "value": "Click the button above to start a new chat"
+    },
+    {
+      "name": "loading",
+      "value": "Loading..."
+    },
+    {
+      "name": "connection_success",
+      "value": "Connection successful"
+    },
+    {
+      "name": "connection_failed",
+      "value": "Connection failed"
+    },
+    {
+      "name": "config_saved",
+      "value": "Configuration saved"
+    },
+    {
+      "name": "select_model",
+      "value": "Select Model"
+    },
+    {
+      "name": "delete",
+      "value": "Delete"
+    },
+    {
+      "name": "cancel",
+      "value": "Cancel"
+    },
+    {
+      "name": "delete_session_confirm",
+      "value": "Are you sure you want to delete this conversation?"
+    },
+    {
+      "name": "add_custom_provider",
+      "value": "Add Custom Provider"
+    },
+    {
+      "name": "provider_name",
+      "value": "Provider Name"
+    },
+    {
+      "name": "api_style",
+      "value": "API Style"
+    },
+    {
+      "name": "api_path_optional",
+      "value": "API Path (Optional)"
+    },
+    {
+      "name": "model_list",
+      "value": "Model List"
+    },
+    {
+      "name": "add",
+      "value": "Add"
+    },
+    {
+      "name": "save",
+      "value": "Save"
+    },
+    {
+      "name": "model_tag_openai",
+      "value": "OpenAI"
+    },
+    {
+      "name": "model_tag_claude",
+      "value": "Claude"
+    },
+    {
+      "name": "model_tag_gemini",
+      "value": "Gemini"
+    },
+    {
+      "name": "model_tag_other",
+      "value": "Other"
+    },
+    {
+      "name": "filter_models_placeholder",
+      "value": "Filter models..."
+    },
+    {
+      "name": "theme_system",
+      "value": "Follow System"
+    },
+    {
+      "name": "theme_light",
+      "value": "Light"
+    },
+    {
+      "name": "theme_dark",
+      "value": "Dark"
+    },
+    {
+      "name": "language_system",
+      "value": "Follow System"
+    },
+    {
+      "name": "language_zh_cn",
+      "value": "简体中文"
+    },
+    {
+      "name": "language_en_us",
+      "value": "English"
+    },
+    {
+      "name": "settings_dark_mode",
+      "value": "Theme"
+    },
+    {
+      "name": "settings_language",
+      "value": "Language"
+    },
+    {
+      "name": "settings_model_config",
+      "value": "Model Configuration"
+    },
+    {
+      "name": "settings_model_manage",
+      "value": "Provider Management"
+    },
+    {
+      "name": "settings_model_manage_desc",
+      "value": "Configure AI service providers"
+    },
+    {
+      "name": "settings_app_settings",
+      "value": "App Settings"
+    },
+    {
+      "name": "settings_tools_center",
+      "value": "Tool Services"
+    },
+    {
+      "name": "settings_tools_center_desc",
+      "value": "View built-in tools and configure web search service"
+    },
+    {
+      "name": "settings_hand_adaptive",
+      "value": "Smart Grip"
+    },
+    {
+      "name": "hand_adaptive_title",
+      "value": "Smart Grip"
+    },
+    {
+      "name": "hand_adaptive_master_title",
+      "value": "Enable grip adaptation"
+    },
+    {
+      "name": "hand_adaptive_master_desc",
+      "value": "Detect holding hand and adapt the New Chat button position for one-handed operation."
+    },
+    {
+      "name": "hand_adaptive_new_chat_title",
+      "value": "New Chat button"
+    },
+    {
+      "name": "hand_adaptive_new_chat_desc",
+      "value": "Adapt the floating New Chat button position."
+    },
+    {
+      "name": "hand_adaptive_disabled",
+      "value": "Off"
+    },
+    {
+      "name": "hand_adaptive_summary_new_chat",
+      "value": "New Chat only"
+    },
+    {
+      "name": "hand_adaptive_summary_none",
+      "value": "No shortcut selected"
+    },
+    {
+      "name": "hand_adaptive_unsupported",
+      "value": "Unsupported on this device"
+    },
+    {
+      "name": "hand_adaptive_unsupported_tip",
+      "value": "This device may not support holding-hand sensing (error 801). The buttons stay in default positions."
+    },
+    {
+      "name": "settings_notifications",
+      "value": "Notifications"
+    },
+    {
+      "name": "settings_notifications_enabled",
+      "value": "Enabled"
+    },
+    {
+      "name": "notification_enabled_title",
+      "value": "Enable notifications"
+    },
+    {
+      "name": "notification_enabled_desc",
+      "value": "Disable to stop both background and in-app alerts"
+    },
+    {
+      "name": "notification_on_complete_title",
+      "value": "Reply completed alerts"
+    },
+    {
+      "name": "notification_on_complete_desc",
+      "value": "Notify when a background reply has completed"
+    },
+    {
+      "name": "notification_on_failed_title",
+      "value": "Reply failed alerts"
+    },
+    {
+      "name": "notification_on_failed_desc",
+      "value": "Notify when a reply request fails"
+    },
+    {
+      "name": "notification_disabled",
+      "value": "Disabled"
+    },
+    {
+      "name": "notification_summary_all",
+      "value": "Notify on completion and failure"
+    },
+    {
+      "name": "notification_summary_complete",
+      "value": "Notify on completion only"
+    },
+    {
+      "name": "notification_summary_failed",
+      "value": "Notify on failure only"
+    },
+    {
+      "name": "notification_summary_none",
+      "value": "All alerts are off"
+    },
+    {
+      "name": "notification_system_settings_tip",
+      "value": "If alerts only appear in \"Other notifications\" or do not pop on lock screen/home, open system notification settings and enable banner and lock-screen display."
+    },
+    {
+      "name": "notification_open_system_settings",
+      "value": "Open system notification settings"
+    },
+    {
+      "name": "notification_open_settings_failed",
+      "value": "Failed to open notification settings. Please open system settings manually."
+    },
+    {
+      "name": "settings_about",
+      "value": "About"
+    },
+    {
+      "name": "settings_about_chatcube",
+      "value": "About ChatCube"
+    },
+    {
+      "name": "settings_version",
+      "value": "Version 1.0.0"
+    },
+    {
+      "name": "settings_privacy_policy",
+      "value": "Privacy Policy"
+    },
+    {
+      "name": "settings_data_management",
+      "value": "Data Management"
+    },
+    {
+      "name": "settings_export_data",
+      "value": "Export Data"
+    },
+    {
+      "name": "settings_export_data_desc",
+      "value": "Export chats, attachments and settings"
+    },
+    {
+      "name": "settings_import_data",
+      "value": "Import Data"
+    },
+    {
+      "name": "settings_import_data_desc",
+      "value": "Restore data from backup file"
+    },
+    {
+      "name": "export_title",
+      "value": "Export Data"
+    },
+    {
+      "name": "export_select_sessions",
+      "value": "Select Sessions"
+    },
+    {
+      "name": "export_all_sessions",
+      "value": "All Sessions"
+    },
+    {
+      "name": "export_options",
+      "value": "Export Options"
+    },
+    {
+      "name": "export_include_attachments",
+      "value": "Include Attachments"
+    },
+    {
+      "name": "export_include_providers",
+      "value": "Include Provider Configs"
+    },
+    {
+      "name": "export_include_api_keys",
+      "value": "Include API Keys"
+    },
+    {
+      "name": "export_include_api_keys_warning",
+      "value": "⚠️ Sensitive Data"
+    },
+    {
+      "name": "export_include_preferences",
+      "value": "Include User Preferences"
+    },
+    {
+      "name": "export_start",
+      "value": "Start Export"
+    },
+    {
+      "name": "export_progress",
+      "value": "Exporting..."
+    },
+    {
+      "name": "export_success",
+      "value": "Export Successful"
+    },
+    {
+      "name": "export_failed",
+      "value": "Export Failed"
+    },
+    {
+      "name": "import_title",
+      "value": "Import Data"
+    },
+    {
+      "name": "import_select_file",
+      "value": "Select File"
+    },
+    {
+      "name": "import_preview",
+      "value": "Import Preview"
+    },
+    {
+      "name": "import_conflict_strategy",
+      "value": "Conflict Resolution"
+    },
+    {
+      "name": "import_strategy_skip",
+      "value": "Skip Duplicates"
+    },
+    {
+      "name": "import_strategy_overwrite",
+      "value": "Overwrite Local Data"
+    },
+    {
+      "name": "import_strategy_ask",
+      "value": "Ask for Each"
+    },
+    {
+      "name": "import_options",
+      "value": "Import Options"
+    },
+    {
+      "name": "import_providers",
+      "value": "Import Provider Configs"
+    },
+    {
+      "name": "import_preferences",
+      "value": "Import User Preferences"
+    },
+    {
+      "name": "import_start",
+      "value": "Start Import"
+    },
+    {
+      "name": "import_progress",
+      "value": "Importing..."
+    },
+    {
+      "name": "import_success",
+      "value": "Import Successful"
+    },
+    {
+      "name": "import_failed",
+      "value": "Import Failed"
+    },
+    {
+      "name": "settings_default_model",
+      "value": "Default Models"
+    },
+    {
+      "name": "settings_default_model_desc",
+      "value": "Chat, title generation, translation"
+    },
+    {
+      "name": "regenerate_title",
+      "value": "Regenerate Title"
+    },
+    {
+      "name": "delete_chat",
+      "value": "Delete Chat"
+    },
+    {
+      "name": "generating_title",
+      "value": "Generating title..."
+    },
+    {
+      "name": "danger_zone",
+      "value": "Danger Zone"
+    },
+    {
+      "name": "web_search_failed",
+      "value": "Failed to fetch web content"
+    },
+    {
+      "name": "web_search",
+      "value": "Web Search"
+    },
+    {
+      "name": "weather_query",
+      "value": "Weather Query"
+    },
+    {
+      "name": "chat_toolbar_web_search",
+      "value": "Web Query"
+    },
+    {
+      "name": "chat_toolbar_reasoning",
+      "value": "Reasoning"
+    },
+    {
+      "name": "chat_toolbar_reasoning_off",
+      "value": "Off"
+    },
+    {
+      "name": "chat_toolbar_reasoning_low",
+      "value": "Light Reasoning"
+    },
+    {
+      "name": "chat_toolbar_reasoning_medium",
+      "value": "Medium Reasoning"
+    },
+    {
+      "name": "chat_toolbar_reasoning_high",
+      "value": "High Reasoning"
+    },
+    {
+      "name": "search_service_config",
+      "value": "Search Service"
+    },
+    {
+      "name": "search_engine",
+      "value": "Search Engine"
+    },
+    {
+      "name": "search_engine_current",
+      "value": "Current: "
+    },
+    {
+      "name": "search_engine_runtime_hint",
+      "value": "The search card in chat shows actual engine used. Exa will fallback to Bing(Local) on failure."
+    },
+    {
+      "name": "search_query_optimization",
+      "value": "Search Query Optimization"
+    },
+    {
+      "name": "search_query_optimization_hint",
+      "value": "Only applies to Bing (Local). Rewrites conversational input into searchable keywords."
+    },
+    {
+      "name": "search_query_optimization_exa_hint",
+      "value": "This optimization is skipped when Exa is selected to avoid double rewriting."
+    },
+    {
+      "name": "search_exa_api_key",
+      "value": "Exa API Key"
+    },
+    {
+      "name": "search_exa_base_url",
+      "value": "Exa Base URL"
+    },
+    {
+      "name": "search_exa_key_required",
+      "value": "Please enter Exa API Key"
+    },
+    {
+      "name": "search_base_url_invalid",
+      "value": "Invalid Exa Base URL. Use http/https"
+    },
+    {
+      "name": "search_config_saved",
+      "value": "Search settings saved"
+    },
+    {
+      "name": "search_discard_changes_title",
+      "value": "Discard changes?"
+    },
+    {
+      "name": "search_discard_changes_message",
+      "value": "You have unsaved changes. Exit without saving?"
+    },
+    {
+      "name": "search_discard_changes",
+      "value": "Discard"
+    },
+    {
+      "name": "search_continue_editing",
+      "value": "Keep editing"
+    },
+    {
+      "name": "search_optimization_model",
+      "value": "Search Optimization Model"
+    },
+    {
+      "name": "search_optimization_desc",
+      "value": "Optimize search queries (uses SiliconFlow by default)"
+    },
+    {
+      "name": "system_service",
+      "value": "System Service"
+    },
+    {
+      "name": "select_models",
+      "value": "Select Models"
+    },
+    {
+      "name": "widget_new_chat_name",
+      "value": "New Chat"
+    },
+    {
+      "name": "widget_new_chat_desc",
+      "value": "Quickly start a new AI conversation"
+    },
+    {
+      "name": "search_sessions_placeholder",
+      "value": "Search conversations..."
+    },
+    {
+      "name": "no_search_results",
+      "value": "No results found"
+    },
+    {
+      "name": "try_different_keyword",
+      "value": "Try a different keyword"
+    },
+    {
+      "name": "select_conversations",
+      "value": "Select conversations"
+    },
+    {
+      "name": "filter_all",
+      "value": "All"
+    },
+    {
+      "name": "filter_favorite",
+      "value": "Favorites"
+    },
+    {
+      "name": "group_today",
+      "value": "Today"
+    },
+    {
+      "name": "group_yesterday",
+      "value": "Yesterday"
+    },
+    {
+      "name": "group_last_7_days",
+      "value": "Last 7 days"
+    },
+    {
+      "name": "group_older",
+      "value": "Older"
+    },
+    {
+      "name": "time_just_now",
+      "value": "Just now"
+    },
+    {
+      "name": "time_minutes_ago_suffix",
+      "value": " min ago"
+    },
+    {
+      "name": "time_hours_ago_suffix",
+      "value": " h ago"
+    },
+    {
+      "name": "time_days_ago_suffix",
+      "value": " d ago"
+    },
+    {
+      "name": "session_no_preview",
+      "value": "No message preview"
+    },
+    {
+      "name": "no_favorite_sessions",
+      "value": "No favorite conversations"
+    },
+    {
+      "name": "favorite_sessions_hint",
+      "value": "Long press a conversation to mark as favorite"
+    },
+    {
+      "name": "menu_multi_select",
+      "value": "Select"
+    },
+    {
+      "name": "menu_share",
+      "value": "Share"
+    },
+    {
+      "name": "menu_favorite",
+      "value": "Favorite"
+    },
+    {
+      "name": "menu_unfavorite",
+      "value": "Unfavorite"
+    },
+    {
+      "name": "menu_copy",
+      "value": "Copy"
+    },
+    {
+      "name": "menu_regenerate",
+      "value": "Regenerate"
+    },
+    {
+      "name": "menu_edit",
+      "value": "Edit"
+    },
+    {
+      "name": "menu_read_aloud",
+      "value": "Read Aloud"
+    },
+    {
+      "name": "menu_stop_read_aloud",
+      "value": "Stop Reading"
+    },
+    {
+      "name": "translation_label",
+      "value": "Translation"
+    },
+    {
+      "name": "translation_loading",
+      "value": "Translating..."
+    },
+    {
+      "name": "translation_clear",
+      "value": "Clear Translation"
+    },
+    {
+      "name": "reasoning_process",
+      "value": "Reasoning"
+    },
+    {
+      "name": "reasoning_thinking",
+      "value": "Thinking"
+    },
+    {
+      "name": "favorite_models_empty_title",
+      "value": "No favorite models"
+    },
+    {
+      "name": "favorite_models_empty_desc",
+      "value": "Tap the heart icon to add favorites"
+    },
+    {
+      "name": "share_title",
+      "value": "Share Conversation"
+    },
+    {
+      "name": "share_mode_image",
+      "value": "Image"
+    },
+    {
+      "name": "share_mode_markdown",
+      "value": "Markdown"
+    },
+    {
+      "name": "share_mode_text",
+      "value": "Plain Text"
+    },
+    {
+      "name": "share_button",
+      "value": "Share"
+    },
+    {
+      "name": "sharing",
+      "value": "Sharing..."
+    },
+    {
+      "name": "delete_messages",
+      "value": "Delete Messages"
+    },
+    {
+      "name": "messages_deleted",
+      "value": "Messages deleted"
+    },
+    {
+      "name": "save_and_send",
+      "value": "Save & Send"
+    },
+    {
+      "name": "message_saved",
+      "value": "Message saved"
+    },
+    {
+      "name": "edit_message_placeholder",
+      "value": "Edit message..."
+    },
+    {
+      "name": "editing_message",
+      "value": "Editing"
+    },
+    {
+      "name": "settings_color_theme",
+      "value": "Color Theme"
+    },
+    {
+      "name": "theme_color_default",
+      "value": "Default"
+    },
+    {
+      "name": "theme_color_default_desc",
+      "value": "Classic blue"
+    },
+    {
+      "name": "theme_color_yuanbao",
+      "value": "Yuanbao"
+    },
+    {
+      "name": "theme_color_yuanbao_desc",
+      "value": "Warm eye-care"
+    },
+    {
+      "name": "theme_color_claude",
+      "value": "Claude"
+    },
+    {
+      "name": "theme_color_claude_desc",
+      "value": "Olive green"
+    },
+    {
+      "name": "theme_color_chatgpt",
+      "value": "ChatGPT"
+    },
+    {
+      "name": "theme_color_chatgpt_desc",
+      "value": "Dark gray"
+    },
+    {
+      "name": "theme_color_violet",
+      "value": "Violet"
+    },
+    {
+      "name": "theme_color_violet_desc",
+      "value": "Elegant purple"
+    },
+    {
+      "name": "theme_color_mint",
+      "value": "Mint"
+    },
+    {
+      "name": "theme_color_mint_desc",
+      "value": "Fresh green"
+    },
+    {
+      "name": "theme_color_sunset",
+      "value": "Sunset"
+    },
+    {
+      "name": "theme_color_sunset_desc",
+      "value": "Warm orange"
+    },
+    {
+      "name": "screenshot_banner_title",
+      "value": "New screenshot detected"
+    },
+    {
+      "name": "screenshot_banner_subtitle",
+      "value": "Tap to add"
+    },
+    {
+      "name": "provider_detail_title",
+      "value": "Provider Details"
+    },
+    {
+      "name": "provider_detail_not_found",
+      "value": "Provider not found"
+    },
+    {
+      "name": "action_back",
+      "value": "Back"
+    },
+    {
+      "name": "action_close",
+      "value": "Close"
+    },
+    {
+      "name": "provider_api_config",
+      "value": "API Configuration"
+    },
+    {
+      "name": "provider_models_manage",
+      "value": "Model Management"
+    },
+    {
+      "name": "provider_api_key_placeholder",
+      "value": "Please enter API Key"
+    },
+    {
+      "name": "provider_base_url_placeholder",
+      "value": "e.g. https://api.openai.com/v1"
+    },
+    {
+      "name": "provider_api_path_placeholder",
+      "value": "e.g. /chat/completions"
+    },
+    {
+      "name": "provider_fetch_models",
+      "value": "Fetch Models"
+    },
+    {
+      "name": "provider_fetching",
+      "value": "Fetching"
+    },
+    {
+      "name": "provider_enable_all",
+      "value": "Enable All"
+    },
+    {
+      "name": "provider_disable_all",
+      "value": "Disable All"
+    },
+    {
+      "name": "provider_no_models",
+      "value": "No models available"
+    },
+    {
+      "name": "provider_no_models_hint",
+      "value": "Tap fetch models above to get available models"
+    },
+    {
+      "name": "provider_models_not_found",
+      "value": "No matching models found"
+    },
+    {
+      "name": "title_generate_failed_config",
+      "value": "Title generation failed. Check model settings"
+    },
+    {
+      "name": "chat_created",
+      "value": "New chat created"
+    },
+    {
+      "name": "chat_empty",
+      "value": "No chat content yet"
+    },
+    {
+      "name": "title_updated",
+      "value": "Title updated"
+    },
+    {
+      "name": "message_deleted",
+      "value": "Message deleted"
+    },
+    {
+      "name": "message_content_empty",
+      "value": "Message content cannot be empty"
+    },
+    {
+      "name": "action_failed_retry",
+      "value": "Action failed. Please try again"
+    },
+    {
+      "name": "save_failed_retry",
+      "value": "Save failed. Please try again"
+    },
+    {
+      "name": "selected_message_not_found",
+      "value": "Selected messages not found"
+    },
+    {
+      "name": "provider_required_before_chat",
+      "value": "Please configure an AI provider first"
+    },
+    {
+      "name": "api_key_required",
+      "value": "Please configure API Key first"
+    },
+    {
+      "name": "back_press_exit_hint",
+      "value": "Press back again to exit"
+    },
+    {
+      "name": "conversation_deleted",
+      "value": "Conversation deleted"
+    },
+    {
+      "name": "assistant_coming_soon",
+      "value": "Assistant features are coming soon"
+    },
+    {
+      "name": "theme_switched",
+      "value": "Theme switched"
+    },
+    {
+      "name": "conversation_favorited",
+      "value": "Conversation added to favorites"
+    },
+    {
+      "name": "conversation_unfavorited",
+      "value": "Conversation removed from favorites"
+    },
+    {
+      "name": "conversations_deleted",
+      "value": "Selected conversations deleted"
+    },
+    {
+      "name": "single_session_share_only",
+      "value": "Only one conversation can be shared at a time"
+    },
+    {
+      "name": "conversation_content_empty",
+      "value": "Conversation content is empty"
+    },
+    {
+      "name": "provider_testing_connection",
+      "value": "Testing connection..."
+    },
+    {
+      "name": "provider_fetching_models",
+      "value": "Fetching model list..."
+    },
+    {
+      "name": "provider_fetch_models_failed",
+      "value": "Failed to fetch models"
+    },
+    {
+      "name": "provider_models_refreshed",
+      "value": "Model list updated"
+    },
+    {
+      "name": "provider_enabled",
+      "value": "Provider enabled"
+    },
+    {
+      "name": "provider_disabled",
+      "value": "Provider disabled"
+    },
+    {
+      "name": "provider_all_models_enabled",
+      "value": "All models enabled"
+    },
+    {
+      "name": "provider_all_models_disabled",
+      "value": "All models disabled"
+    },
+    {
+      "name": "provider_group_models_enabled",
+      "value": "All models in this group enabled"
+    },
+    {
+      "name": "provider_group_models_disabled",
+      "value": "All models in this group disabled"
+    },
+    {
+      "name": "provider_model_saved",
+      "value": "Model configuration saved"
+    },
+    {
+      "name": "model_switched",
+      "value": "Model switched"
+    },
+    {
+      "name": "task_parallel_limit_reached",
+      "value": "Parallel task limit reached (max 3)"
+    },
+    {
+      "name": "task_alert_view",
+      "value": "View"
+    },
+    {
+      "name": "url_fetch_failed",
+      "value": "Failed to fetch webpage"
+    },
+    {
+      "name": "delete_selected_messages_confirm",
+      "value": "Are you sure you want to delete selected messages?"
+    },
+    {
+      "name": "delete_selected_conversations_confirm",
+      "value": "Are you sure you want to delete selected conversations?"
+    },
+    {
+      "name": "provider_model_deleted",
+      "value": "Model deleted"
+    },
+    {
+      "name": "provider_icon_updated",
+      "value": "Icon updated"
+    },
+    {
+      "name": "provider_default_icon_reset",
+      "value": "Reset to preset icon"
+    },
+    {
+      "name": "provider_name_required",
+      "value": "Please enter provider name"
+    },
+    {
+      "name": "base_url_required",
+      "value": "Please enter Base URL"
+    },
+    {
+      "name": "provider_added",
+      "value": "Provider added"
+    },
+    {
+      "name": "provider_models_selected",
+      "value": "Model selection saved"
+    },
+    {
+      "name": "import_file_copy_failed",
+      "value": "Failed to copy import file"
+    },
+    {
+      "name": "import_file_select_failed",
+      "value": "Failed to select file"
+    },
+    {
+      "name": "import_file_parse_failed",
+      "value": "Failed to parse import file"
+    },
+    {
+      "name": "export_select_session_required",
+      "value": "Please select at least one conversation"
+    },
+    {
+      "name": "image_not_found",
+      "value": "Image not found"
+    },
+    {
+      "name": "image_saved_to_album",
+      "value": "Saved to gallery"
+    },
+    {
+      "name": "image_save_failed",
+      "value": "Failed to save image"
+    },
+    {
+      "name": "share_no_content",
+      "value": "No content to share"
+    },
+    {
+      "name": "share_context_unavailable",
+      "value": "Share failed: app context unavailable"
+    },
+    {
+      "name": "share_failed",
+      "value": "Share failed"
+    },
+    {
+      "name": "share_snapshot_failed",
+      "value": "Failed to capture preview"
+    },
+    {
+      "name": "copy_success",
+      "value": "Copied"
+    },
+    {
+      "name": "provider_moved_up",
+      "value": "Moved up"
+    },
+    {
+      "name": "provider_moved_down",
+      "value": "Moved down"
+    },
+    {
+      "name": "provider_deleted",
+      "value": "Provider deleted"
+    },
+    {
+      "name": "api_style_openai_desc",
+      "value": "Compatible with OpenAI API format, e.g. OpenAI, DeepSeek, Ollama"
+    },
+    {
+      "name": "api_style_anthropic_desc",
+      "value": "Anthropic Claude API format"
+    },
+    {
+      "name": "api_style_google_desc",
+      "value": "Google Gemini API format"
+    },
+    {
+      "name": "provider_name_placeholder",
+      "value": "Custom provider"
+    },
+    {
+      "name": "model_input_placeholder",
+      "value": "Enter model name"
+    },
+    {
+      "name": "disabled_services",
+      "value": "Disabled Services"
+    },
+    {
+      "name": "search_try_other_keywords",
+      "value": "Try other keywords"
+    },
+    {
+      "name": "provider_disabled_badge",
+      "value": "Disabled"
+    },
+    {
+      "name": "provider_menu_move_up",
+      "value": "Move Up"
+    },
+    {
+      "name": "provider_menu_move_down",
+      "value": "Move Down"
+    },
+    {
+      "name": "provider_menu_enable",
+      "value": "Enable"
+    },
+    {
+      "name": "provider_menu_disable",
+      "value": "Disable"
+    },
+    {
+      "name": "delete_provider_title",
+      "value": "Delete Provider"
+    },
+    {
+      "name": "delete_provider_confirm",
+      "value": "Are you sure you want to delete this provider? This action cannot be undone."
+    },
+    {
+      "name": "icon_click_edit",
+      "value": "Tap icon to edit"
+    },
+    {
+      "name": "icon_text_button",
+      "value": "Text Icon"
+    },
+    {
+      "name": "icon_reset_button",
+      "value": "Reset"
+    },
+    {
+      "name": "icon_type_preset",
+      "value": "Preset Icon"
+    },
+    {
+      "name": "icon_type_text",
+      "value": "Text Icon"
+    },
+    {
+      "name": "icon_type_unset",
+      "value": "Not set"
+    },
+    {
+      "name": "icon_edit_title",
+      "value": "Edit Icon"
+    },
+    {
+      "name": "icon_edit_text_title",
+      "value": "Edit Text Icon"
+    },
+    {
+      "name": "icon_text_input_label",
+      "value": "Icon Text (1-2 chars)"
+    },
+    {
+      "name": "icon_background_color",
+      "value": "Background Color"
+    },
+    {
+      "name": "icon_random_generate",
+      "value": "Random"
+    },
+    {
+      "name": "icon_none",
+      "value": "None"
+    },
+    {
+      "name": "icon_transparent_hint",
+      "value": "Transparent (best for emoji)"
+    },
+    {
+      "name": "icon_select_color",
+      "value": "Select"
+    },
+    {
+      "name": "icon_color_picker_title",
+      "value": "Pick Background Color"
+    },
+    {
+      "name": "assistant_center_title",
+      "value": "Agent Center"
+    },
+    {
+      "name": "assistant_center_subtitle",
+      "value": "Task Automation"
+    },
+    {
+      "name": "assistant_template_section",
+      "value": "Assistant Templates"
+    },
+    {
+      "name": "assistant_input_section",
+      "value": "Task Input"
+    },
+    {
+      "name": "assistant_input_placeholder",
+      "value": "Describe your goal, constraints, and context..."
+    },
+    {
+      "name": "assistant_run_button",
+      "value": "Run Assistant Task"
+    },
+    {
+      "name": "assistant_recent_section",
+      "value": "Recent Tasks"
+    },
+    {
+      "name": "assistant_recent_empty",
+      "value": "No recent tasks"
+    },
+    {
+      "name": "assistant_select_template_first",
+      "value": "Please select a template first"
+    },
+    {
+      "name": "assistant_input_required",
+      "value": "Please enter task content"
+    },
+    {
+      "name": "assistant_task_pending",
+      "value": "Pending"
+    },
+    {
+      "name": "assistant_task_running",
+      "value": "Running"
+    },
+    {
+      "name": "assistant_task_completed",
+      "value": "Completed"
+    },
+    {
+      "name": "assistant_task_failed",
+      "value": "Failed"
+    },
+    {
+      "name": "assistant_task_no_session",
+      "value": "No chat session available for this task yet"
+    },
+    {
+      "name": "huawei_agent_section",
+      "value": "Huawei Official Agent Entry"
+    },
+    {
+      "name": "huawei_agent_config_hint",
+      "value": "Tip: Official agent bundle and ability names vary by device. Configure based on your device."
+    },
+    {
+      "name": "huawei_agent_feature_switch",
+      "value": "Enable Official Agent Entry"
+    },
+    {
+      "name": "huawei_agent_launch_button",
+      "value": "Launch"
+    },
+    {
+      "name": "huawei_agent_launch_success",
+      "value": "Official agent launch requested"
+    },
+    {
+      "name": "huawei_agent_launch_failed",
+      "value": "Launch failed. Check device support and entry config"
+    },
+    {
+      "name": "huawei_agent_add_entry",
+      "value": "Add Agent Entry"
+    },
+    {
+      "name": "huawei_agent_name_placeholder",
+      "value": "Entry name (e.g. XiaoYi Agent)"
+    },
+    {
+      "name": "huawei_agent_bundle_placeholder",
+      "value": "BundleName"
+    },
+    {
+      "name": "huawei_agent_ability_placeholder",
+      "value": "AbilityName"
+    },
+    {
+      "name": "huawei_agent_save_entry",
+      "value": "Save Entry"
+    },
+    {
+      "name": "huawei_agent_entry_required",
+      "value": "Please fill name, bundle name and ability name"
+    },
+    {
+      "name": "huawei_agent_entry_added",
+      "value": "Official agent entry added"
+    },
+    {
+      "name": "tools_center_title",
+      "value": "Tool Services"
+    },
+    {
+      "name": "tools_center_refresh",
+      "value": "Refresh"
+    },
+    {
+      "name": "tools_builtin_section",
+      "value": "Built-in Tools"
+    },
+    {
+      "name": "tools_builtin_section_desc",
+      "value": "Built-in app tool capabilities."
+    },
+    {
+      "name": "search_service_config_desc",
+      "value": "Execution backend for built-in web_search tool."
+    },
+    {
+      "name": "common_web_page",
+      "value": "Web Page"
+    },
+    {
+      "name": "common_invalid_link",
+      "value": "Invalid link"
+    },
+    {
+      "name": "model_picker_select_all",
+      "value": "Select all"
+    },
+    {
+      "name": "model_picker_deselect_all",
+      "value": "Deselect all"
+    },
+    {
+      "name": "model_picker_added",
+      "value": "Added"
+    },
+    {
+      "name": "default_model_section_chat",
+      "value": "Default Chat Model"
+    },
+    {
+      "name": "default_model_role_chat",
+      "value": "Chat"
+    },
+    {
+      "name": "default_model_desc_chat",
+      "value": "Model used by default for new chats"
+    },
+    {
+      "name": "default_model_section_title_generation",
+      "value": "Title Generation Model"
+    },
+    {
+      "name": "default_model_role_title_generation",
+      "value": "Title Generation"
+    },
+    {
+      "name": "default_model_desc_title_generation",
+      "value": "Automatically generate conversation titles"
+    },
+    {
+      "name": "default_model_section_translate",
+      "value": "Translation Model"
+    },
+    {
+      "name": "default_model_role_translate",
+      "value": "Translate"
+    },
+    {
+      "name": "default_model_desc_translate",
+      "value": "Message translation feature"
+    },
+    {
+      "name": "default_model_current_selection",
+      "value": "Current selection:"
+    },
+    {
+      "name": "default_model_no_provider",
+      "value": "No available model providers"
+    },
+    {
+      "name": "default_model_no_provider_hint",
+      "value": "Please add and enable a provider first"
+    },
+    {
+      "name": "default_model_clear_selection",
+      "value": "Clear selection"
+    },
+    {
+      "name": "default_model_prompt_edit_title_title",
+      "value": "Edit Title Prompt"
+    },
+    {
+      "name": "default_model_prompt_edit_title_translate",
+      "value": "Edit Translation Prompt"
+    },
+    {
+      "name": "default_model_prompt_variables",
+      "value": "Available variables:"
+    },
+    {
+      "name": "default_model_prompt_title_variables_hint",
+      "value": "{content} - Conversation content\\n{locale} - Locale"
+    },
+    {
+      "name": "default_model_prompt_translate_variables_hint",
+      "value": "{source_text} - Source text\\n{target_lang} - Target language"
+    },
+    {
+      "name": "default_model_reset_prompt",
+      "value": "Reset to default"
+    },
+    {
+      "name": "default_model_select_chat_model",
+      "value": "Select chat model"
+    },
+    {
+      "name": "default_model_select_title_model",
+      "value": "Select title generation model"
+    },
+    {
+      "name": "default_model_select_search_model",
+      "value": "Select search optimization model"
+    },
+    {
+      "name": "default_model_select_translate_model",
+      "value": "Select translation model"
+    },
+    {
+      "name": "default_model_unconfigured",
+      "value": "Unconfigured"
+    },
+    {
+      "name": "default_model_prompt_template",
+      "value": "Prompt Template"
+    },
+    {
+      "name": "default_model_prompt_template_default",
+      "value": "Default"
+    },
+    {
+      "name": "default_model_prompt_template_custom",
+      "value": "Custom"
+    },
+    {
+      "name": "common_details",
+      "value": "Details"
+    },
+    {
+      "name": "common_collapse",
+      "value": "Collapse"
+    },
+    {
+      "name": "common_expand",
+      "value": "Expand"
+    },
+    {
+      "name": "tool_call_args_label",
+      "value": "Args: "
+    },
+    {
+      "name": "tool_call_result_label",
+      "value": "Result: "
+    },
+    {
+      "name": "tool_call_executing",
+      "value": "Executing..."
+    },
+    {
+      "name": "tool_call_completed",
+      "value": "Completed"
+    },
+    {
+      "name": "function_calling_not_supported",
+      "value": "Current model does not support function calling"
+    },
+    {
+      "name": "match_icons",
+      "value": "Match Icons"
+    },
+    {
+      "name": "matching_icons",
+      "value": "Matching icons..."
+    },
+    {
+      "name": "match_icons_failed",
+      "value": "Failed to load icon data"
+    },
+    {
+      "name": "settings_system_prompt",
+      "value": "System Prompt"
+    },
+    {
+      "name": "settings_system_prompt_desc",
+      "value": "Custom instructions for AI"
+    },
+    {
+      "name": "system_prompt_edit_title",
+      "value": "System Prompt"
+    },
+    {
+      "name": "system_prompt_hint",
+      "value": "Custom system prompt will be prepended to all conversations. It applies to normal chat, web search, and tool calls."
+    },
+    {
+      "name": "system_prompt_variables_hint",
+      "value": "Variables: {{current_time}}, {{current_date}}, {{current_clock}}, {{current_weekday}}, {{current_lunar}}"
+    },
+    {
+      "name": "system_prompt_placeholder",
+      "value": "Enter custom system prompt..."
+    },
+    {
+      "name": "system_prompt_clear",
+      "value": "Reset to default"
+    },
+    {
+      "name": "system_prompt_saved",
+      "value": "System prompt saved"
+    }
+  ]
+}

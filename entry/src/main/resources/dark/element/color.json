@@ -1,0 +1,132 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#121212"
+    },
+    {
+      "name": "primary",
+      "value": "#0A59F7"
+    },
+    {
+      "name": "primary_light",
+      "value": "#1A2A4A"
+    },
+    {
+      "name": "background",
+      "value": "#121212"
+    },
+    {
+      "name": "surface",
+      "value": "#1E1E1E"
+    },
+    {
+      "name": "text_primary",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "text_secondary",
+      "value": "#999999"
+    },
+    {
+      "name": "text_tertiary",
+      "value": "#666666"
+    },
+    {
+      "name": "divider",
+      "value": "#2A2A2A"
+    },
+    {
+      "name": "brand_openai",
+      "value": "#10A37F"
+    },
+    {
+      "name": "brand_anthropic",
+      "value": "#D97757"
+    },
+    {
+      "name": "brand_azure",
+      "value": "#0078D4"
+    },
+    {
+      "name": "brand_deepseek",
+      "value": "#4E46DC"
+    },
+    {
+      "name": "status_success",
+      "value": "#22C55E"
+    },
+    {
+      "name": "status_error",
+      "value": "#EF4444"
+    },
+    {
+      "name": "chat_user_bubble",
+      "value": "#0A59F7"
+    },
+    {
+      "name": "chat_ai_bubble",
+      "value": "#1E1E1E"
+    },
+    {
+      "name": "code_background",
+      "value": "#0D0D0D"
+    },
+    {
+      "name": "markdown_title",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "markdown_text",
+      "value": "#E0E0E0"
+    },
+    {
+      "name": "markdown_quote_bg",
+      "value": "#2A2A2A"
+    },
+    {
+      "name": "markdown_link",
+      "value": "#4DA6FF"
+    },
+    {
+      "name": "markdown_link_bg",
+      "value": "#1A4DA6FF"
+    },
+    {
+      "name": "markdown_code_bg",
+      "value": "#2D2D2D"
+    },
+    {
+      "name": "markdown_code_text",
+      "value": "#FF79C6"
+    },
+    {
+      "name": "markdown_table_bg",
+      "value": "#1E1E1E"
+    },
+    {
+      "name": "markdown_table_header_bg",
+      "value": "#2A2A2A"
+    },
+    {
+      "name": "markdown_table_alt_bg",
+      "value": "#252525"
+    },
+    {
+      "name": "markdown_table_border",
+      "value": "#5A5A5C"
+    },
+    {
+      "name": "toolbar_btn_bg",
+      "value": "#0DFFFFFF"
+    },
+    {
+      "name": "bubble_border",
+      "value": "#1AFFFFFF"
+    },
+    {
+      "name": "model_icon_bg",
+      "value": "#F0F0F0"
+    }
+  ]
+}
