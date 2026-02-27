@@ -7,6 +7,7 @@
     "pages/ProviderDetailPage",
     "pages/ExportDataPage",
     "pages/ImportDataPage",
-    "pages/ToolsCenterPage"
+    "pages/ToolsCenterPage",
+    "pages/AboutPage"
   ]
 }

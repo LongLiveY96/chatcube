@@ -123,7 +123,7 @@ struct AddProviderPage {
   ConfigFormSection() {
     Column() {
       // 服务商名称
-      this.SectionTitle($r('app.string.provider_name'))
+      this.SectionTitle($r('app.string.provider_name'), true)
       TextInput({ text: $$this.providerName, placeholder: $r('app.string.provider_name_placeholder') })
         .fontSize(14)
         .fontColor($r('app.color.text_primary'))
@@ -197,7 +197,7 @@ struct AddProviderPage {
       .margin({ top: 8, bottom: 16 })
 
       // Base URL
-      this.SectionTitle($r('app.string.base_url'))
+      this.SectionTitle($r('app.string.base_url'), true)
       TextInput({ text: $$this.baseUrl, placeholder: this.getDefaultBaseUrl() })
         .fontSize(14)
         .fontColor($r('app.color.text_primary'))
@@ -217,7 +217,7 @@ struct AddProviderPage {
         .padding({ left: 16, right: 16, top: 14, bottom: 14 })
 
       // API Key
-      this.SectionTitle($r('app.string.api_key'))
+      this.SectionTitle($r('app.string.api_key'), true)
       TextInput({ text: $$this.apiKey, placeholder: 'sk-...' })
         .type(InputType.Password)
         .fontSize(14)
@@ -343,13 +343,21 @@ struct AddProviderPage {
   }
 
   @Builder
-  SectionTitle(title: Resource) {
-    Text(title)
-      .fontSize(14)
-      .fontWeight(FontWeight.Medium)
-      .fontColor($r('app.color.text_secondary'))
-      .width('100%')
-      .padding({ left: 4, top: 16, bottom: 8 })
+  SectionTitle(title: Resource, required: boolean = false) {
+    Row() {
+      Text(title)
+        .fontSize(14)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_secondary'))
+      if (required) {
+        Text(' *')
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(Color.Red)
+      }
+    }
+    .width('100%')
+    .padding({ left: 4, top: 16, bottom: 8 })
   }
 
   @Builder

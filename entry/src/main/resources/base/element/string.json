@@ -1635,6 +1635,54 @@
     {
       "name": "system_prompt_saved",
       "value": "System prompt saved"
+    },
+    {
+      "name": "about_page_slogan",
+      "value": "Your Smart AI Chat Companion"
+    },
+    {
+      "name": "about_contact_section",
+      "value": "Contact Us"
+    },
+    {
+      "name": "about_qq_group",
+      "value": "QQ Group"
+    },
+    {
+      "name": "about_qq_group_number",
+      "value": "752237762"
+    },
+    {
+      "name": "about_github",
+      "value": "GitHub"
+    },
+    {
+      "name": "about_github_repo",
+      "value": "ChatCube Open Source Repo"
+    },
+    {
+      "name": "about_save_qrcode",
+      "value": "Save QR Code"
+    },
+    {
+      "name": "about_qrcode_saved",
+      "value": "QR code saved to album"
+    },
+    {
+      "name": "about_qrcode_save_failed",
+      "value": "Failed to save QR code"
+    },
+    {
+      "name": "about_open_source",
+      "value": "Open Source · Community Driven"
+    },
+    {
+      "name": "about_copyright",
+      "value": "© 2026 ChatCube. All rights reserved."
+    },
+    {
+      "name": "about_link_copied",
+      "value": "Link copied"
     }
   ]
 }

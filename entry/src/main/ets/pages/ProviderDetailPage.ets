@@ -618,10 +618,15 @@ struct ProviderDetailPage {
 
       // API Key
       Column() {
-        Text($r('app.string.api_key'))
-          .fontSize(13)
-          .fontColor($r('app.color.text_secondary'))
-          .width('100%')
+        Row() {
+          Text($r('app.string.api_key'))
+            .fontSize(13)
+            .fontColor($r('app.color.text_secondary'))
+          Text(' *')
+            .fontSize(13)
+            .fontColor(Color.Red)
+        }
+        .width('100%')
 
         Row() {
           TextInput({ text: this.provider?.apiKey ?? '', placeholder: $r('app.string.provider_api_key_placeholder') })
@@ -675,10 +680,15 @@ struct ProviderDetailPage {
 
       // API Base URL
       Column() {
-        Text($r('app.string.base_url'))
-          .fontSize(13)
-          .fontColor($r('app.color.text_secondary'))
-          .width('100%')
+        Row() {
+          Text($r('app.string.base_url'))
+            .fontSize(13)
+            .fontColor($r('app.color.text_secondary'))
+          Text(' *')
+            .fontSize(13)
+            .fontColor(Color.Red)
+        }
+        .width('100%')
 
         TextInput({ text: this.provider?.baseUrl ?? '', placeholder: $r('app.string.provider_base_url_placeholder') })
           .fontSize(14)

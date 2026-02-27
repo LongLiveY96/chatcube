@@ -1635,6 +1635,54 @@
     {
       "name": "system_prompt_saved",
       "value": "系统提示词已保存"
+    },
+    {
+      "name": "about_page_slogan",
+      "value": "你的智能 AI 聊天伙伴"
+    },
+    {
+      "name": "about_contact_section",
+      "value": "联系我们"
+    },
+    {
+      "name": "about_qq_group",
+      "value": "QQ 群"
+    },
+    {
+      "name": "about_qq_group_number",
+      "value": "752237762"
+    },
+    {
+      "name": "about_github",
+      "value": "GitHub"
+    },
+    {
+      "name": "about_github_repo",
+      "value": "ChatCube 开源仓库"
+    },
+    {
+      "name": "about_save_qrcode",
+      "value": "保存二维码"
+    },
+    {
+      "name": "about_qrcode_saved",
+      "value": "二维码已保存到相册"
+    },
+    {
+      "name": "about_qrcode_save_failed",
+      "value": "二维码保存失败"
+    },
+    {
+      "name": "about_open_source",
+      "value": "开源 · 社区驱动"
+    },
+    {
+      "name": "about_copyright",
+      "value": "© 2026 ChatCube. 保留所有权利。"
+    },
+    {
+      "name": "about_link_copied",
+      "value": "链接已复制"
     }
   ]
 }

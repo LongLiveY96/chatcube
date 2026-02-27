@@ -34,8 +34,8 @@ class ApiUrlResolver {
       apiPath = '/' + apiPath
     }
 
-    // 检查 baseUrl 是否已经包含版本路径（如 /v1）
-    if (url.includes('/v1') || url.includes('/v2') || url.includes('/beta')) {
+    // 检查 baseUrl 是否已经包含版本路径（如 /v1, /v2, /v3, /beta 等）
+    if (/\/v\d+/.test(url) || url.includes('/beta')) {
       // baseUrl 已包含版本路径，直接拼接
       // 但要避免重复的 /v1
       const baseUrlEnd = url.substring(url.lastIndexOf('/'))
@@ -828,7 +828,8 @@ export class AIApiService {
     }
 
     // OpenAI 兼容格式
-    if (baseUrl.includes('/v1')) {
+    // 检查 baseUrl 是否已包含版本路径（如 /v1、/v2、/v3 等）
+    if (/\/v\d+/.test(baseUrl)) {
       return `${baseUrl}/chat/completions`
     }
     return `${baseUrl}/v1/chat/completions`
@@ -848,7 +849,8 @@ export class AIApiService {
       baseUrl = baseUrl.slice(0, -1)
     }
 
-    if (baseUrl.includes('/v1')) {
+    // 检查 baseUrl 是否已包含版本路径（如 /v1、/v2、/v3 等）
+    if (/\/v\d+/.test(baseUrl)) {
       return `${baseUrl}/models`
     }
     return `${baseUrl}/v1/models`

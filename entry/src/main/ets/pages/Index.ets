@@ -1140,6 +1140,9 @@ struct Index {
         },
         onOpenImportData: (): void => {
           this.safePushUrl('pages/ImportDataPage')
+        },
+        onOpenAbout: (): void => {
+          this.safePushUrl('pages/AboutPage')
         }
       })
     }

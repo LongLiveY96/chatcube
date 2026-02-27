@@ -162,11 +162,16 @@ struct DefaultModelPage {
         showClose: true,
         title: { title: this.getSheetTitle() }
       })
-      .bindSheet($$this.showPromptSheet, this.PromptEditSheet(), {
-        height: SheetSize.LARGE,
-        dragBar: true,
-        showClose: false
-      })
+
+      // bindSheet 宿主：每个 bindSheet 必须挂在独立组件上，避免多 bindSheet 冲突
+      Column()
+        .width(0)
+        .height(0)
+        .bindSheet($$this.showPromptSheet, this.PromptEditSheet(), {
+          height: SheetSize.LARGE,
+          dragBar: true,
+          showClose: false
+        })
     }
     .width('100%')
     .height('100%')
