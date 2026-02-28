@@ -1,6 +1,7 @@
 import { ThemeMode, AppLanguage } from '../../services/PreferencesService'
 import { ColorTheme } from '../../models/ThemeColors'
 import { HdsListItemCard, PrefixCustomBuilder, SuffixCustomBuilder } from '@kit.UIDesignKit'
+import { bundleManager } from '@kit.AbilityKit'
 
 class SettingsRowParams {
   icon: Resource = $r('app.string.settings_version')
@@ -33,6 +34,7 @@ export struct IndexSettingsPanel {
   @State colorThemeSummary: string = ''
   @State handAdaptiveSummary: string = ''
   @State notifySummary: string = ''
+  @State versionName: string = ''
   onOpenModelManage: () => void = () => {}
   onOpenDefaultModel: () => void = () => {}
   onOpenToolsCenter: () => void = () => {}
@@ -49,6 +51,13 @@ export struct IndexSettingsPanel {
 
   aboutToAppear(): void {
     this.refreshSummaryStates()
+    try {
+      const info = bundleManager.getBundleInfoForSelfSync(bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT)
+      this.versionName = info.versionName
+    } catch (err) {
+      console.error('IndexSettingsPanel', `Get version failed: ${JSON.stringify(err)}`)
+      this.versionName = '1.0.0'
+    }
   }
 
   private resourceToString(resource: Resource): string {
@@ -481,7 +490,7 @@ export struct IndexSettingsPanel {
           this.SettingsRow({
             icon: $r('sys.symbol.exclamationmark_message'),
             title: $r('app.string.settings_about_chatcube'),
-            subtitle: $r('app.string.settings_version'),
+            subtitle: `v${this.versionName}`,
             action: () => { this.onOpenAbout() }
           } as SettingsRowParams)
           Divider().color($r('app.color.divider')).margin({ left: 60 })

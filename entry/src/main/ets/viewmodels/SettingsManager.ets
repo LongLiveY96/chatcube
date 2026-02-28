@@ -57,6 +57,16 @@ export class SettingsManager {
     this.isInitialized = true
   }
 
+  // 重新加载设置（导入后刷新用）
+  async reload(): Promise<void> {
+    const preferencesService = getPreferencesService()
+    this.currentThemeMode = await preferencesService.getThemeMode()
+    this.currentLanguage = await preferencesService.getLanguage()
+    this.notificationEnabled = await preferencesService.getNotifyEnabled()
+    this.notifyOnComplete = await preferencesService.getNotifyOnComplete()
+    this.notifyOnFailed = await preferencesService.getNotifyOnFailed()
+  }
+
   // 等待初始化完成
   async waitForInitialization(): Promise<void> {
     if (this.isInitialized) {

@@ -26,11 +26,11 @@
     },
     {
       "name": "text_secondary",
-      "value": "#999999"
+      "value": "#666666"
     },
     {
       "name": "text_tertiary",
-      "value": "#CCCCCC"
+      "value": "#888888"
     },
     {
       "name": "divider",

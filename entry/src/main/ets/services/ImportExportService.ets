@@ -25,6 +25,10 @@ import {
 } from '../models/ChatModels'
 import { DatabaseService } from './DatabaseService'
 import { AttachmentStorageService } from './AttachmentStorageService'
+import { getPreferencesService, PreferenceKeys } from './PreferencesService'
+import { getThemeService } from './ThemeService'
+import { getSettingsManager } from '../viewmodels/SettingsManager'
+import { getAppStateManager } from '../viewmodels/AppStateManager'
 
 // 导出选项
 export interface ExportOptions {
@@ -48,6 +52,7 @@ export interface StatisticsData {
   messagesCount: number
   attachmentsCount: number
   totalSize: number
+  preferencesCount?: number
 }
 
 // 同步元数据
@@ -68,6 +73,7 @@ export interface ManifestData {
   sessions: SessionSummary[]
   syncMetadata: SyncMetadata
   providersCount?: number
+  preferencesCount?: number
 }
 
 // 供应商导出数据
@@ -116,6 +122,7 @@ export interface ImportPreview {
   messagesCount: number
   attachmentsCount: number
   providersCount: number
+  preferencesCount: number
   conflicts: ConflictInfo[]
   manifest: ManifestData
 }
@@ -125,7 +132,20 @@ export interface ImportResult {
   imported: number
   skipped: number
   overwritten: number
+  preferencesRestored: number
 }
+
+// 偏好设置条目
+export interface PreferenceEntry {
+  key: string
+  value: string | number | boolean
+  type: 'string' | 'number' | 'boolean'
+}
+
+// 敏感偏好键（不含 API 密钥时需跳过）
+const SENSITIVE_PREFERENCE_KEYS: string[] = [
+  PreferenceKeys.SEARCH_EXA_API_KEY
+]
 
 // 会话数据
 interface SessionData {
@@ -209,6 +229,7 @@ interface ImportFileData {
   messages: Map<string, MessageData[]>
   attachmentsMetadata: Record<string, AttachmentMetadata[]>
   providers: ProviderExportData[]
+  preferences: PreferenceEntry[]
   tempDir: string
 }
 
@@ -250,18 +271,19 @@ export class ImportExportService {
       const messages = await this.collectMessages(sessions)
       const attachments = this.collectAttachments(messages, options)
       const providers = options.includeProviders ? await this.collectProviders(options) : []
+      const preferences = options.includePreferences ? await this.collectPreferences(options) : []
 
       if (onProgress) {
         onProgress(30)
       }
 
-      const manifest = this.generateManifest(sessions, messages, attachments, providers, options)
+      const manifest = this.generateManifest(sessions, messages, attachments, providers, preferences, options)
 
       const timestamp = Date.now()
       const tempDir = `${this.context.cacheDir}/export_temp_${timestamp}`
       fileIo.mkdirSync(tempDir)
 
-      this.writeExportFiles(tempDir, manifest, sessions, messages, attachments, providers, options)
+      this.writeExportFiles(tempDir, manifest, sessions, messages, attachments, providers, preferences, options)
 
       if (onProgress) {
         onProgress(60)
@@ -366,11 +388,45 @@ export class ImportExportService {
     return providers
   }
 
+  private async collectPreferences(options: ExportOptions): Promise<PreferenceEntry[]> {
+    const entries: PreferenceEntry[] = []
+    try {
+      const allData = await getPreferencesService().getAll()
+      const keys = Array.from(allData.keys())
+      for (const key of keys) {
+        // 若不含 API 密钥，跳过敏感键
+        if (!options.includeApiKeys && SENSITIVE_PREFERENCE_KEYS.includes(key)) {
+          continue
+        }
+        const value = allData.get(key)
+        if (value === undefined) {
+          continue
+        }
+        let entryType: 'string' | 'number' | 'boolean' = 'string'
+        if (typeof value === 'number') {
+          entryType = 'number'
+        } else if (typeof value === 'boolean') {
+          entryType = 'boolean'
+        }
+        const entry: PreferenceEntry = {
+          key: key,
+          value: value as string | number | boolean,
+          type: entryType
+        }
+        entries.push(entry)
+      }
+    } catch (error) {
+      console.error('ImportExportService', `Failed to collect preferences: ${JSON.stringify(error)}`)
+    }
+    return entries
+  }
+
   private generateManifest(
     sessions: ChatSession[],
     messages: Map<string, ChatMessage[]>,
     attachments: Map<string, MessageAttachment[]>,
     providers: ProviderExportData[],
+    preferences: PreferenceEntry[],
     options: ExportOptions
   ): ManifestData {
     let totalMessages = 0
@@ -410,7 +466,8 @@ export class ImportExportService {
       sessionsCount: sessions.length,
       messagesCount: totalMessages,
       attachmentsCount: totalAttachments,
-      totalSize: 0
+      totalSize: 0,
+      preferencesCount: preferences.length
     }
 
     const syncMetadata: SyncMetadata = {
@@ -428,7 +485,8 @@ export class ImportExportService {
       statistics: statistics,
       sessions: sessionSummaries,
       syncMetadata: syncMetadata,
-      providersCount: providers.length
+      providersCount: providers.length,
+      preferencesCount: preferences.length
     }
 
     return manifest
@@ -441,6 +499,7 @@ export class ImportExportService {
     messages: Map<string, ChatMessage[]>,
     attachments: Map<string, MessageAttachment[]>,
     providers: ProviderExportData[],
+    preferences: PreferenceEntry[],
     options: ExportOptions
   ): void {
     this.writeTextFile(`${tempDir}/manifest.json`, JSON.stringify(manifest, null, 2))
@@ -587,6 +646,11 @@ export class ImportExportService {
     if (options.includeProviders && providers.length > 0) {
       this.writeTextFile(`${tempDir}/providers.json`, JSON.stringify(providers, null, 2))
     }
+
+    // 写入偏好设置数据
+    if (options.includePreferences && preferences.length > 0) {
+      this.writeTextFile(`${tempDir}/preferences.json`, JSON.stringify(preferences, null, 2))
+    }
   }
 
   // ============ 导入功能 ============
@@ -636,6 +700,7 @@ export class ImportExportService {
         messagesCount: manifest.statistics.messagesCount,
         attachmentsCount: manifest.statistics.attachmentsCount,
         providersCount: manifest.providersCount || 0,
+        preferencesCount: manifest.preferencesCount || 0,
         conflicts: conflicts,
         manifest: manifest
       }
@@ -737,12 +802,22 @@ export class ImportExportService {
       console.info('ImportExportService', 'No providers data found')
     }
 
+    // 读取偏好设置数据
+    let preferences: PreferenceEntry[] = []
+    try {
+      const preferencesText = this.readTextFile(`${tempDir}/preferences.json`)
+      preferences = JSON.parse(preferencesText) as PreferenceEntry[]
+    } catch (e) {
+      console.info('ImportExportService', 'No preferences data found')
+    }
+
     const importData: ImportFileData = {
       manifest: manifest,
       sessions: sessions,
       messages: messages,
       attachmentsMetadata: attachmentsMetadata,
       providers: providers,
+      preferences: preferences,
       tempDir: tempDir
     }
 
@@ -898,10 +973,18 @@ export class ImportExportService {
       }
     }
 
+    // 导入偏好设置
+    let preferencesRestored = 0
+    if (options.importPreferences && importData.preferences.length > 0) {
+      preferencesRestored = await this.importPreferences(importData.preferences)
+      await this.refreshAfterImport()
+    }
+
     const result: ImportResult = {
       imported: imported,
       skipped: skipped,
-      overwritten: overwritten
+      overwritten: overwritten,
+      preferencesRestored: preferencesRestored
     }
 
     return result
@@ -961,6 +1044,48 @@ export class ImportExportService {
 
     // 保存到数据库
     await this.dbService.saveProvider(provider)
+  }
+
+  private async importPreferences(preferences: PreferenceEntry[]): Promise<number> {
+    let restored = 0
+    const preferencesService = getPreferencesService()
+    for (const entry of preferences) {
+      try {
+        if (entry.type === 'string') {
+          await preferencesService.setString(entry.key, entry.value as string)
+        } else if (entry.type === 'number') {
+          await preferencesService.setNumber(entry.key, entry.value as number)
+        } else if (entry.type === 'boolean') {
+          await preferencesService.setBoolean(entry.key, entry.value as boolean)
+        }
+        restored++
+      } catch (error) {
+        console.warn('ImportExportService', `Failed to restore preference ${entry.key}: ${JSON.stringify(error)}`)
+      }
+    }
+    console.info('ImportExportService', `Preferences restored: ${restored}/${preferences.length}`)
+    return restored
+  }
+
+  private async refreshAfterImport(): Promise<void> {
+    try {
+      // 刷新主题服务缓存
+      await getThemeService().reloadTheme()
+    } catch (error) {
+      console.warn('ImportExportService', `Failed to reload theme: ${JSON.stringify(error)}`)
+    }
+    try {
+      // 刷新设置管理器缓存
+      await getSettingsManager().reload()
+    } catch (error) {
+      console.warn('ImportExportService', `Failed to reload settings: ${JSON.stringify(error)}`)
+    }
+    try {
+      // 刷新应用状态管理器缓存
+      await getAppStateManager().loadState()
+    } catch (error) {
+      console.warn('ImportExportService', `Failed to reload app state: ${JSON.stringify(error)}`)
+    }
   }
 
   private async detectConflicts(manifest: ManifestData): Promise<ConflictInfo[]> {

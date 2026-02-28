@@ -72,8 +72,11 @@ struct Index {
   @State currentHoldingHand: motion.HoldingHandStatus = motion.HoldingHandStatus.UNKNOWN_STATUS
   @State fabPressed: boolean = false
   @State @Watch('onSettingsSummaryStateChanged') currentColorTheme: ColorTheme = ColorTheme.DEFAULT
-  @State showSettingsSheet: boolean = false
-  @State settingsSheetType: SettingsSheetType = SettingsSheetType.NONE
+  @State showThemeSheet: boolean = false
+  @State showLanguageSheet: boolean = false
+  @State showColorThemeSheet: boolean = false
+  @State showNotificationSheet: boolean = false
+  @State showHandAdaptiveSheet: boolean = false
   @State showSystemPromptSheet: boolean = false
   @State customSystemPrompt: string = ''
   @State searchText: string = ''
@@ -224,8 +227,8 @@ struct Index {
     }
 
     // 如果设置弹窗打开，关闭弹窗
-    if (this.showSettingsSheet) {
-      this.showSettingsSheet = false
+    if (this.isAnySettingsSheetOpen()) {
+      this.closeAllSettingsSheets()
       return true
     }
 
@@ -504,10 +507,33 @@ struct Index {
     if (type === SettingsSheetType.HAND_ADAPTIVE) {
       this.loadHandAdaptiveSettings()
     }
-    this.settingsSheetType = type
-    if (!this.showSettingsSheet) {
-      this.showSettingsSheet = true
+    // 先关闭所有，再打开目标
+    this.closeAllSettingsSheets()
+    if (type === SettingsSheetType.THEME) {
+      this.showThemeSheet = true
+    } else if (type === SettingsSheetType.LANGUAGE) {
+      this.showLanguageSheet = true
+    } else if (type === SettingsSheetType.COLOR_THEME) {
+      this.showColorThemeSheet = true
+    } else if (type === SettingsSheetType.NOTIFICATION) {
+      this.showNotificationSheet = true
+    } else if (type === SettingsSheetType.HAND_ADAPTIVE) {
+      this.showHandAdaptiveSheet = true
     }
+  }
+
+  private closeAllSettingsSheets(): void {
+    this.showThemeSheet = false
+    this.showLanguageSheet = false
+    this.showColorThemeSheet = false
+    this.showNotificationSheet = false
+    this.showHandAdaptiveSheet = false
+  }
+
+  private isAnySettingsSheetOpen(): boolean {
+    return this.showThemeSheet || this.showLanguageSheet ||
+      this.showColorThemeSheet || this.showNotificationSheet ||
+      this.showHandAdaptiveSheet
   }
 
   async loadSessions(): Promise<void> {
@@ -664,16 +690,69 @@ struct Index {
         Column()
           .width(0)
           .height(0)
-          .bindSheet($$this.showSettingsSheet, this.SettingsSheetBuilder(), {
-            height: this.settingsSheetType === SettingsSheetType.COLOR_THEME ? SheetSize.MEDIUM :
-            SheetSize.FIT_CONTENT,
+          .bindSheet($$this.showThemeSheet, this.ThemeSheetBuilder(), {
+            height: SheetSize.FIT_CONTENT,
             dragBar: true,
             showClose: true,
-            title: { title: this.getSettingsSheetTitle() },
+            title: { title: getSettingsSheetTitleText(SettingsSheetType.THEME) },
             onDisappear: () => {
-              if (!this.showSettingsSheet) {
-                this.settingsSheetType = SettingsSheetType.NONE
-              }
+              this.showThemeSheet = false
+              this.refreshSettingsState()
+            }
+          })
+
+        Column()
+          .width(0)
+          .height(0)
+          .bindSheet($$this.showLanguageSheet, this.LanguageSheetBuilder(), {
+            height: SheetSize.FIT_CONTENT,
+            dragBar: true,
+            showClose: true,
+            title: { title: getSettingsSheetTitleText(SettingsSheetType.LANGUAGE) },
+            onDisappear: () => {
+              this.showLanguageSheet = false
+              this.refreshSettingsState()
+            }
+          })
+
+        Column()
+          .width(0)
+          .height(0)
+          .bindSheet($$this.showColorThemeSheet, this.ColorThemeSheetBuilder(), {
+            height: SheetSize.MEDIUM,
+            dragBar: true,
+            showClose: true,
+            title: { title: getSettingsSheetTitleText(SettingsSheetType.COLOR_THEME) },
+            onDisappear: () => {
+              this.showColorThemeSheet = false
+              this.refreshSettingsState()
+            }
+          })
+
+        Column()
+          .width(0)
+          .height(0)
+          .bindSheet($$this.showNotificationSheet, this.NotificationSheetBuilder(), {
+            height: SheetSize.FIT_CONTENT,
+            dragBar: true,
+            showClose: true,
+            title: { title: getSettingsSheetTitleText(SettingsSheetType.NOTIFICATION) },
+            onDisappear: () => {
+              this.showNotificationSheet = false
+              this.refreshSettingsState()
+            }
+          })
+
+        Column()
+          .width(0)
+          .height(0)
+          .bindSheet($$this.showHandAdaptiveSheet, this.HandAdaptiveSheetBuilder(), {
+            height: SheetSize.FIT_CONTENT,
+            dragBar: true,
+            showClose: true,
+            title: { title: getSettingsSheetTitleText(SettingsSheetType.HAND_ADAPTIVE) },
+            onDisappear: () => {
+              this.showHandAdaptiveSheet = false
               this.refreshSettingsState()
               this.loadHandAdaptiveSettings()
             }
@@ -1152,9 +1231,73 @@ struct Index {
   }
 
   @Builder
-  SettingsSheetBuilder() {
+  ThemeSheetBuilder() {
     IndexSettingsSheetContent({
-      settingsSheetType: this.settingsSheetType,
+      settingsSheetType: SettingsSheetType.THEME,
+      currentThemeMode: this.currentThemeMode,
+      currentLanguage: this.currentLanguage,
+      notifyEnabled: this.notifyEnabled,
+      notifyOnComplete: this.notifyOnComplete,
+      notifyOnFailed: this.notifyOnFailed,
+      handAdaptiveEnabled: this.handAdaptiveEnabled,
+      handAdaptiveNewChat: this.handAdaptiveNewChat,
+      handAdaptiveUnsupported: this.handAdaptiveUnsupported,
+      callbacks: this.buildSettingsSheetCallbacks()
+    })
+  }
+
+  @Builder
+  LanguageSheetBuilder() {
+    IndexSettingsSheetContent({
+      settingsSheetType: SettingsSheetType.LANGUAGE,
+      currentThemeMode: this.currentThemeMode,
+      currentLanguage: this.currentLanguage,
+      notifyEnabled: this.notifyEnabled,
+      notifyOnComplete: this.notifyOnComplete,
+      notifyOnFailed: this.notifyOnFailed,
+      handAdaptiveEnabled: this.handAdaptiveEnabled,
+      handAdaptiveNewChat: this.handAdaptiveNewChat,
+      handAdaptiveUnsupported: this.handAdaptiveUnsupported,
+      callbacks: this.buildSettingsSheetCallbacks()
+    })
+  }
+
+  @Builder
+  ColorThemeSheetBuilder() {
+    IndexSettingsSheetContent({
+      settingsSheetType: SettingsSheetType.COLOR_THEME,
+      currentThemeMode: this.currentThemeMode,
+      currentLanguage: this.currentLanguage,
+      notifyEnabled: this.notifyEnabled,
+      notifyOnComplete: this.notifyOnComplete,
+      notifyOnFailed: this.notifyOnFailed,
+      handAdaptiveEnabled: this.handAdaptiveEnabled,
+      handAdaptiveNewChat: this.handAdaptiveNewChat,
+      handAdaptiveUnsupported: this.handAdaptiveUnsupported,
+      callbacks: this.buildSettingsSheetCallbacks()
+    })
+  }
+
+  @Builder
+  NotificationSheetBuilder() {
+    IndexSettingsSheetContent({
+      settingsSheetType: SettingsSheetType.NOTIFICATION,
+      currentThemeMode: this.currentThemeMode,
+      currentLanguage: this.currentLanguage,
+      notifyEnabled: this.notifyEnabled,
+      notifyOnComplete: this.notifyOnComplete,
+      notifyOnFailed: this.notifyOnFailed,
+      handAdaptiveEnabled: this.handAdaptiveEnabled,
+      handAdaptiveNewChat: this.handAdaptiveNewChat,
+      handAdaptiveUnsupported: this.handAdaptiveUnsupported,
+      callbacks: this.buildSettingsSheetCallbacks()
+    })
+  }
+
+  @Builder
+  HandAdaptiveSheetBuilder() {
+    IndexSettingsSheetContent({
+      settingsSheetType: SettingsSheetType.HAND_ADAPTIVE,
       currentThemeMode: this.currentThemeMode,
       currentLanguage: this.currentLanguage,
       notifyEnabled: this.notifyEnabled,
@@ -1173,13 +1316,13 @@ struct Index {
       this.currentThemeMode = mode
       this.syncSettingsSummaryToStorage()
       await this.settingsManager.setThemeMode(mode)
-      this.showSettingsSheet = false
+      this.showThemeSheet = false
     }
     callbacks.onSelectLanguage = async (language: AppLanguage): Promise<void> => {
       this.currentLanguage = language
       this.syncSettingsSummaryToStorage()
       await this.settingsManager.setLanguage(language)
-      this.showSettingsSheet = false
+      this.showLanguageSheet = false
     }
     callbacks.onSelectColorTheme = (theme: ColorTheme): void => {
       this.handleColorThemeSelected(theme)
@@ -1322,18 +1465,13 @@ struct Index {
 
   // ========== 多选模式相关方法 ==========
 
-  // 获取设置弹窗标题
-  private getSettingsSheetTitle(): Resource {
-    return getSettingsSheetTitleText(this.settingsSheetType)
-  }
-
   // 处理主题配色选择
   private async handleColorThemeSelected(theme: ColorTheme): Promise<void> {
     // 先本地更新，确保摘要先刷新，再持久化
     this.currentColorTheme = theme
     this.syncSettingsSummaryToStorage()
     await this.settingsManager.setColorTheme(theme)
-    this.showSettingsSheet = false
+    this.showColorThemeSheet = false
     this.showIndexSnack($r('app.string.theme_switched'), 2000, SnackBarTone.SUCCESS)
   }
 
@@ -1406,7 +1544,6 @@ struct Index {
       primaryButton: {
         value: $r('app.string.cancel'),
         action: () => {
-          // 取消
         }
       },
       secondaryButton: {

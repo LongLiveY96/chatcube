@@ -8,7 +8,7 @@ import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
 import { showToast } from '../utils/ToastUtil'
 
 const TAG = 'AboutPage'
-const GITHUB_URL = 'https://github.com/aspect-star/chatbox'
+const GITHUB_URL = 'https://github.com/LongLiveY96/chatcube'
 
 @Entry
 @Component

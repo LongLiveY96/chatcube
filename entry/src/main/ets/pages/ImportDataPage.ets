@@ -1,5 +1,5 @@
 import { picker, fileIo } from '@kit.CoreFileKit'
-import { getImportExportService, ImportOptions, ImportPreview } from '../services/ImportExportService'
+import { getImportExportService, ImportOptions, ImportPreview, ImportResult } from '../services/ImportExportService'
 import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
 import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
 
@@ -131,9 +131,25 @@ struct ImportDataPage {
 
       console.info(
         'ImportDataPage',
-        `Import summary: imported=${result.imported}, overwritten=${result.overwritten}, skipped=${result.skipped}`
+        `Import summary: imported=${result.imported}, overwritten=${result.overwritten}, skipped=${result.skipped}, preferences=${result.preferencesRestored}`
       )
-      this.showImportToast($r('app.string.import_success'), 3000, SnackBarTone.SUCCESS)
+
+      // 构建详细的导入结果摘要
+      const summaryParts: string[] = []
+      if (result.imported > 0) {
+        summaryParts.push(`导入 ${result.imported} 个会话`)
+      }
+      if (result.overwritten > 0) {
+        summaryParts.push(`覆盖 ${result.overwritten} 个`)
+      }
+      if (result.skipped > 0) {
+        summaryParts.push(`跳过 ${result.skipped} 个`)
+      }
+      if (result.preferencesRestored > 0) {
+        summaryParts.push(`恢复 ${result.preferencesRestored} 项偏好设置`)
+      }
+      const summaryMessage = summaryParts.length > 0 ? summaryParts.join('，') : '导入完成'
+      this.showImportToast(summaryMessage, 3000, SnackBarTone.SUCCESS)
       this.getUIContext().getRouter().back()
     } catch (error) {
       console.error('ImportDataPage', `Import failed: ${JSON.stringify(error)}`)
@@ -215,6 +231,11 @@ struct ImportDataPage {
                 this.InfoRow('附件', `${this.preview?.attachmentsCount || 0} 个`)
                 Divider().color($r('app.color.divider'))
                 this.InfoRow('供应商', `${this.preview?.providersCount || 0} 个`)
+
+                if (this.preview && this.preview.preferencesCount > 0) {
+                  Divider().color($r('app.color.divider'))
+                  this.InfoRow('偏好设置', `${this.preview.preferencesCount} 项`)
+                }
 
                 if (this.preview && this.preview.conflicts.length > 0) {
                   Divider().color($r('app.color.divider'))

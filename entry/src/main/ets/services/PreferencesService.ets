@@ -230,6 +230,40 @@ export class PreferencesService {
     }
   }
 
+  // 获取所有键值对
+  async getAll(): Promise<Map<string, preferences.ValueType>> {
+    const result = new Map<string, preferences.ValueType>()
+    if (this.dataPreferences === null) {
+      return result
+    }
+    try {
+      const allData = await this.dataPreferences.getAll()
+      const keys = Object.keys(allData)
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i]
+        // 使用 get 方法逐个读取，避免索引访问
+        const value = await this.dataPreferences.get(key, '')
+        result.set(key, value)
+      }
+    } catch (error) {
+      console.error('PreferencesService', `Failed to get all preferences: ${JSON.stringify(error)}`)
+    }
+    return result
+  }
+
+  // 设置任意类型值（批量导入用）
+  async putValue(key: string, value: preferences.ValueType): Promise<void> {
+    if (this.dataPreferences === null) {
+      return
+    }
+    try {
+      await this.dataPreferences.put(key, value)
+      await this.dataPreferences.flush()
+    } catch (error) {
+      console.error('PreferencesService', `Failed to put value: ${JSON.stringify(error)}`)
+    }
+  }
+
   // 清空所有数据
   async clear(): Promise<void> {
     if (this.dataPreferences === null) {

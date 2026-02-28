@@ -35,7 +35,7 @@ class ApiUrlResolver {
     }
 
     // 检查 baseUrl 是否已经包含版本路径（如 /v1, /v2, /v3, /beta 等）
-    if (/\/v\d+/.test(url) || url.includes('/beta')) {
+    if (/\/v\d+\w*/.test(url) || url.includes('/beta')) {
       // baseUrl 已包含版本路径，直接拼接
       // 但要避免重复的 /v1
       const baseUrlEnd = url.substring(url.lastIndexOf('/'))
@@ -817,10 +817,12 @@ export class AIApiService {
     // 根据 API 风格构建 URL
     if (config.apiStyle === ApiStyle.GOOGLE) {
       // Google Gemini API: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
+      // 检查 baseUrl 是否已包含版本路径，避免重复拼接
+      const versionPrefix = /\/v\d+\w*/.test(baseUrl) ? '' : '/v1beta'
       if (baseUrl.includes('googleapis.com')) {
-        return `${baseUrl}/v1beta/models/${model}:generateContent?key=${config.apiKey}`
+        return `${baseUrl}${versionPrefix}/models/${model}:generateContent?key=${config.apiKey}`
       }
-      return `${baseUrl}/v1beta/models/${model}:generateContent`
+      return `${baseUrl}${versionPrefix}/models/${model}:generateContent`
     }
 
     if (config.apiStyle === ApiStyle.ANTHROPIC) {
@@ -829,7 +831,7 @@ export class AIApiService {
 
     // OpenAI 兼容格式
     // 检查 baseUrl 是否已包含版本路径（如 /v1、/v2、/v3 等）
-    if (/\/v\d+/.test(baseUrl)) {
+    if (/\/v\d+\w*/.test(baseUrl)) {
       return `${baseUrl}/chat/completions`
     }
     return `${baseUrl}/v1/chat/completions`
@@ -850,7 +852,7 @@ export class AIApiService {
     }
 
     // 检查 baseUrl 是否已包含版本路径（如 /v1、/v2、/v3 等）
-    if (/\/v\d+/.test(baseUrl)) {
+    if (/\/v\d+\w*/.test(baseUrl)) {
       return `${baseUrl}/models`
     }
     return `${baseUrl}/v1/models`

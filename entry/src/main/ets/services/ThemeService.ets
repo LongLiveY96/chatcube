@@ -126,6 +126,26 @@ export class ThemeService {
     console.info('ThemeService', `Theme changed to: ${theme}`)
   }
 
+  // 重新从偏好设置加载主题（导入后刷新用）
+  async reloadTheme(): Promise<void> {
+    const savedTheme = await getPreferencesService().getString(PREF_KEY_COLOR_THEME, ColorTheme.DEFAULT)
+    const newTheme = savedTheme as ColorTheme
+
+    // 验证主题是否有效
+    const validTheme = getThemeById(newTheme)
+    if (validTheme.id !== newTheme) {
+      this.currentTheme = ColorTheme.DEFAULT
+    } else {
+      this.currentTheme = newTheme
+    }
+
+    // 强制刷新 AppStorage 和通知回调
+    this.applyThemeToStorage()
+    this.notifyCallbacks()
+
+    console.info('ThemeService', `Theme reloaded: ${this.currentTheme}`)
+  }
+
   // 更新深浅模式（由系统或用户设置触发）
   updateDarkMode(isDarkMode: boolean): void {
     if (this.currentIsDarkMode === isDarkMode) {

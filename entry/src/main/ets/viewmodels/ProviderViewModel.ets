@@ -116,6 +116,20 @@ export class ProviderViewModel {
   async testConnection(provider: ModelProvider): Promise<AIApiResult> {
     const config = this.providerToApiConfig(provider)
     const testModelId = this.getPreferredModelId(provider)
+
+    // 没有可用模型时，使用模型列表接口测试连接
+    if (testModelId === '') {
+      const modelsResult = await this.aiApiService.getModels(config)
+      const result: AIApiResult = {
+        success: modelsResult.success,
+        content: modelsResult.success ? 'Connection successful' : '',
+        errorMessage: modelsResult.errorMessage,
+        usage: null,
+        reasoningContent: ''
+      }
+      return result
+    }
+
     return await this.aiApiService.testConnection(config, testModelId)
   }
 
