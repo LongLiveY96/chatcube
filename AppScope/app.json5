@@ -2,8 +2,8 @@
   "app": {
     "bundleName": "com.longlive.chatcube",
     "vendor": "longlivey",
-    "versionCode": 1000002,
-    "versionName": "1.0.2",
+    "versionCode": 1000003,
+    "versionName": "1.0.3",
     "icon": "$media:layered_image",
     "label": "$string:app_name"
   }
