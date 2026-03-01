@@ -33,6 +33,25 @@ export struct ChatModelSelectorSheetContent {
   build() {
     Stack() {
       Column() {
+        // 自定义标题栏
+        Row() {
+          Blank()
+            .layoutWeight(1)
+
+          Text($r('app.string.select_model'))
+            .fontSize(17)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.text_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.Center)
+
+          Blank()
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .height(56)
+        .padding({ left: 16, right: 16 })
+
         ModelSelectorContent({
           providers: this.providers,
           currentModelId: this.currentModelId,

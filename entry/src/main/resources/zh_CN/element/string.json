@@ -1683,6 +1683,14 @@
     {
       "name": "about_link_copied",
       "value": "链接已复制"
+    },
+    {
+      "name": "provider_tab_config",
+      "value": "配置"
+    },
+    {
+      "name": "provider_tab_models",
+      "value": "模型"
     }
   ]
 }

@@ -259,80 +259,6 @@ export struct ToolsCenterPanel {
   }
 
   @Builder
-  private ToolCardText(tool: ToolConfig) {
-    Column() {
-      Text(tool.name)
-        .fontSize(14)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.text_primary'))
-
-      Text(tool.description)
-        .fontSize(12)
-        .fontColor($r('app.color.text_secondary'))
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .margin({ top: 2 })
-
-      if (this.isSearchTool(tool)) {
-        Row() {
-          Text($r('app.string.search_engine_current'))
-            .fontSize(11)
-            .fontColor($r('app.color.text_tertiary'))
-
-          Text(this.searchEngineDisplayValue)
-            .fontSize(11)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.text_secondary'))
-            .margin({ left: 4 })
-        }
-        .margin({ top: 6 })
-      } else {
-        Text(tool.id)
-          .fontSize(11)
-          .fontColor($r('app.color.text_tertiary'))
-          .margin({ top: 6 })
-      }
-    }
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private ToolCardSuffix(tool: ToolConfig) {
-    Row() {
-      if (this.isBuiltinToolToggleSupported(tool.id)) {
-        Toggle({ type: ToggleType.Switch, isOn: tool.enabled })
-          .onChange((value: boolean) => {
-            this.handleToolEnabledChanged(tool.id, value)
-          })
-      }
-
-      if (this.isSearchTool(tool)) {
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(16)
-          .fontColor([$r('app.color.text_tertiary')])
-          .margin({ left: 10 })
-          .onClick(() => {
-            this.openToolConfig(tool)
-          })
-      }
-    }
-  }
-
-  @Builder
-  BuiltinToolCard(tool: ToolConfig) {
-    HdsListItemCard({
-      textItem: {
-        customBuilder: (): void => { this.ToolCardText(tool) }
-      },
-      suffixItem: new SuffixCustomBuilder((): void => { this.ToolCardSuffix(tool) }),
-      cardBackgroundColor: $r('app.color.surface'),
-      cardBorderRadius: 12,
-      onClick: this.isSearchTool(tool) ? (): void => { this.openToolConfig(tool) } : undefined
-    })
-    .margin({ bottom: 8 })
-  }
-
-  @Builder
   SearchConfigSheetBuilder() {
     Column() {
       Row() {
@@ -537,7 +463,18 @@ export struct ToolsCenterPanel {
               .margin({ bottom: 10 })
 
             ForEach(this.builtinTools, (tool: ToolConfig) => {
-              this.BuiltinToolCard(tool)
+              BuiltinToolCardItem({
+                tool: tool,
+                isSearchTool: this.isSearchTool(tool),
+                isToggleSupported: this.isBuiltinToolToggleSupported(tool.id),
+                searchEngineDisplayValue: this.searchEngineDisplayValue,
+                onToggle: (enabled: boolean) => {
+                  this.handleToolEnabledChanged(tool.id, enabled)
+                },
+                onOpenConfig: () => {
+                  this.openToolConfig(tool)
+                }
+              })
             }, (tool: ToolConfig) => tool.id)
           }
           .width('100%')
@@ -568,5 +505,89 @@ export struct ToolsCenterPanel {
         this.loadSearchSettings()
       }
     })
+  }
+}
+
+@Component
+struct BuiltinToolCardItem {
+  @ObjectLink tool: ToolConfig
+  @Prop isSearchTool: boolean = false
+  @Prop isToggleSupported: boolean = false
+  @Prop searchEngineDisplayValue: string = ''
+  onToggle: (enabled: boolean) => void = (enabled: boolean) => {}
+  onOpenConfig: () => void = () => {}
+
+  @Builder
+  ToolCardText() {
+    Column() {
+      Text(this.tool.name)
+        .fontSize(14)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+
+      Text(this.tool.description)
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .margin({ top: 2 })
+
+      if (this.isSearchTool) {
+        Row() {
+          Text($r('app.string.search_engine_current'))
+            .fontSize(11)
+            .fontColor($r('app.color.text_tertiary'))
+
+          Text(this.searchEngineDisplayValue)
+            .fontSize(11)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.text_secondary'))
+            .margin({ left: 4 })
+        }
+        .margin({ top: 6 })
+      } else {
+        Text(this.tool.id)
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
+          .margin({ top: 6 })
+      }
+    }
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  ToolCardSuffix() {
+    Row() {
+      if (this.isToggleSupported) {
+        Toggle({ type: ToggleType.Switch, isOn: this.tool.enabled })
+          .onChange((value: boolean) => {
+            this.tool.enabled = value
+            this.onToggle(value)
+          })
+      }
+
+      if (this.isSearchTool) {
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(16)
+          .fontColor([$r('app.color.text_tertiary')])
+          .margin({ left: 10 })
+          .onClick(() => {
+            this.onOpenConfig()
+          })
+      }
+    }
+  }
+
+  build() {
+    HdsListItemCard({
+      textItem: {
+        customBuilder: (): void => { this.ToolCardText() }
+      },
+      suffixItem: new SuffixCustomBuilder((): void => { this.ToolCardSuffix() }),
+      cardBackgroundColor: $r('app.color.surface'),
+      cardBorderRadius: 12,
+      onClick: this.isSearchTool ? (): void => { this.onOpenConfig() } : undefined
+    })
+    .margin({ bottom: 8 })
   }
 }

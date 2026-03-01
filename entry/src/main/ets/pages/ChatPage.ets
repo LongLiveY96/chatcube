@@ -1073,19 +1073,18 @@ export struct ChatPage {
         })
           .position({ x: 0, y: 0 })
           .bindSheet($$this.isModelSelectorVisible, this.ModelSelectorSheetBuilder(), {
-            height: this.modelSheetActivePanel === 'selector' ? SheetSize.MEDIUM : SheetSize.LARGE,
-            dragBar: true,
-            showClose: this.modelSheetActivePanel === 'selector',
-            title: { title: this.modelSheetActivePanel === 'selector' ? $r('app.string.select_model') : '' },
-            blurStyle: BlurStyle.Thick,
-            preferType: SheetType.BOTTOM,
-            onDisappear: () => {
-              this.isModelSelectorVisible = false
-              this.modelSheetActivePanel = 'selector'
-              this.editingModel = null
-              this.editingModelProvider = null
-            }
-          })
+              height: this.modelSheetActivePanel === 'selector' ? SheetSize.MEDIUM : SheetSize.LARGE,
+              dragBar: true,
+              showClose: false,
+              blurStyle: BlurStyle.Thick,
+              preferType: SheetType.BOTTOM,
+              onDisappear: () => {
+                this.isModelSelectorVisible = false
+                this.modelSheetActivePanel = 'selector'
+                this.editingModel = null
+                this.editingModelProvider = null
+              }
+            })
 
         // 快速到顶部按钮
         ScrollToBottomButton({

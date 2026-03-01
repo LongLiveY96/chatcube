@@ -92,24 +92,98 @@ export class ProviderViewModel {
     return this.getProviderById(providerId)
   }
 
-  // 保存服务商配置
+  // 保存服务商配置（同时同步内存缓存）
   async saveProvider(provider: ModelProvider): Promise<void> {
     await this.databaseService.saveProvider(provider)
+    // 同步缓存：就地更新已有条目，或追加新条目
+    let found = false
+    for (let i = 0; i < this.cachedProviders.length; i++) {
+      if (this.cachedProviders[i].id === provider.id) {
+        this.syncProviderProperties(this.cachedProviders[i], provider)
+        found = true
+        break
+      }
+    }
+    if (!found) {
+      this.cachedProviders.push(provider)
+    }
   }
 
-  // 删除服务商配置
+  // 删除服务商配置（同时同步内存缓存）
   async deleteProvider(providerId: string): Promise<void> {
     await this.databaseService.deleteProvider(providerId)
+    const newCache: ModelProvider[] = []
+    for (let i = 0; i < this.cachedProviders.length; i++) {
+      if (this.cachedProviders[i].id !== providerId) {
+        newCache.push(this.cachedProviders[i])
+      }
+    }
+    this.cachedProviders = newCache
   }
 
-  // 更新服务商启用状态
+  // 更新服务商启用状态（同时同步内存缓存）
   async updateProviderEnabled(providerId: string, isEnabled: boolean): Promise<void> {
     await this.databaseService.updateProviderEnabled(providerId, isEnabled)
+    for (let i = 0; i < this.cachedProviders.length; i++) {
+      if (this.cachedProviders[i].id === providerId) {
+        this.cachedProviders[i].isConnected = isEnabled
+        break
+      }
+    }
   }
 
   // 保存供应商排序顺序
   async saveProvidersOrder(providerIds: string[]): Promise<void> {
     await this.databaseService.updateProvidersOrder(providerIds)
+    // 同步缓存排序：按 providerIds 顺序重排 cachedProviders
+    const sorted: ModelProvider[] = []
+    for (let i = 0; i < providerIds.length; i++) {
+      for (let j = 0; j < this.cachedProviders.length; j++) {
+        if (this.cachedProviders[j].id === providerIds[i]) {
+          sorted.push(this.cachedProviders[j])
+          break
+        }
+      }
+    }
+    // 追加不在 providerIds 中的项（防止遗漏）
+    for (let j = 0; j < this.cachedProviders.length; j++) {
+      let found = false
+      for (let i = 0; i < providerIds.length; i++) {
+        if (providerIds[i] === this.cachedProviders[j].id) {
+          found = true
+          break
+        }
+      }
+      if (!found) {
+        sorted.push(this.cachedProviders[j])
+      }
+    }
+    this.cachedProviders = sorted
+  }
+
+  // 获取缓存的服务商列表（不访问数据库，用于快速同步 UI）
+  getCachedProviders(): ModelProvider[] {
+    return this.cachedProviders
+  }
+
+  // 同步 provider 的所有属性（从 source 复制到 target）
+  syncProviderProperties(target: ModelProvider, source: ModelProvider): void {
+    target.name = source.name
+    target.isConnected = source.isConnected
+    target.apiKey = source.apiKey
+    target.baseUrl = source.baseUrl
+    target.apiPath = source.apiPath
+    target.apiStyle = source.apiStyle
+    target.type = source.type
+    target.models = source.models
+    target.iconType = source.iconType
+    target.iconPath = source.iconPath
+    target.textIcon = source.textIcon
+    target.textIconBgColor = source.textIconBgColor
+    target.customImagePath = source.customImagePath
+    target.brandColor = source.brandColor
+    target.isPreset = source.isPreset
+    target.iconSymbol = source.iconSymbol
   }
 
   // 测试服务商连接

@@ -2,7 +2,6 @@
   "src": [
     "pages/Index",
     "pages/ModelManagePage",
-    "pages/AddProviderPage",
     "pages/DefaultModelPage",
     "pages/ProviderDetailPage",
     "pages/ExportDataPage",

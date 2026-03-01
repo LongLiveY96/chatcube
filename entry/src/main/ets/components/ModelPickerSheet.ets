@@ -322,7 +322,7 @@ export struct ModelPickerSheet {
           Text(modelId)
             .fontSize(14)
             .fontColor($r('app.color.text_primary'))
-            .maxLines(1)
+            .maxLines(2)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
 
           // 已有模型标记
@@ -338,7 +338,7 @@ export struct ModelPickerSheet {
         .margin({ left: 10 })
       }
       .width('100%')
-      .height(56)
+      .constraintSize({ minHeight: 56 })
       .onClick(() => {
         this.toggleModel(modelId)
       })

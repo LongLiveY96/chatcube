@@ -385,6 +385,8 @@ export struct IndexSessionListSection {
             (): void => { this.SessionContextMenu(session) }, ResponseType.LongPress, {
             preview: (): void => { this.SessionPreview(session) }
           })
+        // TODO: 标题生成后返回列表页标题未更新，ForEach key 不含 title 导致不重渲染，
+        //  但简单加入 key 无效，需排查 @Prop sessionGroups 的深层响应性问题，考虑迁移 Repeat（需 V2 装饰器）
         }, (session: ChatSession) => `${session.id}_${session.isFavorite ? '1' : '0'}`)
       }, (group: SessionGroupData) => this.onGetGroupRenderKey(group))
 

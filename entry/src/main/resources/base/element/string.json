@@ -1683,6 +1683,14 @@
     {
       "name": "about_link_copied",
       "value": "Link copied"
+    },
+    {
+      "name": "provider_tab_config",
+      "value": "Config"
+    },
+    {
+      "name": "provider_tab_models",
+      "value": "Models"
     }
   ]
 }

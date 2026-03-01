@@ -33,9 +33,9 @@ struct ModelManagePage {
 
   onPageShow(): void {
     // 只在已加载过且不是从 Sheet 返回时静默刷新
-    // Sheet 关闭由 onClose 回调处理，这里主要处理从 AddProviderPage 返回的情况
+    // Sheet 关闭由 onClose 回调处理，这里处理从其他页面返回的情况
     if (this.hasLoaded && !this.showProviderSheet) {
-      this.refreshDataSilently()
+      this.refreshFromDatabase()
     }
   }
 
@@ -68,64 +68,76 @@ struct ModelManagePage {
     this.hasLoaded = true
   }
 
-  // 静默刷新数据（不显示加载状态，实现无感更新）
-  private async refreshDataSilently(): Promise<void> {
+  // 静默刷新数据（从 ViewModel 缓存同步，不访问数据库）
+  // 就地更新现有对象属性，保持 @ObjectLink 绑定不断裂
+  private refreshFromCache(): void {
+    const cachedProviders = this.providerViewModel.getCachedProviders()
+    if (cachedProviders.length === 0) {
+      return
+    }
+
+    // 构建缓存数据的 ID 查找表
+    const cacheMap = new Map<string, ModelProvider>()
+    for (let i = 0; i < cachedProviders.length; i++) {
+      cacheMap.set(cachedProviders[i].id, cachedProviders[i])
+    }
+
+    // 就地更新现有对象的所有属性（@Observed 会自动通知 @ObjectLink 子组件）
+    for (let i = 0; i < this.allProviders.length; i++) {
+      const existing = this.allProviders[i]
+      const updated = cacheMap.get(existing.id)
+      if (updated !== undefined && updated !== existing) {
+        this.providerViewModel.syncProviderProperties(existing, updated)
+      }
+    }
+
+    // 如果服务商数量或顺序变化（如新增、删除），需要重建数组
+    let needsRebuild = cachedProviders.length !== this.allProviders.length
+    if (!needsRebuild) {
+      for (let i = 0; i < cachedProviders.length; i++) {
+        if (cachedProviders[i].id !== this.allProviders[i].id) {
+          needsRebuild = true
+          break
+        }
+      }
+    }
+    if (needsRebuild) {
+      this.allProviders = cachedProviders
+    }
+  }
+
+  // 从数据库完整刷新（仅在从其他页面返回时使用）
+  private async refreshFromDatabase(): Promise<void> {
     const savedProviders = await this.providerViewModel.loadAllProviders()
-    if (savedProviders.length > 0) {
+    if (savedProviders.length === 0) {
+      return
+    }
+
+    const newMap = new Map<string, ModelProvider>()
+    for (let i = 0; i < savedProviders.length; i++) {
+      newMap.set(savedProviders[i].id, savedProviders[i])
+    }
+
+    for (let i = 0; i < this.allProviders.length; i++) {
+      const existing = this.allProviders[i]
+      const updated = newMap.get(existing.id)
+      if (updated !== undefined) {
+        this.providerViewModel.syncProviderProperties(existing, updated)
+      }
+    }
+
+    let needsRebuild = savedProviders.length !== this.allProviders.length
+    if (!needsRebuild) {
+      for (let i = 0; i < savedProviders.length; i++) {
+        if (savedProviders[i].id !== this.allProviders[i].id) {
+          needsRebuild = true
+          break
+        }
+      }
+    }
+    if (needsRebuild) {
       this.allProviders = savedProviders
     }
-  }
-
-  // 获取启用的供应商
-  private getEnabledProviders(): ModelProvider[] {
-    const result: ModelProvider[] = []
-    for (let i = 0; i < this.allProviders.length; i++) {
-      if (this.allProviders[i].isConnected) {
-        result.push(this.allProviders[i])
-      }
-    }
-    return result
-  }
-
-  // 获取停用的供应商
-  private getDisabledProviders(): ModelProvider[] {
-    const result: ModelProvider[] = []
-    for (let i = 0; i < this.allProviders.length; i++) {
-      if (!this.allProviders[i].isConnected) {
-        result.push(this.allProviders[i])
-      }
-    }
-    return result
-  }
-
-  // 获取过滤后的启用供应商（用于搜索）
-  private getFilteredEnabledProviders(): ModelProvider[] {
-    const enabled = this.getEnabledProviders()
-    if (this.searchKeywords === '') {
-      return enabled
-    }
-    const result: ModelProvider[] = []
-    for (let i = 0; i < enabled.length; i++) {
-      if (this.getFilteredModels(enabled[i].models).length > 0) {
-        result.push(enabled[i])
-      }
-    }
-    return result
-  }
-
-  // 获取过滤后的停用供应商（用于搜索）
-  private getFilteredDisabledProviders(): ModelProvider[] {
-    const disabled = this.getDisabledProviders()
-    if (this.searchKeywords === '') {
-      return disabled
-    }
-    const result: ModelProvider[] = []
-    for (let i = 0; i < disabled.length; i++) {
-      if (this.getFilteredModels(disabled[i].models).length > 0) {
-        result.push(disabled[i])
-      }
-    }
-    return result
   }
 
   // 查找供应商在 allProviders 中的索引
@@ -138,81 +150,6 @@ struct ModelManagePage {
     return -1
   }
 
-  // 判断供应商是否可以上移
-  private canMoveUp(providerId: string): boolean {
-    const index = this.findProviderIndex(providerId)
-    return index > 0
-  }
-
-  // 判断供应商是否可以下移
-  private canMoveDown(providerId: string): boolean {
-    const index = this.findProviderIndex(providerId)
-    return index >= 0 && index < this.allProviders.length - 1
-  }
-
-  // 上移供应商
-  private moveProviderUp(providerId: string): void {
-    const index = this.findProviderIndex(providerId)
-    if (index > 0) {
-      this.moveProvider(index, index - 1)
-      this.showManageToast($r('app.string.provider_moved_up'))
-    }
-  }
-
-  // 下移供应商
-  private moveProviderDown(providerId: string): void {
-    const index = this.findProviderIndex(providerId)
-    if (index >= 0 && index < this.allProviders.length - 1) {
-      this.moveProvider(index, index + 1)
-      this.showManageToast($r('app.string.provider_moved_down'))
-    }
-  }
-
-  // 移动供应商位置
-  private moveProvider(fromIndex: number, toIndex: number): void {
-    if (fromIndex < 0 || toIndex < 0 || fromIndex >= this.allProviders.length || toIndex >= this.allProviders.length) {
-      return
-    }
-    if (fromIndex === toIndex) {
-      return
-    }
-    const item = this.allProviders[fromIndex]
-    this.allProviders.splice(fromIndex, 1)
-    this.allProviders.splice(toIndex, 0, item)
-    // 触发 UI 更新
-    this.allProviders = [...this.allProviders]
-    // 保存排序
-    this.saveOrder()
-  }
-
-  // 处理供应商拖拽移动（使用 onMove API）
-  // from 和 to 是 allProviders 数组的索引
-  private handleProviderMove(from: number, to: number): void {
-    if (from < 0 || to < 0 || from >= this.allProviders.length || to >= this.allProviders.length) {
-      return
-    }
-    if (from === to) {
-      return
-    }
-
-    const fromProvider = this.allProviders[from]
-    const toProvider = this.allProviders[to]
-
-    // 不允许跨分组拖拽（启用/停用分组）
-    if (fromProvider.isConnected !== toProvider.isConnected) {
-      return
-    }
-
-    // 交换位置
-    const item = this.allProviders[from]
-    this.allProviders.splice(from, 1)
-    this.allProviders.splice(to, 0, item)
-    // 触发 UI 更新
-    this.allProviders = [...this.allProviders]
-    // 保存排序
-    this.saveOrder()
-  }
-
   // 保存排序到数据库
   private async saveOrder(): Promise<void> {
     const providerIds: string[] = []
@@ -220,6 +157,20 @@ struct ModelManagePage {
       providerIds.push(this.allProviders[i].id)
     }
     await this.providerViewModel.saveProvidersOrder(providerIds)
+  }
+
+  // 获取过滤后的所有供应商
+  private getFilteredProviders(): ModelProvider[] {
+    if (this.searchKeywords.trim() === '') {
+      return this.allProviders
+    }
+    const result: ModelProvider[] = []
+    for (let i = 0; i < this.allProviders.length; i++) {
+      if (this.matchesSearch(this.allProviders[i])) {
+        result.push(this.allProviders[i])
+      }
+    }
+    return result
   }
 
   build() {
@@ -243,54 +194,38 @@ struct ModelManagePage {
           this.LoadingView()
         } else {
           List({ space: 8 }) {
-            // ========== 启用的供应商分组 ==========
-            if (this.getFilteredEnabledProviders().length > 0) {
-              ListItem() {
-                this.GroupHeader($r('app.string.enabled_services'), this.getFilteredEnabledProviders().length, true)
-              }
-
-              ForEach(this.allProviders, (provider: ModelProvider, index: number) => {
-                if (provider.isConnected && this.matchesSearch(provider)) {
-                  ListItem() {
-                    this.ProviderCard(provider, false, index)
-                  }
-                  .margin({ left: 16, right: 16 })
-                  .borderRadius(16)
-                  .clip(true)
-                  .transition({ type: TransitionType.All, opacity: 0 })
+            Repeat<ModelProvider>(this.allProviders)
+              .each((obj: RepeatItem<ModelProvider>) => {
+                ListItem() {
+                  ProviderCardItem({
+                    provider: obj.item,
+                    searchKeywords: this.searchKeywords,
+                    onCardClick: () => {
+                      this.selectedProviderId = obj.item.id
+                      this.showProviderSheet = true
+                    },
+                    onToggleEnabled: () => {
+                      this.toggleProviderEnabled(obj.item)
+                    }
+                  })
                 }
-              }, (provider: ModelProvider) => `provider_${provider.id}_${provider.isConnected}_${provider.iconType}_${provider.textIcon}_${provider.textIconBgColor}_${provider.customImagePath}_${this.getEnabledModelCount(provider)}`)
-              .onMove((from: number, to: number) => {
-                this.handleProviderMove(from, to)
+                .margin({ left: 16, right: 16 })
+                .borderRadius(16)
+                .clip(true)
+                .transition({ type: TransitionType.All, opacity: 0 })
+                .visibility(this.matchesSearch(obj.item) ? Visibility.Visible : Visibility.None)
               })
-            }
-
-            // ========== 停用的供应商分组 ==========
-            if (this.getFilteredDisabledProviders().length > 0) {
-              ListItem() {
-                this.GroupHeader($r('app.string.disabled_services'), this.getFilteredDisabledProviders().length, false)
-              }
-
-              ForEach(this.allProviders, (provider: ModelProvider, index: number) => {
-                if (!provider.isConnected && this.matchesSearch(provider)) {
-                  ListItem() {
-                    this.ProviderCard(provider, true, index)
-                  }
-                  .margin({ left: 16, right: 16 })
-                  .borderRadius(16)
-                  .clip(true)
-                  .transition({ type: TransitionType.All, opacity: 0 })
-                }
-              }, (provider: ModelProvider) => `provider_${provider.id}_${provider.isConnected}_${provider.iconType}_${provider.textIcon}_${provider.textIconBgColor}_${provider.customImagePath}_${this.getEnabledModelCount(provider)}`)
-              .onMove((from: number, to: number) => {
-                this.handleProviderMove(from, to)
+              .key((item: ModelProvider) => {
+                return item.id
               })
-            }
+              .onMove((from: number, to: number) => {
+                let temp = this.allProviders.splice(from, 1)
+                this.allProviders.splice(to, 0, temp[0])
+                this.saveOrder()
+              })
 
             // 搜索无结果提示
-            if (this.searchKeywords.trim() !== '' &&
-                this.getFilteredEnabledProviders().length === 0 &&
-                this.getFilteredDisabledProviders().length === 0) {
+            if (this.searchKeywords.trim() !== '' && this.getFilteredProviders().length === 0) {
               ListItem() {
                 Column() {
                   SymbolGlyph($r('sys.symbol.magnifyingglass'))
@@ -315,27 +250,31 @@ struct ModelManagePage {
 
             // Add Provider Button
             ListItem() {
-              Button() {
-                Row() {
-                  SymbolGlyph($r('sys.symbol.plus_circle'))
-                    .fontSize(22)
-                    .fontColor([this.themePrimary])
+              Column() {
+                Button() {
+                  Row() {
+                    SymbolGlyph($r('sys.symbol.plus_circle'))
+                      .fontSize(22)
+                      .fontColor([this.themePrimary])
 
-                  Text($r('app.string.add_custom_provider'))
-                    .fontSize(15)
-                    .fontWeight(FontWeight.Medium)
-                    .fontColor(this.themePrimary)
-                    .margin({ left: 8 })
+                    Text($r('app.string.add_custom_provider'))
+                      .fontSize(15)
+                      .fontWeight(FontWeight.Medium)
+                      .fontColor(this.themePrimary)
+                      .margin({ left: 8 })
+                  }
                 }
+                .width('100%')
+                .height(56)
+                .backgroundColor($r('app.color.surface'))
+                .borderRadius(24)
+                .onClick(() => {
+                  this.selectedProviderId = ''
+                  this.showProviderSheet = true
+                })
               }
               .width('100%')
-              .height(56)
-              .backgroundColor($r('app.color.surface'))
-              .borderRadius(24)
-              .margin({ left: 16, right: 16, top: 8 })
-              .onClick(() => {
-                this.getUIContext().getRouter().pushUrl({ url: 'pages/AddProviderPage' })
-              })
+              .padding({ left: 16, right: 16, top: 8 })
             }
 
             // Bottom Spacer
@@ -376,8 +315,8 @@ struct ModelManagePage {
         blurStyle: BlurStyle.Regular,
         onDisappear: () => {
           this.selectedProviderId = ''
-          // Sheet 完全关闭后静默刷新数据
-          this.refreshDataSilently()
+          // Sheet 关闭后从缓存同步（无 DB 开销，即时生效）
+          this.refreshFromCache()
         }
       })
     }
@@ -388,15 +327,15 @@ struct ModelManagePage {
 
   @Builder
   ProviderDetailSheetBuilder() {
-    if (this.selectedProviderId !== '') {
-      ProviderDetailSheet({
-        providerId: this.selectedProviderId,
-        onClose: () => {
-          this.showProviderSheet = false
-          // 数据刷新由 onDisappear 回调处理，确保 Sheet 完全关闭后再刷新
-        }
-      })
-    }
+    ProviderDetailSheet({
+      providerId: this.selectedProviderId,
+      isCreateMode: this.selectedProviderId === '',
+      onClose: () => {
+        // 立即从缓存同步数据到列表（不等关闭动画）
+        this.refreshFromCache()
+        this.showProviderSheet = false
+      }
+    })
   }
 
   private getManageMenus(): Array<HdsNavigationMenuItemOptions> {
@@ -424,185 +363,13 @@ struct ModelManagePage {
           label: $r('app.string.add_custom_provider'),
           icon: addIcon,
           action: () => {
-            this.getUIContext().getRouter().pushUrl({ url: 'pages/AddProviderPage' })
+            this.selectedProviderId = ''
+            this.showProviderSheet = true
           }
         }
       }
     ]
     return menus
-  }
-
-  @Builder
-  GroupHeader(title: string | Resource, count: number, isEnabled: boolean) {
-    Row() {
-      // 状态图标
-      Column() {
-        SymbolGlyph(isEnabled ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.xmark_circle_fill'))
-          .fontSize(16)
-          .fontColor([isEnabled ? $r('app.color.primary') : $r('app.color.text_tertiary')])
-      }
-      .width(28)
-      .height(28)
-      .borderRadius(14)
-      .backgroundColor(isEnabled ? $r('app.color.primary_light') : $r('app.color.divider'))
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-
-      Text(title)
-        .fontSize(15)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(isEnabled ? $r('app.color.text_primary') : $r('app.color.text_tertiary'))
-        .margin({ left: 10 })
-
-      Text(`(${count})`)
-        .fontSize(13)
-        .fontColor($r('app.color.text_tertiary'))
-        .margin({ left: 6 })
-    }
-    .width('100%')
-    .padding({ left: 20, right: 16, top: 20, bottom: 8 })
-  }
-
-  @Builder
-  ProviderCard(provider: ModelProvider, isDisabled: boolean, index: number) {
-    Column() {
-      // 供应商标题行
-      Row() {
-        // 拖拽手柄（视觉指示器）
-        Column() {
-          SymbolGlyph($r('sys.symbol.line_3_horizontal'))
-            .fontSize(16)
-            .fontColor([$r('app.color.text_tertiary')])
-        }
-        .width(28)
-        .height(28)
-        .justifyContent(FlexAlign.Center)
-        .margin({ right: 4 })
-
-        // 供应商图标（使用 ProviderIcon 组件支持所有图标类型）
-        ProviderIcon({
-          iconType: provider.iconType,
-          iconPath: provider.iconPath,
-          textIcon: provider.textIcon,
-          textIconBgColor: provider.textIconBgColor,
-          customImagePath: provider.customImagePath,
-          iconSize: 24,
-          radius: 6,
-          bgColor: $r('app.color.divider'),
-          brandColor: provider.brandColor,
-          fallbackSymbol: $r('sys.symbol.cloud'),
-          fallbackColor: $r('app.color.text_tertiary')
-        })
-          .margin({ right: 8 })
-
-        Text(provider.name.toUpperCase())
-          .fontSize(13)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(isDisabled ? $r('app.color.text_tertiary') : $r('app.color.text_secondary'))
-          .letterSpacing(1)
-
-        Text(` (${this.getEnabledCount(provider)})`)
-          .fontSize(13)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_tertiary'))
-
-        // 系统服务标签
-        if (provider.id === 'siliconflow') {
-          Text($r('app.string.system_service'))
-            .fontSize(11)
-            .fontColor($r('app.color.primary'))
-            .backgroundColor($r('app.color.primary_light'))
-            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-            .borderRadius(4)
-            .margin({ left: 8 })
-        }
-
-        // 停用标签
-        if (isDisabled) {
-          Text($r('app.string.provider_disabled_badge'))
-            .fontSize(10)
-            .fontColor($r('app.color.text_tertiary'))
-            .backgroundColor($r('app.color.divider'))
-            .borderRadius(4)
-            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-            .margin({ left: 8 })
-        }
-
-        Blank()
-
-        // 更多操作菜单按钮
-        Button() {
-          SymbolGlyph($r('sys.symbol.more'))
-            .fontSize(16)
-            .fontColor([$r('app.color.text_tertiary')])
-        }
-        .type(ButtonType.Circle)
-        .width(32)
-        .height(32)
-        .backgroundColor(Color.Transparent)
-        .bindMenu(this.ProviderMenuBuilder(provider))
-
-        // 跳转箭头
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(16)
-          .fontColor([$r('app.color.text_tertiary')])
-          .margin({ left: 4 })
-      }
-      .width('100%')
-      .padding({ left: 12, right: 16, top: 16, bottom: 16 })
-      .onClick(() => {
-        // 打开供应商详情半模态弹窗
-        this.selectedProviderId = provider.id
-        this.showProviderSheet = true
-      })
-    }
-    .width('100%')
-    .backgroundColor($r('app.color.surface'))
-  }
-
-  @Builder
-  private ProviderMenuBuilder(provider: ModelProvider) {
-    Menu() {
-      // 只有多个供应商时才显示排序选项
-      if (this.allProviders.length > 1 && this.canMoveUp(provider.id)) {
-        MenuItem({
-          content: $r('app.string.provider_menu_move_up')
-        })
-          .onClick(() => {
-            this.moveProviderUp(provider.id)
-          })
-      }
-
-      if (this.allProviders.length > 1 && this.canMoveDown(provider.id)) {
-        MenuItem({
-          content: $r('app.string.provider_menu_move_down')
-        })
-          .onClick(() => {
-            this.moveProviderDown(provider.id)
-          })
-      }
-
-      // 启用/停用选项（硅基流动服务商不允许操作）
-      if (provider.id !== 'siliconflow') {
-        MenuItem({
-          content: !provider.isConnected ? $r('app.string.provider_menu_enable') : $r('app.string.provider_menu_disable')
-        })
-          .onClick(() => {
-            this.toggleProviderEnabled(provider)
-          })
-      }
-
-      // 删除选项（预设供应商不可删除）
-      if (!provider.isPreset) {
-        MenuItem({
-          content: $r('app.string.delete')
-        })
-          .contentFontColor($r('app.color.status_error'))
-          .onClick(() => {
-            this.showDeleteConfirmDialog(provider)
-          })
-      }
-    }
   }
 
   @Builder
@@ -621,16 +388,6 @@ struct ModelManagePage {
     .width('100%')
     .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
-  }
-
-  private getEnabledCount(provider: ModelProvider): string {
-    const enabled = provider.models.filter(m => m.isEnabled).length
-    return `${enabled}/${provider.models.length}`
-  }
-
-  // 获取启用的模型数量（用于 ForEach key）
-  private getEnabledModelCount(provider: ModelProvider): number {
-    return provider.models.filter(m => m.isEnabled).length
   }
 
   private getFilteredModels(models: ModelInfo[]): ModelInfo[] {
@@ -655,59 +412,12 @@ struct ModelManagePage {
   // 切换供应商启用/停用状态
   private async toggleProviderEnabled(provider: ModelProvider): Promise<void> {
     const newStatus = !provider.isConnected
+    provider.isConnected = newStatus
 
-    // 保存到数据库
+    // 异步持久化到数据库
     await this.providerViewModel.updateProviderEnabled(provider.id, newStatus)
 
-    // 重新从数据库加载，确保获取全新的对象引用
-    const freshProviders = await this.providerViewModel.loadAllProviders()
-
-    // 使用全新数组替换，触发 @State 刷新
-    this.allProviders = []  // 先清空
-    this.allProviders = freshProviders  // 再赋值新数组
-
     this.showManageToast(newStatus ? $r('app.string.provider_enabled') : $r('app.string.provider_disabled'))
-  }
-
-  // 显示删除确认对话框
-  private showDeleteConfirmDialog(provider: ModelProvider): void {
-    this.getUIContext().showAlertDialog({
-      title: $r('app.string.delete_provider_title'),
-      message: $r('app.string.delete_provider_confirm'),
-      autoCancel: true,
-      alignment: DialogAlignment.Center,
-      primaryButton: {
-        value: $r('app.string.cancel'),
-        action: () => {
-          // 取消操作
-        }
-      },
-      secondaryButton: {
-        value: $r('app.string.delete'),
-        fontColor: Color.Red,
-        action: () => {
-          this.deleteProvider(provider)
-        }
-      }
-    })
-  }
-
-  // 执行删除供应商
-  private async deleteProvider(provider: ModelProvider): Promise<void> {
-    await this.providerViewModel.deleteProvider(provider.id)
-
-    // 从列表中移除
-    const index = this.allProviders.findIndex(p => p.id === provider.id)
-    if (index >= 0) {
-      this.allProviders.splice(index, 1)
-      // 强制触发 UI 更新
-      this.allProviders = [...this.allProviders]
-    }
-
-    // 重新保存排序
-    await this.saveOrder()
-
-    this.showManageToast($r('app.string.provider_deleted'))
   }
 
   // 一键匹配所有模型图标
@@ -758,5 +468,117 @@ struct ModelManagePage {
     this.allProviders = [...this.allProviders]
     this.showManageToast(`已匹配 ${matchedCount}/${totalModels} 个模型图标`)
     this.isMatchingIcons = false
+  }
+}
+
+@Component
+struct ProviderCardItem {
+  @ObjectLink provider: ModelProvider
+  @Prop searchKeywords: string = ''
+  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  onCardClick: () => void = () => {}
+  onToggleEnabled: () => void = () => {}
+
+  private getEnabledCount(): string {
+    const enabled = this.provider.models.filter(m => m.isEnabled).length
+    return `${enabled}/${this.provider.models.length}`
+  }
+
+  build() {
+    Column() {
+      Row() {
+        // ① 拖拽手柄 — 不消费长按，长按可穿透到 ListItem 触发拖拽
+        if (this.searchKeywords.trim() === '') {
+          Column() {
+            SymbolGlyph($r('sys.symbol.line_3_horizontal'))
+              .fontSize(16)
+              .fontColor([$r('app.color.text_tertiary')])
+          }
+          .width(28)
+          .height(28)
+          .justifyContent(FlexAlign.Center)
+          .margin({ right: 4 })
+        }
+
+        // ② 内容区域 — 消费长按事件，阻止拖拽穿透
+        Row() {
+          ProviderIcon({
+            iconType: this.provider.iconType,
+            iconPath: this.provider.iconPath,
+            textIcon: this.provider.textIcon,
+            textIconBgColor: this.provider.textIconBgColor,
+            customImagePath: this.provider.customImagePath,
+            iconSize: 24,
+            radius: 6,
+            bgColor: $r('app.color.divider'),
+            brandColor: this.provider.brandColor,
+            fallbackSymbol: $r('sys.symbol.cloud'),
+            fallbackColor: $r('app.color.text_tertiary')
+          })
+            .margin({ right: 8 })
+            .opacity(this.provider.isConnected ? 1.0 : 0.5)
+
+          Text(this.provider.name.toUpperCase())
+            .fontSize(13)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(this.provider.isConnected ? $r('app.color.text_secondary') : $r('app.color.text_tertiary'))
+            .letterSpacing(1)
+
+          Text(` (${this.getEnabledCount()})`)
+            .fontSize(13)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.text_tertiary'))
+
+          // 系统服务标签
+          if (this.provider.id === 'siliconflow') {
+            Text($r('app.string.system_service'))
+              .fontSize(11)
+              .fontColor($r('app.color.primary'))
+              .backgroundColor($r('app.color.primary_light'))
+              .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+              .borderRadius(4)
+              .margin({ left: 8 })
+          }
+
+          Blank()
+
+          // Toggle 开关（siliconflow 不显示）
+          if (this.provider.id !== 'siliconflow') {
+            Toggle({ type: ToggleType.Switch, isOn: this.provider.isConnected })
+              .selectedColor(this.themePrimary)
+              .onChange((isOn: boolean) => {
+                if (this.provider.isConnected !== isOn) {
+                  this.onToggleEnabled()
+                }
+              })
+          }
+
+          // 状态圆点：绿色=启用，灰色=停用
+          Column()
+            .width(8)
+            .height(8)
+            .borderRadius(4)
+            .backgroundColor(this.provider.isConnected ? '#4CAF50' : '#BDBDBD')
+            .margin({ left: 12 })
+
+          // 跳转箭头
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(16)
+            .fontColor([$r('app.color.text_tertiary')])
+            .margin({ left: 4 })
+        }
+        .layoutWeight(1)
+        .gesture(LongPressGesture().onAction(() => {
+          // 空实现：仅消费长按事件，阻止穿透到 ListItem 触发拖拽
+        }))
+      }
+      .width('100%')
+      .padding({ left: 12, right: 16, top: 16, bottom: 16 })
+      .onClick(() => {
+        this.onCardClick()
+      })
+    }
+    .width('100%')
+    .backgroundColor($r('app.color.surface'))
   }
 }

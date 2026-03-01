@@ -1,6 +1,7 @@
 import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { ModelProvider, ModelInfo, ProviderType } from '../models/ChatModels'
 import { ModelEditSheet } from '../components/ModelEditSheet'
+import { ModelItemCard } from '../components/ProviderDetailSheet'
 import { ProviderViewModel } from '../viewmodels/ProviderViewModel'
 import { buildIconResourcePath, getModelIconPath, isNetworkIconPath, isSandboxIconPath } from '../utils/ProviderIconUtils'
 import { showToast } from '../utils/ToastUtil'
@@ -38,6 +39,11 @@ struct ProviderDetailPage {
   @State editingModel: ModelInfo | null = null
   // 动效触发器
   @State toggleAllEffectTrigger: number = 0
+  // Tab 切换索引
+  @State currentTabIndex: number = 0
+  // Tab 图标动效触发器
+  @State configTabEffectTrigger: number = 0
+  @State modelsTabEffectTrigger: number = 0
   // 主题颜色
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
   @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
@@ -243,6 +249,35 @@ struct ProviderDetailPage {
     )
   }
 
+  // 显示删除确认对话框
+  private showDeleteConfirmDialog(): void {
+    if (this.provider === null) {
+      return
+    }
+    const providerId = this.provider.id
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.delete_provider_title'),
+      message: $r('app.string.delete_provider_confirm'),
+      autoCancel: true,
+      alignment: DialogAlignment.Center,
+      primaryButton: {
+        value: $r('app.string.cancel'),
+        action: () => {
+          // 取消操作
+        }
+      },
+      secondaryButton: {
+        value: $r('app.string.delete'),
+        fontColor: Color.Red,
+        action: async () => {
+          await this.providerViewModel.deleteProvider(providerId)
+          this.showProviderToast($r('app.string.provider_deleted'))
+          this.getUIContext().getRouter().back()
+        }
+      }
+    })
+  }
+
   // 切换分组展开状态
   private toggleGroupExpansion(index: number): void {
     if (index >= 0 && index < this.modelGroups.length) {
@@ -363,26 +398,56 @@ struct ProviderDetailPage {
         } else if (this.provider === null) {
           this.ErrorView()
         } else {
-          Scroll() {
-            Column() {
-              // 供应商头部卡片
-              this.ProviderHeaderCard()
+          // 供应商头部卡片（始终可见）
+          this.ProviderHeaderCard()
 
-              // API 配置卡片
-              this.ApiConfigCard()
+          // Tab 分区：配置 | 模型（原生悬浮 Tab 栏）
+          Tabs({ barPosition: BarPosition.End, index: this.currentTabIndex }) {
+            TabContent() {
+              Scroll() {
+                Column() {
+                  this.ApiConfigCard()
 
-              // 模型管理卡片
-              this.ModelsCard()
-
-              // 底部间距
-              Column().height(100)
+                  Column().height(100)
+                }
+                .width('100%')
+              }
+              .width('100%')
+              .height('100%')
+              .scrollBar(BarState.Off)
+              .edgeEffect(EdgeEffect.Spring)
+              .align(Alignment.Top)
             }
-            .width('100%')
+            .tabBar(this.ConfigTabBuilder())
+
+            TabContent() {
+              Scroll() {
+                Column() {
+                  this.ModelsCard()
+                  Column().height(100)
+                }
+                .width('100%')
+              }
+              .width('100%')
+              .height('100%')
+              .scrollBar(BarState.Off)
+              .edgeEffect(EdgeEffect.Spring)
+              .align(Alignment.Top)
+            }
+            .tabBar(this.ModelsTabBuilder())
           }
-          .width('100%')
           .layoutWeight(1)
-          .scrollBar(BarState.Off)
-          .edgeEffect(EdgeEffect.Spring)
+          .barOverlap(true)
+          .barBackgroundBlurStyle(BlurStyle.Thin)
+          .animationDuration(300)
+          .onChange((index: number) => {
+            this.currentTabIndex = index
+            if (index === 0) {
+              this.configTabEffectTrigger++
+            } else {
+              this.modelsTabEffectTrigger++
+            }
+          })
         }
         }
         .width('100%')
@@ -420,20 +485,73 @@ struct ProviderDetailPage {
   }
 
   private getTitleMenus(): Array<HdsNavigationMenuItemOptions> {
+    const menus: Array<HdsNavigationMenuItemOptions> = []
+
+    // 删除按钮（非预置服务商）
+    if (this.provider !== null && !this.provider.isPreset) {
+      const deleteIcon = new SymbolGlyphModifier($r('sys.symbol.clean'))
+      deleteIcon.fontSize(20)
+      deleteIcon.fontColor([$r('app.color.status_error')])
+      menus.push({
+        content: {
+          label: $r('app.string.delete_provider_title'),
+          icon: deleteIcon,
+          action: () => {
+            this.showDeleteConfirmDialog()
+          }
+        }
+      })
+    }
+
+    // 保存按钮
     const saveIcon = new SymbolGlyphModifier($r('sys.symbol.save'))
     saveIcon.fontSize(20)
     saveIcon.fontColor([$r('app.color.text_primary')])
-    return [
-      {
-        content: {
-          label: $r('app.string.save'),
-          icon: saveIcon,
-          action: () => {
-            this.saveConfigAndBack()
-          }
+    menus.push({
+      content: {
+        label: $r('app.string.save'),
+        icon: saveIcon,
+        action: () => {
+          this.saveConfigAndBack()
         }
       }
-    ]
+    })
+
+    return menus
+  }
+
+  @Builder
+  ConfigTabBuilder() {
+    Row({ space: 6 }) {
+      SymbolGlyph($r('sys.symbol.gearshape'))
+        .fontSize(16)
+        .fontColor([this.currentTabIndex === 0 ? $r('app.color.text_primary') : $r('app.color.text_tertiary')])
+        .symbolEffect(new ScaleSymbolEffect(EffectScope.WHOLE), this.configTabEffectTrigger)
+      Text($r('app.string.provider_tab_config'))
+        .fontSize(14)
+        .fontColor(this.currentTabIndex === 0 ? $r('app.color.text_primary') : $r('app.color.text_tertiary'))
+        .fontWeight(this.currentTabIndex === 0 ? FontWeight.Bold : FontWeight.Normal)
+    }
+    .justifyContent(FlexAlign.Center)
+    .height('100%')
+    .padding({ left: 16, right: 16 })
+  }
+
+  @Builder
+  ModelsTabBuilder() {
+    Row({ space: 6 }) {
+      SymbolGlyph($r('sys.symbol.satellite_map'))
+        .fontSize(16)
+        .fontColor([this.currentTabIndex === 1 ? $r('app.color.text_primary') : $r('app.color.text_tertiary')])
+        .symbolEffect(new ScaleSymbolEffect(EffectScope.WHOLE), this.modelsTabEffectTrigger)
+      Text($r('app.string.provider_tab_models'))
+        .fontSize(14)
+        .fontColor(this.currentTabIndex === 1 ? $r('app.color.text_primary') : $r('app.color.text_tertiary'))
+        .fontWeight(this.currentTabIndex === 1 ? FontWeight.Bold : FontWeight.Normal)
+    }
+    .justifyContent(FlexAlign.Center)
+    .height('100%')
+    .padding({ left: 16, right: 16 })
   }
 
   @Builder
@@ -510,10 +628,24 @@ struct ProviderDetailPage {
         }
 
         Column() {
-          Text(this.provider?.name ?? '')
-            .fontSize(18)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.text_primary'))
+          if (this.provider !== null && !this.provider.isPreset) {
+            TextInput({ text: this.provider?.name ?? '', placeholder: $r('app.string.provider_name_placeholder') })
+              .fontSize(18)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.text_primary'))
+              .backgroundColor(Color.Transparent)
+              .padding(0)
+              .onChange((value: string) => {
+                if (this.provider !== null) {
+                  this.provider.name = value
+                }
+              })
+          } else {
+            Text(this.provider?.name ?? '')
+              .fontSize(18)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.text_primary'))
+          }
 
           Text(this.provider?.baseUrl ?? '')
             .fontSize(12)
@@ -886,8 +1018,20 @@ struct ProviderDetailPage {
               // 分组内模型列表
               if (group.isExpanded) {
                 ForEach(group.models, (model: ModelInfo, modelIndex: number) => {
-                  this.ModelItem(model, modelIndex < group.models.length - 1)
-                }, (model: ModelInfo) => `${model.id}_${model.isEnabled}_${model.capabilities.supportsTools}_${model.capabilities.supportsReasoning}_${model.capabilities.supportsVision}_${model.capabilities.supportsWebSearch}`)
+                  ModelItemCard({
+                    model: model,
+                    showDivider: modelIndex < group.models.length - 1,
+                    providerId: this.provider?.id ?? '',
+                    onToggle: () => {
+                      if (this.provider !== null) {
+                        this.providerViewModel.saveProvider(this.provider)
+                      }
+                    },
+                    onEdit: () => {
+                      this.openModelEditSheet(model)
+                    }
+                  })
+                }, (model: ModelInfo) => model.id)
               }
             }
           }, (group: ProviderModelGroup, index: number) => `${group.name}_${index}_${group.isExpanded}_${this.getGroupEnabledCount(group)}`)
@@ -930,97 +1074,6 @@ struct ProviderDetailPage {
     .backgroundColor($r('app.color.surface'))
     .borderRadius(16)
     .margin({ left: 16, right: 16, top: 16 })
-  }
-
-  @Builder
-  ModelItem(model: ModelInfo, showDivider: boolean) {
-    Column() {
-      Row() {
-        // 模型图标
-        Column() {
-          if (this.hasModelIcon(model.id)) {
-            if (this.isRawfileModelIcon(model.id)) {
-              Image($rawfile(this.getModelIconResourcePath(model.id)))
-                .width(20)
-                .height(20)
-                .objectFit(ImageFit.Contain)
-            } else {
-              Image(this.getModelIconResourcePath(model.id))
-                .width(20)
-                .height(20)
-                .objectFit(ImageFit.Contain)
-            }
-          } else {
-            SymbolGlyph($r('sys.symbol.ai_edit'))
-              .fontSize(16)
-              .fontColor([$r('app.color.text_tertiary')])
-          }
-        }
-        .width(32)
-        .height(32)
-        .borderRadius(8)
-        .backgroundColor($r('app.color.background'))
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-
-        // 模型信息
-        Column() {
-          Text(model.name)
-            .fontSize(14)
-            .fontColor(model.isEnabled ? $r('app.color.text_primary') : $r('app.color.text_tertiary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-          if (model.id !== model.name) {
-            Text(model.id)
-              .fontSize(11)
-              .fontColor($r('app.color.text_tertiary'))
-              .margin({ top: 2 })
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-        .margin({ left: 10 })
-
-        // 启用开关
-        Toggle({ type: ToggleType.Switch, isOn: model.isEnabled })
-          .selectedColor(this.themePrimary)
-          .width(44)
-          .height(24)
-          .onChange((isOn: boolean) => {
-            model.isEnabled = isOn
-            if (this.provider !== null) {
-              this.providerViewModel.saveProvider(this.provider)
-            }
-          })
-
-        // 设置按钮
-        Button() {
-          SymbolGlyph($r('sys.symbol.gearshape'))
-            .fontSize(16)
-            .fontColor([$r('app.color.text_tertiary')])
-        }
-        .type(ButtonType.Circle)
-        .width(32)
-        .height(32)
-        .backgroundColor(Color.Transparent)
-        .margin({ left: 8 })
-        .onClick(() => {
-          this.openModelEditSheet(model)
-        })
-      }
-      .width('100%')
-      .height(56)
-      .padding({ left: 16, right: 12 })
-
-      if (showDivider) {
-        Divider()
-          .color($r('app.color.divider'))
-          .margin({ left: 40, right: 16 })
-      }
-    }
   }
 
   @Builder
