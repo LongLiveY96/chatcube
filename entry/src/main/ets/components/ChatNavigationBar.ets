@@ -10,6 +10,7 @@ import {
 } from '../utils/ButtonAnimationUtils'
 import { buildIconResourcePath, getModelIconPath, isNetworkIconPath, isSandboxIconPath } from '../utils/ProviderIconUtils'
 import { HdsVisualComponent, HdsSceneController, HdsSceneType, hdsEffect } from '@kit.UIDesignKit'
+import { Markdown, MarkdownController } from '@luvi/lv-markdown-in'
 
 @Component
 export struct ChatNavigationBar {
@@ -59,7 +60,7 @@ export struct ChatNavigationBar {
   @State private editingTitleInput: string = ''
   // 主题颜色
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('isDarkMode') isDarkMode: boolean = false
+  @StorageProp('isDarkMode') @Watch('onNavDarkModeChange') isDarkMode: boolean = false
   @StorageProp('ui_visual_enhanced') uiVisualEnhanced: boolean = false
   private navSceneController: HdsSceneController = new HdsSceneController().setSceneParams({
     backgroundMaskColors: ['#00000000', '#1A0A59F7', '#00000000'],
@@ -74,6 +75,28 @@ export struct ChatNavigationBar {
       color: '#330A59F7'
     }
   })
+  private titleMarkdownController: MarkdownController = new MarkdownController()
+
+  aboutToAppear(): void {
+    this.configureTitleMarkdownStyles()
+  }
+
+  private onNavDarkModeChange(): void {
+    this.configureTitleMarkdownStyles()
+  }
+
+  private configureTitleMarkdownStyles(): void {
+    const textColor = $r('app.color.text_primary')
+    const latexTextColor = this.isDarkMode ? 0xFFE0E0E0 : 0xFF333333
+
+    this.titleMarkdownController
+      .setTitleColor(textColor)
+      .setTextColor(textColor)
+      .setTextSize(15)
+      .setTextLineHeight(20)
+      .setLatexMathTextColor(latexTextColor)
+      .setLatexMathTextSize(17)
+  }
 
   private hasCurrentModelIdentity(): boolean {
     return this.currentModelId !== '' || this.currentModelName !== ''
@@ -236,13 +259,24 @@ export struct ChatNavigationBar {
             Column() {
               // 会话标题（带状态指示）
               Row() {
-                Text(this.sessionTitle)
-                  .fontSize(16)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('app.color.text_primary'))
-                  .maxLines(2)
-                  .lineHeight(20)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                if (this.titleContainsLatex()) {
+                  Markdown({
+                    controller: this.titleMarkdownController,
+                    text: this.normalizeLatexInTitle(this.sessionTitle)
+                  })
+                    .layoutWeight(1)
+                    .constraintSize({ maxHeight: 44 })
+                    .clip(true)
+                    .backgroundColor(Color.Transparent)
+                } else {
+                  Text(this.sessionTitle)
+                    .fontSize(16)
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor($r('app.color.text_primary'))
+                    .maxLines(2)
+                    .lineHeight(20)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                }
 
                 // 标题生成中指示器
                 if (this.isTitleGenerating) {
@@ -399,6 +433,19 @@ export struct ChatNavigationBar {
     if (newTitle !== '' && newTitle !== this.sessionTitle) {
       this.onTitleChanged(newTitle)
     }
+  }
+
+  private titleContainsLatex(): boolean {
+    return /\$.+?\$/.test(this.sessionTitle) ||
+      this.sessionTitle.includes('\\(') ||
+      this.sessionTitle.includes('\\[')
+  }
+
+  private normalizeLatexInTitle(title: string): string {
+    let result = title
+    result = result.replace(/\\\[([\s\S]*?)\\\]/g, (_match: string, p1: string): string => `$$${p1}$$`)
+    result = result.replace(/\\\(([\s\S]*?)\\\)/g, (_match: string, p1: string): string => `$${p1}$`)
+    return result
   }
 
   // 构建更多菜单

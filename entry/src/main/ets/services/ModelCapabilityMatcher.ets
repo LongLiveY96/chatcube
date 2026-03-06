@@ -1,5 +1,5 @@
 import { http } from '@kit.NetworkKit'
-import { ModelInfo, InputMode } from '../models/ChatModels'
+import { ModelInfo, InputMode, OutputMode } from '../models/ChatModels'
 import { PreferenceKeys, getPreferencesService } from './PreferencesService'
 
 // models.dev 单个模型的数据结构
@@ -433,6 +433,23 @@ export class ModelCapabilityMatcher {
       }
     }
 
+    // 5. 最长前缀匹配：逐步去除末尾 -suffix 段，兼容中转站/聚合商附加后缀
+    //    如 GPT-5.1-Xhigh → GPT-5.1, deepseek-r1-free → deepseek-r1
+    let prefixCandidate = baseId
+    let dashIdx = prefixCandidate.lastIndexOf('-')
+    while (dashIdx > 0) {
+      prefixCandidate = prefixCandidate.substring(0, dashIdx)
+      const found = this.cache.get(prefixCandidate)
+      if (found !== undefined) {
+        return found
+      }
+      const ci = this.getCaseInsensitive(prefixCandidate)
+      if (ci !== null) {
+        return ci
+      }
+      dashIdx = prefixCandidate.lastIndexOf('-')
+    }
+
     return null
   }
 
@@ -453,6 +470,16 @@ export class ModelCapabilityMatcher {
         if (entry.modalities.input[i] === 'image') {
           model.capabilities.supportsVision = true
           model.inputMode = InputMode.VISION
+          break
+        }
+      }
+    }
+    // modalities.output 含 "image" → outputMode = IMAGE
+    if (entry.modalities !== undefined && entry.modalities !== null &&
+      entry.modalities.output !== undefined && entry.modalities.output !== null) {
+      for (let i = 0; i < entry.modalities.output.length; i++) {
+        if (entry.modalities.output[i] === 'image') {
+          model.outputMode = OutputMode.IMAGE
           break
         }
       }

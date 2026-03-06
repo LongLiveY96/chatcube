@@ -2,7 +2,7 @@
  * 模型编辑半模态组件
  * 单页滚动布局：核心信息 → 能力标签 → 可折叠高级参数
  */
-import { ModelInfo, InputMode } from '../models/ChatModels'
+import { ModelInfo, InputMode, OutputMode } from '../models/ChatModels'
 import { LengthMetrics } from '@kit.ArkUI'
 
 @Component
@@ -16,6 +16,7 @@ export struct ModelEditSheet {
   @State capSupportsWebSearch: boolean = false
   @State capSupportsVision: boolean = false
   @State capSupportsStreaming: boolean = false
+  @State capOutputImage: boolean = false
   // 高级参数折叠状态
   @State isAdvancedExpanded: boolean = false
   // 高级参数本地状态（驱动 Slider 实时刷新）
@@ -36,6 +37,7 @@ export struct ModelEditSheet {
     this.capSupportsWebSearch = this.model.capabilities.supportsWebSearch
     this.capSupportsVision = this.model.capabilities.supportsVision
     this.capSupportsStreaming = this.model.capabilities.supportsStreaming
+    this.capOutputImage = this.model.outputMode === OutputMode.IMAGE
     this.paramTemperature = this.model.parameters.temperature
     this.paramTopP = this.model.parameters.topP
     this.paramPresencePenalty = this.model.parameters.presencePenalty
@@ -257,6 +259,25 @@ export struct ModelEditSheet {
           this.capSupportsVision = !this.capSupportsVision
           this.model.capabilities.supportsVision = this.capSupportsVision
           this.model.inputMode = this.capSupportsVision ? InputMode.VISION : InputMode.TEXT
+        })
+
+        // 图片生成
+        Row() {
+          SymbolGlyph($r('sys.symbol.picture'))
+            .fontSize(16)
+            .fontColor([this.capOutputImage ? $r('app.color.primary') : $r('app.color.text_tertiary')])
+          Text('图片生成')
+            .fontSize(13)
+            .fontColor(this.capOutputImage ? $r('app.color.primary') : $r('app.color.text_secondary'))
+            .margin({ left: 6 })
+        }
+        .height(36)
+        .padding({ left: 12, right: 14 })
+        .backgroundColor(this.capOutputImage ? $r('app.color.primary_light') : $r('app.color.divider'))
+        .borderRadius(18)
+        .onClick(() => {
+          this.capOutputImage = !this.capOutputImage
+          this.model.outputMode = this.capOutputImage ? OutputMode.IMAGE : OutputMode.TEXT
         })
       }
       .width('100%')

@@ -1,6 +1,7 @@
 import { ChatSession } from '../models/ChatModels'
 import { curves } from '@kit.ArkUI'
 import { HdsListItemCard, PrefixCustomBuilder, SuffixCustomBuilder, hdsEffect } from '@kit.UIDesignKit'
+import { Markdown, MarkdownController } from '@luvi/lv-markdown-in'
 
 @Component
 export struct SessionCard {
@@ -12,11 +13,47 @@ export struct SessionCard {
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
   @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
   @StorageProp('ui_visual_enhanced') uiVisualEnhanced: boolean = false
+  @StorageProp('isDarkMode') @Watch('onCardDarkModeChange') isDarkMode: boolean = false
+  private titleMarkdownController: MarkdownController = new MarkdownController()
   onTap: () => void = () => {}
   onDelete: () => void = () => {}
   onMultiSelect: () => void = () => {}
   onShare: () => void = () => {}
   onToggleFavorite: () => void = () => {}
+
+  aboutToAppear(): void {
+    this.configureTitleMarkdownStyles()
+  }
+
+  private onCardDarkModeChange(): void {
+    this.configureTitleMarkdownStyles()
+  }
+
+  private configureTitleMarkdownStyles(): void {
+    const textColor = $r('app.color.text_primary')
+    const latexTextColor = this.isDarkMode ? 0xFFE0E0E0 : 0xFF333333
+
+    this.titleMarkdownController
+      .setTitleColor(textColor)
+      .setTextColor(textColor)
+      .setTextSize(13)
+      .setTextLineHeight(18)
+      .setLatexMathTextColor(latexTextColor)
+      .setLatexMathTextSize(14)
+  }
+
+  private titleContainsLatex(): boolean {
+    return /\$.+?\$/.test(this.session.title) ||
+      this.session.title.includes('\\(') ||
+      this.session.title.includes('\\[')
+  }
+
+  private normalizeLatexInTitle(title: string): string {
+    let result = title
+    result = result.replace(/\\\[([\s\S]*?)\\\]/g, (_match: string, p1: string): string => `$$${p1}$$`)
+    result = result.replace(/\\\(([\s\S]*?)\\\)/g, (_match: string, p1: string): string => `$${p1}$`)
+    return result
+  }
 
   private getFavoriteMenuText(): Resource {
     if (this.session.isFavorite) {
@@ -64,12 +101,22 @@ export struct SessionCard {
       .alignItems(HorizontalAlign.Center)
 
       Column() {
-        Text(this.session.title)
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        if (this.titleContainsLatex()) {
+          Markdown({
+            controller: this.titleMarkdownController,
+            text: this.normalizeLatexInTitle(this.session.title)
+          })
+            .constraintSize({ maxHeight: 22 })
+            .clip(true)
+            .backgroundColor(Color.Transparent)
+        } else {
+          Text(this.session.title)
+            .fontSize(14)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.text_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
 
         if (this.session.lastMessagePreview !== '') {
           Text(this.session.lastMessagePreview)
@@ -116,13 +163,24 @@ export struct SessionCard {
   private MiddleContent() {
     Column() {
       Row() {
-        Text(this.session.title)
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .layoutWeight(1)
+        if (this.titleContainsLatex()) {
+          Markdown({
+            controller: this.titleMarkdownController,
+            text: this.normalizeLatexInTitle(this.session.title)
+          })
+            .layoutWeight(1)
+            .constraintSize({ maxHeight: 22 })
+            .clip(true)
+            .backgroundColor(Color.Transparent)
+        } else {
+          Text(this.session.title)
+            .fontSize(14)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.text_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+        }
 
         if (this.unreadCount > 0) {
           Text(this.getUnreadCountText())

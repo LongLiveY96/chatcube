@@ -209,6 +209,7 @@ export struct MessageBubble {
       .setInlineCodeBackgroundColor(inlineCodeBgColor)
       .setCodeBlockTheme(codeTheme)
       .setLatexMathTextColor(latexTextColor)
+      .setLatexMathTextSize(this.chatFontSize + 2)
       .setTableBackgroundColor(tableBgColor)
       .setTableTitleBackgroundColor(tableHeaderBgColor)
       .setTableInterleaveBackgroundColor(tableAltBgColor)
@@ -240,6 +241,7 @@ export struct MessageBubble {
       .setInlineCodeBackgroundColor(inlineCodeBgColor)
       .setCodeBlockTheme(codeTheme)
       .setLatexMathTextColor(latexTextColorSecondary)
+      .setLatexMathTextSize(this.chatFontSize)
       .setTableBackgroundColor(tableBgColor)
       .setTableTitleBackgroundColor(tableHeaderBgColor)
       .setTableInterleaveBackgroundColor(tableAltBgColor)
@@ -271,6 +273,7 @@ export struct MessageBubble {
       .setInlineCodeBackgroundColor(inlineCodeBgColor)
       .setCodeBlockTheme(codeTheme)
       .setLatexMathTextColor(latexTextColor)
+      .setLatexMathTextSize(this.chatFontSize)
       .setTableBackgroundColor(tableBgColor)
       .setTableTitleBackgroundColor(tableHeaderBgColor)
       .setTableInterleaveBackgroundColor(tableAltBgColor)
@@ -1520,7 +1523,69 @@ export struct MessageBubble {
     let result = content.replace(/^(\s*[-*])\s*\[ \]/gm, '$1 ☐')
     // 替换已完成任务: - [x] 或 - [X] 或 * [x] 或 * [X]
     result = result.replace(/^(\s*[-*])\s*\[[xX]\]/gm, '$1 ☑')
+    // 转换 LaTeX 分隔符: \[...\] -> $$...$$ , \(...\) -> $...$
+    // 部分模型(如 OpenAI 系列)使用 \[...\] 和 \(...\) 格式，lv-markdown-in 只识别 $/$$ 格式
+    result = this.normalizeLatexDelimiters(result)
+    result = this.convertHeadingsWithLatex(result)
     return result
+  }
+
+  /**
+   * lv-markdown-in 不渲染 Markdown 标题(##)内嵌的 LaTeX 公式，也不渲染加粗(**)内的 LaTeX。
+   * 将含 LaTeX 的标题拆分：纯文本部分保留为标题，LaTeX 及后续内容移至下方独立段落渲染。
+   */
+  private convertHeadingsWithLatex(content: string): string {
+    const codeBlocks: string[] = []
+    let result = content.replace(/```[\s\S]*?```/g, (m: string): string => {
+      codeBlocks.push(m)
+      return `\u0000HCB${(codeBlocks.length - 1).toString()}\u0000`
+    })
+
+    result = result.replace(
+      /^(#{1,6})\s+(.+)$/gm,
+      (match: string, hashes: string, text: string): string => {
+        if (!/\$.+?\$/.test(text)) {
+          return match
+        }
+        const firstDollar = text.indexOf('$')
+        const headingText = text.substring(0, firstDollar).trimEnd()
+        const latexAndRest = text.substring(firstDollar)
+
+        if (headingText.length > 0) {
+          return `${hashes} ${headingText}\n\n${latexAndRest}`
+        }
+        return latexAndRest
+      }
+    )
+
+    result = result.replace(/\u0000HCB(\d+)\u0000/g, (_m: string, idx: string): string => {
+      return codeBlocks[parseInt(idx)]
+    })
+    return result
+  }
+
+  private normalizeLatexDelimiters(content: string): string {
+    // 先保护代码块内容，避免误转换
+    const codeBlocks: string[] = []
+    let protected_ = content.replace(/```[\s\S]*?```|`[^`\n]+`/g, (match: string): string => {
+      codeBlocks.push(match)
+      return `\u0000CODE${(codeBlocks.length - 1).toString()}\u0000`
+    })
+
+    // 块级公式: \[...\] -> $$...$$
+    protected_ = protected_.replace(/\\\[([\s\S]*?)\\\]/g, (_match: string, p1: string): string => {
+      return `$$${p1}$$`
+    })
+    // 行内公式: \(...\) -> $...$
+    protected_ = protected_.replace(/\\\(([\s\S]*?)\\\)/g, (_match: string, p1: string): string => {
+      return `$${p1}$`
+    })
+
+    // 恢复代码块
+    protected_ = protected_.replace(/\u0000CODE(\d+)\u0000/g, (_match: string, idx: string): string => {
+      return codeBlocks[parseInt(idx)]
+    })
+    return protected_
   }
 
   // 提取搜索查询内容

@@ -1,8 +1,7 @@
 import { ChatSession } from '../../models/ChatModels'
-import { SymbolGlyphModifier } from '@kit.ArkUI'
-import { HdsListItemCard, PrefixCustomBuilder, SuffixCustomBuilder } from '@kit.UIDesignKit'
 import { SessionGroupData } from '../../pages/index/IndexPageTypes'
 import { buildSessionRenderKeyForIndex } from '../../pages/index/IndexSessionGroupHelper'
+import { SessionCard } from '../SessionCard'
 
 @Component
 export struct IndexSessionListSection {
@@ -354,22 +353,29 @@ export struct IndexSessionListSection {
 
         ForEach(group.sessions, (session: ChatSession, index: number) => {
           ListItem() {
-            HdsListItemCard({
-              prefixItem: new PrefixCustomBuilder((): void => { this.SessionPrefix() }),
-              textItem: {
-                customBuilder: (): void => {
-                  this.SessionMiddle(session, this.onGetUnreadCount(session.id))
-                }
-              },
-              suffixItem: new SuffixCustomBuilder((): void => { this.SessionSuffix() }),
-              cardBackgroundColor: $r('app.color.surface'),
-              cardBorderRadius: 12,
-              onClick: (): void => {
+            SessionCard({
+              session: session,
+              unreadCount: this.onGetUnreadCount(session.id),
+              enableAnimation: false,
+              enableContextMenu: !this.isMultiSelectMode,
+              onTap: (): void => {
                 if (this.isMultiSelectMode) {
                   this.onToggleSelection(session.id)
                 } else {
                   this.onOpenSession(session.id)
                 }
+              },
+              onDelete: (): void => {
+                this.onDeleteSession(session.id)
+              },
+              onMultiSelect: (): void => {
+                this.onEnterMultiSelect(session.id)
+              },
+              onShare: (): void => {
+                this.onShareSession(session)
+              },
+              onToggleFavorite: (): void => {
+                this.onToggleFavorite(session)
               }
             })
           }
@@ -384,10 +390,6 @@ export struct IndexSessionListSection {
             ? { width: 1.5, color: this.themePrimary }
             : { width: 0, color: Color.Transparent })
           .animation({ duration: 200 })
-          .bindContextMenu(this.isMultiSelectMode ? undefined :
-            (): void => { this.SessionContextMenu(session) }, ResponseType.LongPress, {
-            preview: (): void => { this.SessionPreview(session) }
-          })
         }, (session: ChatSession) => buildSessionRenderKeyForIndex(session))
       }, (group: SessionGroupData) => this.onGetGroupRenderKey(group))
 

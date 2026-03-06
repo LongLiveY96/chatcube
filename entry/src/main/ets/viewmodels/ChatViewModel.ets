@@ -67,7 +67,12 @@ interface PendingAIMessageInfo {
 // 活跃请求信息（每请求独立，用于 stopGeneration 时取消）
 interface ActiveRequestInfo {
   httpRequest: http.HttpRequest
-  cancelCallback: () => void  // 调用后将闭包内的 cancelled 标志设为 true
+  cancelCallback: () => void
+}
+
+interface ImageDownloadResult {
+  base64Data: string
+  mimeType: string
 }
 
 // 聊天状态管理
@@ -624,32 +629,8 @@ export class ChatViewModel {
         if (cancelled) {
           return
         }
-        console.info('ChatViewModel', `Received AI generated image: ${mimeType}, size: ${base64Data.length}`)
         try {
-          const attachmentId = `ai_img_${Date.now()}`
-          const ext = this.getExtensionFromMimeType(mimeType)
-          const fileName = `generated_${Date.now()}${ext}`
-
-          const attachment = new MessageAttachment(
-            attachmentId,
-            AttachmentType.IMAGE,
-            fileName,
-            '',
-            mimeType,
-            Math.floor(base64Data.length * 0.75)
-          )
-          attachment.base64Data = base64Data
-
-          if (this.attachmentStorageService.isReady()) {
-            const filePath = await this.attachmentStorageService.saveAttachment(attachment)
-            attachment.filePath = filePath
-            console.info('ChatViewModel', `AI generated image saved to: ${filePath}`)
-          } else {
-            console.warn('ChatViewModel', 'AttachmentStorageService not ready, image not persisted to file')
-          }
-
-          aiMessage.addAttachment(attachment)
-          onAIMessageUpdated(aiMessage)
+          await this.saveAIGeneratedImage(base64Data, mimeType, aiMessage, onAIMessageUpdated)
         } catch (error) {
           console.error('ChatViewModel', `Failed to save AI generated image: ${JSON.stringify(error)}`)
         }
@@ -923,7 +904,11 @@ ${webContext.content}
         if (cancelled) {
           return
         }
-        console.info('ChatViewModel', `Received AI generated image: ${mimeType}`)
+        try {
+          await this.saveAIGeneratedImage(base64Data, mimeType, aiMessage, onAIMessageUpdated)
+        } catch (error) {
+          console.error('ChatViewModel', `Failed to save AI generated image: ${JSON.stringify(error)}`)
+        }
       }
     )
 
@@ -1222,32 +1207,8 @@ ${limitedSearchContext}
         if (cancelled) {
           return
         }
-        console.info('ChatViewModel', `Received AI generated image: ${mimeType}`)
         try {
-          const attachmentId = `ai_img_${Date.now()}`
-          const ext = this.getExtensionFromMimeType(mimeType)
-          const fileName = `generated_${Date.now()}${ext}`
-
-          const attachment = new MessageAttachment(
-            attachmentId,
-            AttachmentType.IMAGE,
-            fileName,
-            '',
-            mimeType,
-            Math.floor(base64Data.length * 0.75)
-          )
-          attachment.base64Data = base64Data
-
-          if (this.attachmentStorageService.isReady()) {
-            const filePath = await this.attachmentStorageService.saveAttachment(attachment)
-            attachment.filePath = filePath
-            console.info('ChatViewModel', `AI generated image saved to: ${filePath}`)
-          } else {
-            console.warn('ChatViewModel', 'AttachmentStorageService not ready, image not persisted to file')
-          }
-
-          aiMessage.addAttachment(attachment)
-          onAIMessageUpdated(aiMessage)
+          await this.saveAIGeneratedImage(base64Data, mimeType, aiMessage, onAIMessageUpdated)
         } catch (error) {
           console.error('ChatViewModel', `Failed to save AI generated image: ${JSON.stringify(error)}`)
         }
@@ -1876,32 +1837,8 @@ ${limitedSearchContext}
         if (isCancelledFn()) {
           return
         }
-        console.info('ChatViewModel', `Received AI generated image: ${mimeType}`)
         try {
-          const attachmentId = `ai_img_${Date.now()}`
-          const ext = this.getExtensionFromMimeType(mimeType)
-          const fileName = `generated_${Date.now()}${ext}`
-
-          const attachment = new MessageAttachment(
-            attachmentId,
-            AttachmentType.IMAGE,
-            fileName,
-            '',
-            mimeType,
-            Math.floor(base64Data.length * 0.75)
-          )
-          attachment.base64Data = base64Data
-
-          if (this.attachmentStorageService.isReady()) {
-            const filePath = await this.attachmentStorageService.saveAttachment(attachment)
-            attachment.filePath = filePath
-            console.info('ChatViewModel', `AI generated image saved to: ${filePath}`)
-          } else {
-            console.warn('ChatViewModel', 'AttachmentStorageService not ready, image not persisted to file')
-          }
-
-          aiMessage.addAttachment(attachment)
-          onAIMessageUpdated(aiMessage)
+          await this.saveAIGeneratedImage(base64Data, mimeType, aiMessage, onAIMessageUpdated)
         } catch (error) {
           console.error('ChatViewModel', `Failed to save AI generated image: ${JSON.stringify(error)}`)
         }
@@ -1932,6 +1869,104 @@ ${limitedSearchContext}
       'image/bmp': '.bmp'
     }
     return mimeToExt[mimeType] || '.png'
+  }
+
+  private isImageUrl(data: string): boolean {
+    return data.startsWith('http://') || data.startsWith('https://')
+  }
+
+  private async downloadImageAsBase64(url: string): Promise<ImageDownloadResult> {
+    const httpRequest = http.createHttp()
+    try {
+      const response = await httpRequest.request(url, {
+        method: http.RequestMethod.GET,
+        connectTimeout: 15000,
+        readTimeout: 60000,
+        expectDataType: http.HttpDataType.ARRAY_BUFFER
+      })
+      if (response.responseCode !== 200) {
+        throw new Error(`HTTP ${response.responseCode}`)
+      }
+
+      const buffer = response.result as ArrayBuffer
+      const bytes = new Uint8Array(buffer)
+      const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+      let base64 = ''
+      for (let i = 0; i < bytes.length; i += 3) {
+        const b0 = bytes[i]
+        const b1 = i + 1 < bytes.length ? bytes[i + 1] : 0
+        const b2 = i + 2 < bytes.length ? bytes[i + 2] : 0
+        base64 += base64Chars.charAt(b0 >> 2)
+        base64 += base64Chars.charAt(((b0 & 3) << 4) | (b1 >> 4))
+        base64 += (i + 1 < bytes.length) ? base64Chars.charAt(((b1 & 15) << 2) | (b2 >> 6)) : '='
+        base64 += (i + 2 < bytes.length) ? base64Chars.charAt(b2 & 63) : '='
+      }
+
+      let mimeType = 'image/png'
+      const contentType = response.header?.['content-type'] as string | undefined
+      if (contentType !== undefined && contentType !== '') {
+        const semi = contentType.indexOf(';')
+        mimeType = semi >= 0 ? contentType.substring(0, semi).trim() : contentType.trim()
+      } else {
+        const lowerUrl = url.toLowerCase()
+        if (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg')) {
+          mimeType = 'image/jpeg'
+        } else if (lowerUrl.includes('.webp')) {
+          mimeType = 'image/webp'
+        } else if (lowerUrl.includes('.gif')) {
+          mimeType = 'image/gif'
+        }
+      }
+
+      const result: ImageDownloadResult = { base64Data: base64, mimeType: mimeType }
+      return result
+    } finally {
+      httpRequest.destroy()
+    }
+  }
+
+  async saveAIGeneratedImage(
+    imageData: string,
+    mimeType: string,
+    aiMessage: ChatMessage,
+    onAIMessageUpdated: (message: ChatMessage) => void
+  ): Promise<void> {
+    let finalBase64 = imageData
+    let finalMimeType = mimeType
+
+    if (this.isImageUrl(imageData)) {
+      console.info('ChatViewModel', `Downloading image from URL: ${imageData.substring(0, 100)}...`)
+      const downloaded = await this.downloadImageAsBase64(imageData)
+      finalBase64 = downloaded.base64Data
+      finalMimeType = downloaded.mimeType
+    }
+
+    console.info('ChatViewModel', `Saving AI generated image: ${finalMimeType}, size: ${finalBase64.length}`)
+
+    const attachmentId = `ai_img_${Date.now()}`
+    const ext = this.getExtensionFromMimeType(finalMimeType)
+    const fileName = `generated_${Date.now()}${ext}`
+
+    const attachment = new MessageAttachment(
+      attachmentId,
+      AttachmentType.IMAGE,
+      fileName,
+      '',
+      finalMimeType,
+      Math.floor(finalBase64.length * 0.75)
+    )
+    attachment.base64Data = finalBase64
+
+    if (this.attachmentStorageService.isReady()) {
+      const filePath = await this.attachmentStorageService.saveAttachment(attachment)
+      attachment.filePath = filePath
+      console.info('ChatViewModel', `AI generated image saved to: ${filePath}`)
+    } else {
+      console.warn('ChatViewModel', 'AttachmentStorageService not ready, image not persisted to file')
+    }
+
+    aiMessage.addAttachment(attachment)
+    onAIMessageUpdated(aiMessage)
   }
 
   // 删除消息
