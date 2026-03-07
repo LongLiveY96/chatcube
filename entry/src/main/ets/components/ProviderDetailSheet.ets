@@ -10,6 +10,7 @@ import { getPresetProviderById } from '../config/PresetProviders'
 import { ProviderIconEditSheet } from './ProviderIconEditSheet'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { ModelCapabilityMatcher } from '../services/ModelCapabilityMatcher'
+import { buildModelIconRenderData, ModelIconRenderData } from '../utils/ModelIconRenderUtils'
 import {
   ApiStyleOption,
   ProviderModelGroup,
@@ -1329,25 +1330,8 @@ export struct ModelItemCard {
   onToggle: () => void = () => {}
   onEdit: () => void = () => {}
 
-  private getModelIconPathForRender(): string {
-    return getModelIconPath(this.model.id, this.providerId, '')
-  }
-
-  private getModelIconResourcePath(): string {
-    const iconPath = this.getModelIconPathForRender()
-    if (iconPath === '') {
-      return ''
-    }
-    return buildIconResourcePath(iconPath)
-  }
-
-  private hasModelIcon(): boolean {
-    return this.getModelIconResourcePath() !== ''
-  }
-
-  private isRawfileModelIcon(): boolean {
-    const resourcePath = this.getModelIconResourcePath()
-    return resourcePath !== '' && !isNetworkIconPath(resourcePath) && !isSandboxIconPath(resourcePath)
+  private getModelIconRenderData(): ModelIconRenderData {
+    return buildModelIconRenderData(this.model.id, this.providerId, this.model.name)
   }
 
   @Builder
@@ -1358,19 +1342,23 @@ export struct ModelItemCard {
       .margin({ right: 6 })
   }
 
+  private iconRenderData(): ModelIconRenderData {
+    return this.getModelIconRenderData()
+  }
+
   build() {
     Column() {
       Row() {
         // 模型图标
         Column() {
-          if (this.hasModelIcon()) {
-            if (this.isRawfileModelIcon()) {
-              Image($rawfile(this.getModelIconResourcePath()))
+          if (this.iconRenderData().hasIcon()) {
+            if (this.iconRenderData().isRawfile()) {
+              Image($rawfile(this.iconRenderData().resourcePath))
                 .width(20)
                 .height(20)
                 .objectFit(ImageFit.Contain)
             } else {
-              Image(this.getModelIconResourcePath())
+              Image(this.iconRenderData().resourcePath)
                 .width(20)
                 .height(20)
                 .objectFit(ImageFit.Contain)

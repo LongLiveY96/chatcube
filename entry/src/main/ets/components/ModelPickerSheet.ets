@@ -1,76 +1,75 @@
 import { ModelInfo } from '../models/ChatModels'
-import { buildIconResourcePath, getModelIconPath, isNetworkIconPath, isSandboxIconPath } from '../utils/ProviderIconUtils'
-import { PickerModelGroup, buildPickerModelGroups } from '../config/ProviderDetailShared'
+import {
+  ModelRowGroupPosition,
+  ModelRowRadius,
+  ModelPickerBuildResult,
+  ModelPickerGroupHeaderRow,
+  ModelPickerModelRow,
+  ModelPickerRow,
+  ModelPickerRowType,
+  buildModelPickerRows
+} from '../config/ModelListProjection'
+import { ArrayDataSource } from '../datasource/ArrayDataSource'
+import { buildModelIconRenderData, ModelIconRenderData } from '../utils/ModelIconRenderUtils'
 
-/**
- * 模型选择器弹窗组件
- * 用于从 API 返回的模型列表中选择需要保留的模型
- */
 @Component
 export struct ModelPickerSheet {
-  @Prop availableModels: string[] = []        // API 返回的所有模型 ID
-  @Prop existingModels: ModelInfo[] = []      // 当前已有的模型（默认选中）
+  @Prop availableModels: string[] = []
+  @Prop existingModels: ModelInfo[] = []
   @Prop providerId: string = ''
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
   @StorageProp('isDarkMode') isDarkMode: boolean = false
 
   @State searchKeywords: string = ''
-  @State selectedIds: Set<string> = new Set()
-  @State isInitialized: boolean = false
-  @State pickerGroups: PickerModelGroup[] = []
+  @State selectedIds: Set<string> = new Set<string>()
 
   onConfirm: (selectedIds: string[]) => void = () => {}
   onCancel: () => void = () => {}
 
+  private rowDataSource: ArrayDataSource<ModelPickerRow> = new ArrayDataSource<ModelPickerRow>()
+  private existingModelIdSet: Set<string> = new Set<string>()
+  private filteredModelIds: string[] = []
+  private groupExpansionState: Map<string, boolean> = new Map<string, boolean>()
+  private iconRenderCache: Map<string, ModelIconRenderData> = new Map<string, ModelIconRenderData>()
+
   aboutToAppear(): void {
     this.initializeSelection()
-    this.rebuildGroups()
+    this.rebuildRows()
   }
 
-  // 初始化选中状态：已有模型默认选中
   private initializeSelection(): void {
     const selected = new Set<string>()
+    const existingModelIdSet = new Set<string>()
+    const availableModelSet = new Set<string>(this.availableModels)
     for (let i = 0; i < this.existingModels.length; i++) {
       const modelId = this.existingModels[i].id
-      // 只选中在可用模型列表中存在的已有模型
-      if (this.availableModels.includes(modelId)) {
+      existingModelIdSet.add(modelId)
+      if (availableModelSet.has(modelId)) {
         selected.add(modelId)
       }
     }
+    this.existingModelIdSet = existingModelIdSet
     this.selectedIds = selected
-    this.isInitialized = true
   }
 
-  // 根据当前过滤结果重建分组
-  private rebuildGroups(): void {
-    const filtered = this.getFilteredModels()
-    this.pickerGroups = buildPickerModelGroups(filtered)
+  private rebuildRows(): void {
+    const startAt = Date.now()
+    const result: ModelPickerBuildResult = buildModelPickerRows(
+      this.availableModels,
+      this.existingModelIdSet,
+      this.searchKeywords,
+      this.groupExpansionState
+    )
+    this.filteredModelIds = result.filteredModelIds
+    this.rowDataSource.setData(result.rows)
+    console.info(
+      'ModelPickerSheet',
+      `[rebuildRows] available=${this.availableModels.length}, rows=${result.rows.length}, filtered=${this.filteredModelIds.length}, cost=${Date.now() - startAt}ms`
+    )
   }
 
-  // 获取过滤后的模型列表
-  private getFilteredModels(): string[] {
-    if (this.searchKeywords.trim() === '') {
-      return this.availableModels
-    }
-    const keyword = this.searchKeywords.toLowerCase()
-    const result: string[] = []
-    for (let i = 0; i < this.availableModels.length; i++) {
-      const modelId = this.availableModels[i]
-      if (modelId.toLowerCase().includes(keyword)) {
-        result.push(modelId)
-      }
-    }
-    return result
-  }
-
-  // 切换模型选中状态
   private toggleModel(modelId: string): void {
-    const newSet = new Set<string>()
-    // 复制现有选中项
-    this.selectedIds.forEach((id: string) => {
-      newSet.add(id)
-    })
-    // 切换状态
+    const newSet = new Set<string>(this.selectedIds)
     if (newSet.has(modelId)) {
       newSet.delete(modelId)
     } else {
@@ -79,139 +78,92 @@ export struct ModelPickerSheet {
     this.selectedIds = newSet
   }
 
-  // 检查模型是否选中
   private isSelected(modelId: string): boolean {
     return this.selectedIds.has(modelId)
   }
 
-  // 检查是否全选
   private isAllSelected(): boolean {
-    const filtered = this.getFilteredModels()
-    if (filtered.length === 0) {
+    if (this.filteredModelIds.length === 0) {
       return false
     }
-    for (let i = 0; i < filtered.length; i++) {
-      if (!this.selectedIds.has(filtered[i])) {
+    for (let i = 0; i < this.filteredModelIds.length; i++) {
+      if (!this.selectedIds.has(this.filteredModelIds[i])) {
         return false
       }
     }
     return true
   }
 
-  // 全选/取消全选
   private toggleSelectAll(): void {
-    const filtered = this.getFilteredModels()
-    const newSet = new Set<string>()
-    // 复制现有选中项
-    this.selectedIds.forEach((id: string) => {
-      newSet.add(id)
-    })
-
+    const newSet = new Set<string>(this.selectedIds)
     if (this.isAllSelected()) {
-      // 取消全选（只取消当前过滤结果中的）
-      for (let i = 0; i < filtered.length; i++) {
-        newSet.delete(filtered[i])
+      for (let i = 0; i < this.filteredModelIds.length; i++) {
+        newSet.delete(this.filteredModelIds[i])
       }
     } else {
-      // 全选当前过滤结果
-      for (let i = 0; i < filtered.length; i++) {
-        newSet.add(filtered[i])
+      for (let i = 0; i < this.filteredModelIds.length; i++) {
+        newSet.add(this.filteredModelIds[i])
       }
     }
     this.selectedIds = newSet
   }
 
-  // 折叠/展开分组
-  private toggleGroupExpansion(groupIndex: number): void {
-    animateTo({ duration: 200 }, () => {
-      const newGroups: PickerModelGroup[] = []
-      for (let i = 0; i < this.pickerGroups.length; i++) {
-        const g = this.pickerGroups[i]
-        if (i === groupIndex) {
-          newGroups.push({ name: g.name, modelIds: g.modelIds, isExpanded: !g.isExpanded })
-        } else {
-          newGroups.push(g)
-        }
-      }
-      this.pickerGroups = newGroups
-    })
+  private toggleGroupExpansion(groupName: string): void {
+    const current = this.groupExpansionState.has(groupName) ? (this.groupExpansionState.get(groupName) ?? true) : true
+    this.groupExpansionState.set(groupName, !current)
+    this.rebuildRows()
   }
 
-  // 判断分组是否全选
-  private isGroupAllSelected(group: PickerModelGroup): boolean {
-    if (group.modelIds.length === 0) {
+  private isGroupAllSelected(modelIds: string[]): boolean {
+    if (modelIds.length === 0) {
       return false
     }
-    for (let i = 0; i < group.modelIds.length; i++) {
-      if (!this.selectedIds.has(group.modelIds[i])) {
+    for (let i = 0; i < modelIds.length; i++) {
+      if (!this.selectedIds.has(modelIds[i])) {
         return false
       }
     }
     return true
   }
 
-  // 统计分组内已选数量
-  private getGroupSelectedCount(group: PickerModelGroup): number {
+  private getGroupSelectedCount(modelIds: string[]): number {
     let count = 0
-    for (let i = 0; i < group.modelIds.length; i++) {
-      if (this.selectedIds.has(group.modelIds[i])) {
+    for (let i = 0; i < modelIds.length; i++) {
+      if (this.selectedIds.has(modelIds[i])) {
         count++
       }
     }
     return count
   }
 
-  // 分组级全选/取消
-  private toggleGroupSelectAll(group: PickerModelGroup): void {
-    const newSet = new Set<string>()
-    this.selectedIds.forEach((id: string) => {
-      newSet.add(id)
-    })
-
-    if (this.isGroupAllSelected(group)) {
-      for (let i = 0; i < group.modelIds.length; i++) {
-        newSet.delete(group.modelIds[i])
+  private toggleGroupSelectAll(modelIds: string[]): void {
+    const newSet = new Set<string>(this.selectedIds)
+    if (this.isGroupAllSelected(modelIds)) {
+      for (let i = 0; i < modelIds.length; i++) {
+        newSet.delete(modelIds[i])
       }
     } else {
-      for (let i = 0; i < group.modelIds.length; i++) {
-        newSet.add(group.modelIds[i])
+      for (let i = 0; i < modelIds.length; i++) {
+        newSet.add(modelIds[i])
       }
     }
     this.selectedIds = newSet
   }
 
-  // 检查是否是已有模型
-  private isExistingModel(modelId: string): boolean {
-    for (let i = 0; i < this.existingModels.length; i++) {
-      if (this.existingModels[i].id === modelId) {
-        return true
-      }
+  private getModelIconRenderData(modelId: string): ModelIconRenderData {
+    const cached = this.iconRenderCache.get(modelId)
+    if (cached !== undefined) {
+      return cached
     }
-    return false
+    const renderData = buildModelIconRenderData(modelId, this.providerId, '')
+    this.iconRenderCache.set(modelId, renderData)
+    return renderData
   }
 
-  private getModelIconPathForRender(modelId: string): string {
-    return getModelIconPath(modelId, this.providerId, '')
+  private getRowIconRenderData(row: ModelPickerModelRow): ModelIconRenderData {
+    return this.getModelIconRenderData(row.modelId)
   }
 
-  private getModelIconResourcePath(modelId: string): string {
-    const iconPath = this.getModelIconPathForRender(modelId)
-    if (iconPath === '') {
-      return ''
-    }
-    return buildIconResourcePath(iconPath)
-  }
-
-  private hasModelIcon(modelId: string): boolean {
-    return this.getModelIconResourcePath(modelId) !== ''
-  }
-
-  private isRawfileModelIcon(modelId: string): boolean {
-    const resourcePath = this.getModelIconResourcePath(modelId)
-    return resourcePath !== '' && !isNetworkIconPath(resourcePath) && !isSandboxIconPath(resourcePath)
-  }
-
-  // 确认选择
   private confirmSelection(): void {
     const selected: string[] = []
     this.selectedIds.forEach((id: string) => {
@@ -222,16 +174,9 @@ export struct ModelPickerSheet {
 
   build() {
     Column() {
-      // 头部
       this.SheetHeader()
-
-      // 搜索框
       this.SearchBar()
-
-      // 全选行
       this.SelectAllRow()
-
-      // 模型列表
       this.ModelList()
     }
     .width('100%')
@@ -247,15 +192,14 @@ export struct ModelPickerSheet {
           .fontSize(16)
           .fontColor([$r('app.color.text_secondary')])
       }
-        .type(ButtonType.Circle)
-        .width(32)
-        .height(32)
-        .backgroundColor($r('app.color.divider'))
-        .onClick(() => {
-          this.onCancel()
-        })
+      .type(ButtonType.Circle)
+      .width(32)
+      .height(32)
+      .backgroundColor($r('app.color.divider'))
+      .onClick(() => {
+        this.onCancel()
+      })
 
-      // 标题
       Column() {
         Text($r('app.string.select_models'))
           .fontSize(17)
@@ -270,19 +214,18 @@ export struct ModelPickerSheet {
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Center)
 
-      // 完成按钮
       Button() {
         SymbolGlyph($r('sys.symbol.checkmark'))
           .fontSize(16)
           .fontColor([Color.White])
       }
-        .type(ButtonType.Circle)
-        .width(32)
-        .height(32)
-        .backgroundColor(this.themePrimary)
-        .onClick(() => {
-          this.confirmSelection()
-        })
+      .type(ButtonType.Circle)
+      .width(32)
+      .height(32)
+      .backgroundColor(this.themePrimary)
+      .onClick(() => {
+        this.confirmSelection()
+      })
     }
     .width('100%')
     .height(56)
@@ -299,7 +242,7 @@ export struct ModelPickerSheet {
       .padding({ left: 16, right: 16 })
       .onChange((value: string) => {
         this.searchKeywords = value
-        this.rebuildGroups()
+        this.rebuildRows()
       })
   }
 
@@ -309,16 +252,14 @@ export struct ModelPickerSheet {
       Checkbox()
         .select(this.isAllSelected())
         .selectedColor($r('app.color.primary'))
-        .hitTestBehavior(HitTestMode.None) // 让点击穿透到 Row，避免 Checkbox 自身响应点击导致冲突
+        .hitTestBehavior(HitTestMode.None)
 
-      Text(this.isAllSelected() ?
-        $r('app.string.model_picker_deselect_all') :
-        $r('app.string.model_picker_select_all'))
+      Text(this.isAllSelected() ? $r('app.string.model_picker_deselect_all') : $r('app.string.model_picker_select_all'))
         .fontSize(14)
         .fontColor($r('app.color.text_secondary'))
         .margin({ left: 8 })
 
-      Text(`(${this.selectedIds.size}/${this.getFilteredModels().length})`)
+      Text(`(${this.selectedIds.size}/${this.filteredModelIds.length})`)
         .fontSize(13)
         .fontColor($r('app.color.text_tertiary'))
         .margin({ left: 4 })
@@ -333,39 +274,38 @@ export struct ModelPickerSheet {
   }
 
   @Builder
-  GroupHeader(group: PickerModelGroup, groupIndex: number) {
+  GroupHeader(row: ModelPickerGroupHeaderRow) {
     Row() {
       Row() {
         SymbolGlyph($r('sys.symbol.chevron_right'))
           .fontSize(14)
           .fontColor([$r('app.color.text_tertiary')])
-          .rotate({ angle: group.isExpanded ? 90 : 0 })
+          .rotate({ angle: row.isExpanded ? 90 : 0 })
           .animation({ duration: 200 })
 
-        Text(group.name)
+        Text(row.groupName)
           .fontSize(14)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.text_secondary'))
           .margin({ left: 8 })
 
-        Text(` (${this.getGroupSelectedCount(group)}/${group.modelIds.length})`)
+        Text(` (${this.getGroupSelectedCount(row.modelIds)}/${row.modelIds.length})`)
           .fontSize(12)
           .fontColor($r('app.color.text_secondary'))
       }
       .layoutWeight(1)
       .onClick(() => {
-        this.toggleGroupExpansion(groupIndex)
+        this.toggleGroupExpansion(row.groupName)
       })
 
-      // 分组级 Checkbox
       Checkbox()
-        .select(this.isGroupAllSelected(group))
+        .select(this.isGroupAllSelected(row.modelIds))
         .selectedColor($r('app.color.primary'))
         .width(20)
         .height(20)
         .margin({ right: 8 })
         .onClick(() => {
-          this.toggleGroupSelectAll(group)
+          this.toggleGroupSelectAll(row.modelIds)
         })
     }
     .width('100%')
@@ -376,49 +316,42 @@ export struct ModelPickerSheet {
   @Builder
   ModelList() {
     List() {
-      ForEach(this.pickerGroups, (group: PickerModelGroup, groupIndex: number) => {
+      LazyForEach(this.rowDataSource, (row: ModelPickerRow, _index: number) => {
         ListItem() {
-          Column() {
-            // 分组标题
-            this.GroupHeader(group, groupIndex)
-
-            // 分组内模型列表
-            if (group.isExpanded) {
-              ForEach(group.modelIds, (modelId: string, modelIndex: number) => {
-                this.ModelRow(modelId, modelIndex < group.modelIds.length - 1)
-              }, (modelId: string) => `${modelId}_${this.isSelected(modelId)}`)
-            }
+          if (row.type === ModelPickerRowType.GROUP_HEADER) {
+            this.GroupHeader(row as ModelPickerGroupHeaderRow)
+          } else {
+            this.ModelRow(row as ModelPickerModelRow)
           }
         }
-      }, (group: PickerModelGroup, groupIndex: number) => `group_${group.name}_${groupIndex}_${group.isExpanded}`)
+      }, (row: ModelPickerRow) => row.key)
     }
     .width('100%')
     .layoutWeight(1)
     .padding({ left: 16, right: 16, bottom: 40 })
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
+    .cachedCount(10)
   }
 
   @Builder
-  ModelRow(modelId: string, showDivider: boolean) {
+  ModelRow(row: ModelPickerModelRow) {
     Column() {
       Row() {
-        // 复选框
         Checkbox()
-          .select(this.isSelected(modelId))
+          .select(this.isSelected(row.modelId))
           .selectedColor($r('app.color.primary'))
-          .hitTestBehavior(HitTestMode.None) // 让点击穿透到 Row
+          .hitTestBehavior(HitTestMode.None)
 
-        // 模型图标
         Column() {
-          if (this.hasModelIcon(modelId)) {
-            if (this.isRawfileModelIcon(modelId)) {
-              Image($rawfile(this.getModelIconResourcePath(modelId)))
+          if (this.getRowIconRenderData(row).hasIcon()) {
+            if (this.getRowIconRenderData(row).isRawfile()) {
+              Image($rawfile(this.getRowIconRenderData(row).resourcePath))
                 .width(20)
                 .height(20)
                 .objectFit(ImageFit.Contain)
             } else {
-              Image(this.getModelIconResourcePath(modelId))
+              Image(this.getRowIconRenderData(row).resourcePath)
                 .width(20)
                 .height(20)
                 .objectFit(ImageFit.Contain)
@@ -437,16 +370,14 @@ export struct ModelPickerSheet {
         .alignItems(HorizontalAlign.Center)
         .margin({ left: 12 })
 
-        // 模型名称
         Column() {
-          Text(modelId)
+          Text(row.modelId)
             .fontSize(14)
             .fontColor($r('app.color.text_primary'))
             .maxLines(2)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-          // 已有模型标记
-          if (this.isExistingModel(modelId)) {
+          if (row.isExisting) {
             Text($r('app.string.model_picker_added'))
               .fontSize(11)
               .fontColor($r('app.color.primary'))
@@ -459,15 +390,35 @@ export struct ModelPickerSheet {
       }
       .width('100%')
       .constraintSize({ minHeight: 56 })
+      .padding({ left: 12, right: 12, top: 12, bottom: 12 })
+      .backgroundColor($r('app.color.surface'))
+      .borderRadius(this.buildRowRadius(row.groupPosition))
       .onClick(() => {
-        this.toggleModel(modelId)
+        this.toggleModel(row.modelId)
       })
 
-      if (showDivider) {
+      if (this.shouldShowDivider(row.groupPosition)) {
         Divider()
           .color($r('app.color.divider'))
-          .margin({ left: 54 })
+          .margin({ left: 54, right: 12 })
       }
     }
+  }
+
+  private buildRowRadius(groupPosition: ModelRowGroupPosition): ModelRowRadius {
+    if (groupPosition === ModelRowGroupPosition.SINGLE) {
+      return { topLeft: 16, topRight: 16, bottomLeft: 16, bottomRight: 16 }
+    }
+    if (groupPosition === ModelRowGroupPosition.FIRST) {
+      return { topLeft: 16, topRight: 16, bottomLeft: 0, bottomRight: 0 }
+    }
+    if (groupPosition === ModelRowGroupPosition.LAST) {
+      return { topLeft: 0, topRight: 0, bottomLeft: 16, bottomRight: 16 }
+    }
+    return { topLeft: 0, topRight: 0, bottomLeft: 0, bottomRight: 0 }
+  }
+
+  private shouldShowDivider(groupPosition: ModelRowGroupPosition): boolean {
+    return groupPosition === ModelRowGroupPosition.FIRST || groupPosition === ModelRowGroupPosition.MIDDLE
   }
 }

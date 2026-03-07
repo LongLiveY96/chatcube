@@ -1,13 +1,22 @@
 import { ModelProvider, ModelInfo } from '../models/ChatModels'
-import { getModelIconPath, buildIconResourcePath, isNetworkIconPath, isSandboxIconPath } from '../utils/ProviderIconUtils'
+import {
+  ModelRowGroupPosition,
+  ModelRowRadius,
+  ModelSelectorBuildResult,
+  ModelSelectorModelRow,
+  ModelSelectorRow,
+  ModelSelectorRowType,
+  buildModelSelectorRows
+} from '../config/ModelListProjection'
 import { FavoriteModelsService, getFavoriteModelsService } from '../services/FavoriteModelsService'
 import { ProviderIcon } from './ProviderIcon'
+import { ArrayDataSource } from '../datasource/ArrayDataSource'
+import { buildModelIconRenderData, ModelIconRenderData } from '../utils/ModelIconRenderUtils'
 
-// 模型选择器内容组件（用于 bindSheet）
 @Component
 export struct ModelSelectorContent {
   @Prop currentModelId: string = ''
-  @Prop providers: ModelProvider[] = []
+  @Prop @Watch('onProvidersChanged') providers: ModelProvider[] = []
   @Prop showEditEntry: boolean = true
   @Prop showFavoriteActions: boolean = true
   @Prop showFavoriteFilter: boolean = true
@@ -17,37 +26,43 @@ export struct ModelSelectorContent {
   @Prop includeModelIdInSearch: boolean = false
   @Prop emptyStateMode: string = 'chat'
   @State searchKeywords: string = ''
-  @State favoriteKeys: string[] = []
   @State showFavoritesOnly: boolean = false
-  @State isLoadingFavorites: boolean = true
-  // 主题颜色
+  @State hasEnabledModels: boolean = false
+  @State hasFavoriteModels: boolean = false
+  @State hasFilteredModels: boolean = false
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
   @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
   @StorageProp('isDarkMode') isDarkMode: boolean = false
   onSelectModel: (providerId: string, modelId: string, modelName: string) => void =
-    (providerId: string, modelId: string, modelName: string): void => {}
+    (_providerId: string, _modelId: string, _modelName: string): void => {}
   onLongPressModel: (model: ModelInfo, provider: ModelProvider) => void =
-    (model: ModelInfo, provider: ModelProvider): void => {}
-  onClearSelection: () => void = () => {}
+    (_model: ModelInfo, _provider: ModelProvider): void => {}
+  onClearSelection: () => void = (): void => {}
 
   private favoriteService: FavoriteModelsService = getFavoriteModelsService()
+  private rowDataSource: ArrayDataSource<ModelSelectorRow> = new ArrayDataSource<ModelSelectorRow>()
+  private favoriteKeySet: Set<string> = new Set<string>()
+  private iconRenderCache: Map<string, ModelIconRenderData> = new Map<string, ModelIconRenderData>()
 
   aboutToAppear(): void {
     if (!this.showFavoriteFilter) {
       this.showFavoritesOnly = false
     }
+    this.rebuildRows()
     if (this.showFavoriteActions || this.showFavoriteFilter) {
       this.loadFavorites()
-    } else {
-      this.isLoadingFavorites = false
     }
   }
 
+  private onProvidersChanged(): void {
+    this.iconRenderCache.clear()
+    this.rebuildRows()
+  }
+
   private async loadFavorites(): Promise<void> {
-    this.isLoadingFavorites = true
     await this.favoriteService.load()
-    this.favoriteKeys = this.favoriteService.getFavoriteKeys()
-    this.isLoadingFavorites = false
+    this.favoriteKeySet = new Set<string>(this.favoriteService.getFavoriteKeys())
+    this.rebuildRows()
   }
 
   private async toggleFavorite(model: ModelInfo, provider: ModelProvider): Promise<void> {
@@ -57,116 +72,74 @@ export struct ModelSelectorContent {
       model.name,
       provider.name
     )
-    // 更新本地状态（使用复合键）
     const key = this.favoriteService.getFavoriteKey(provider.id, model.id)
+    const nextSet = new Set<string>(this.favoriteKeySet)
     if (isFavorite) {
-      this.favoriteKeys = [...this.favoriteKeys, key]
+      nextSet.add(key)
     } else {
-      this.favoriteKeys = this.favoriteKeys.filter(k => k !== key)
+      nextSet.delete(key)
     }
+    this.favoriteKeySet = nextSet
+    this.rebuildRows()
   }
 
-  private isFavorite(modelId: string, providerId: string): boolean {
-    const key = this.favoriteService.getFavoriteKey(providerId, modelId)
-    return this.favoriteKeys.includes(key)
+  private rebuildRows(): void {
+    const startAt = Date.now()
+    const result: ModelSelectorBuildResult = buildModelSelectorRows(
+      this.providers,
+      this.searchKeywords,
+      this.favoriteKeySet,
+      this.showFavoritesOnly,
+      this.includeModelIdInSearch
+    )
+    this.hasEnabledModels = result.hasEnabledModels
+    this.hasFavoriteModels = result.hasFavoriteModels
+    this.hasFilteredModels = result.hasFilteredModels
+    this.rowDataSource.setData(result.rows)
+    console.info(
+      'ModelSelectorContent',
+      `[rebuildRows] providers=${this.providers.length}, rows=${result.rows.length}, enabled=${result.enabledModelCount}, matched=${result.matchedModelCount}, cost=${Date.now() - startAt}ms`
+    )
   }
 
-  private getModelIconPathForRender(modelId: string, providerId: string, modelName: string): string {
-    if (modelId !== '') {
-      const iconById = getModelIconPath(modelId, providerId, '')
-      if (iconById !== '') {
-        return iconById
-      }
+  private getModelIconRenderData(modelId: string, providerId: string, modelName: string): ModelIconRenderData {
+    const cacheKey = `${providerId}::${modelId}::${modelName}`
+    const cached = this.iconRenderCache.get(cacheKey)
+    if (cached !== undefined) {
+      return cached
     }
-    if (modelName !== '') {
-      return getModelIconPath(modelName, providerId, '')
+    const renderData = buildModelIconRenderData(modelId, providerId, modelName)
+    this.iconRenderCache.set(cacheKey, renderData)
+    return renderData
+  }
+
+  private getModelDisplayName(model: ModelInfo): string {
+    return model.name !== '' ? model.name : model.id
+  }
+
+  private buildRowRadius(groupPosition: ModelRowGroupPosition): ModelRowRadius {
+    if (groupPosition === ModelRowGroupPosition.SINGLE) {
+      return { topLeft: 16, topRight: 16, bottomLeft: 16, bottomRight: 16 }
     }
-    return ''
-  }
-
-  private getModelIconResourcePath(modelId: string, providerId: string, modelName: string): string {
-    const iconPath = this.getModelIconPathForRender(modelId, providerId, modelName)
-    if (iconPath === '') {
-      return ''
+    if (groupPosition === ModelRowGroupPosition.FIRST) {
+      return { topLeft: 16, topRight: 16, bottomLeft: 0, bottomRight: 0 }
     }
-    return buildIconResourcePath(iconPath)
-  }
-
-  private hasModelIcon(modelId: string, providerId: string, modelName: string): boolean {
-    return this.getModelIconResourcePath(modelId, providerId, modelName) !== ''
-  }
-
-  private isRawfileIcon(modelId: string, providerId: string, modelName: string): boolean {
-    const resourcePath = this.getModelIconResourcePath(modelId, providerId, modelName)
-    return resourcePath !== '' && !isNetworkIconPath(resourcePath) && !isSandboxIconPath(resourcePath)
-  }
-
-  // 获取过滤后的模型
-  private getFilteredModels(provider: ModelProvider): ModelInfo[] {
-    if (this.searchKeywords === '' && !this.showFavoritesOnly) {
-      return provider.models.filter(m => m.isEnabled)
+    if (groupPosition === ModelRowGroupPosition.LAST) {
+      return { topLeft: 0, topRight: 0, bottomLeft: 16, bottomRight: 16 }
     }
-    const keyword = this.searchKeywords.toLowerCase()
-    return provider.models.filter(m => {
-      if (!m.isEnabled) {
-        return false
-      }
-      if (this.searchKeywords !== '') {
-        const modelName = m.name.toLowerCase()
-        let searchMatched = modelName.includes(keyword)
-        if (!searchMatched && this.includeModelIdInSearch) {
-          searchMatched = m.id.toLowerCase().includes(keyword)
-        }
-        if (!searchMatched) {
-          return false
-        }
-      }
-      if (this.showFavoritesOnly && !this.isFavorite(m.id, provider.id)) {
-        return false
-      }
-      return true
-    })
+    return { topLeft: 0, topRight: 0, bottomLeft: 0, bottomRight: 0 }
   }
 
-  // 检查过滤后是否有模型
-  private hasFilteredModels(provider: ModelProvider): boolean {
-    return this.getFilteredModels(provider).length > 0
+  private isSelectedModel(row: ModelSelectorModelRow): boolean {
+    return row.model.id === this.currentModelId
   }
 
-  // 检查是否有任何匹配的模型
-  private hasAnyFilteredModels(): boolean {
-    for (let i = 0; i < this.providers.length; i++) {
-      if (this.hasFilteredModels(this.providers[i])) {
-        return true
-      }
-    }
-    return false
+  private getRowModelDisplayName(row: ModelSelectorModelRow): string {
+    return this.getModelDisplayName(row.model)
   }
 
-  private hasAnyEnabledModels(): boolean {
-    for (let i = 0; i < this.providers.length; i++) {
-      const provider = this.providers[i]
-      for (let j = 0; j < provider.models.length; j++) {
-        const model = provider.models[j]
-        if (model.isEnabled) {
-          return true
-        }
-      }
-    }
-    return false
-  }
-
-  private hasAnyFavoriteModels(): boolean {
-    for (let i = 0; i < this.providers.length; i++) {
-      const provider = this.providers[i]
-      for (let j = 0; j < provider.models.length; j++) {
-        const model = provider.models[j]
-        if (model.isEnabled && this.isFavorite(model.id, provider.id)) {
-          return true
-        }
-      }
-    }
-    return false
+  private getRowModelIconRenderData(row: ModelSelectorModelRow): ModelIconRenderData {
+    return this.getModelIconRenderData(row.model.id, row.provider.id, row.model.name)
   }
 
   build() {
@@ -187,6 +160,7 @@ export struct ModelSelectorContent {
         .backgroundColor($r('app.color.background'))
         .onChange((value: string) => {
           this.searchKeywords = value
+          this.rebuildRows()
         })
 
       if (this.showFavoriteFilter) {
@@ -212,6 +186,7 @@ export struct ModelSelectorContent {
         })
         .onClick(() => {
           this.showFavoritesOnly = !this.showFavoritesOnly
+          this.rebuildRows()
         })
       }
     }
@@ -221,16 +196,16 @@ export struct ModelSelectorContent {
 
   @Builder
   ModelList() {
-    if (this.providers.length === 0 || !this.hasAnyEnabledModels()) {
+    if (this.providers.length === 0 || !this.hasEnabledModels) {
       this.EmptyState()
-    } else if (this.showFavoritesOnly && !this.hasAnyFavoriteModels()) {
+    } else if (this.showFavoritesOnly && !this.hasFavoriteModels) {
       this.NoFavoriteState()
-    } else if (!this.hasAnyFilteredModels()) {
+    } else if (!this.hasFilteredModels) {
       this.NoResultState()
     } else {
-      Scroll() {
-        Column() {
-          if (this.showClearSelectionOption) {
+      List() {
+        if (this.showClearSelectionOption) {
+          ListItem() {
             Row() {
               Text(this.clearSelectionText)
                 .fontSize(16)
@@ -245,32 +220,188 @@ export struct ModelSelectorContent {
             .onClick(() => {
               this.onClearSelection()
             })
-            .margin({ bottom: 12 })
           }
+          .padding({ left: 16, right: 16, top: 6, bottom: 6 })
+        }
 
-          ForEach(this.providers, (provider: ModelProvider) => {
-            if (this.hasFilteredModels(provider)) {
-              this.ProviderSection(provider)
+        LazyForEach(this.rowDataSource, (row: ModelSelectorRow, _index: number) => {
+          ListItem() {
+            if (row.type === ModelSelectorRowType.PROVIDER_HEADER) {
+              this.ProviderHeader(row.provider)
+            } else {
+              this.ModelRow(row as ModelSelectorModelRow)
             }
-          })
+          }
+        }, (row: ModelSelectorRow) => row.key)
 
+        ListItem() {
           Column().height(20)
         }
-        .width('100%')
-        .padding({
-          left: 16,
-          right: 16,
-          bottom: 12
-        })
       }
       .width('100%')
       .layoutWeight(1)
       .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+      .cachedCount(8)
+      .padding({ bottom: 12 })
       .nestedScroll({
         scrollForward: NestedScrollMode.SELF_FIRST,
         scrollBackward: NestedScrollMode.SELF_FIRST
       })
     }
+  }
+
+  @Builder
+  ProviderHeader(provider: ModelProvider) {
+    Row() {
+      ProviderIcon({
+        iconType: provider.iconType,
+        iconPath: provider.iconPath,
+        textIcon: provider.textIcon,
+        textIconBgColor: provider.textIconBgColor,
+        customImagePath: provider.customImagePath,
+        iconSize: 28,
+        radius: 8,
+        bgColor: provider.brandColor,
+        brandColor: provider.brandColor,
+        fallbackSymbol: $r('sys.symbol.message'),
+        fallbackColor: Color.White
+      })
+
+      Text(provider.name)
+        .fontSize(14)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_secondary'))
+        .margin({ left: 8 })
+    }
+    .width('100%')
+    .padding({ left: 20, right: 20, top: 12, bottom: 6 })
+  }
+
+  @Builder
+  ModelRow(row: ModelSelectorModelRow) {
+    Column() {
+      Row() {
+        Column() {
+          if (this.getRowModelIconRenderData(row).hasIcon()) {
+            if (this.getRowModelIconRenderData(row).isRawfile()) {
+              Image($rawfile(this.getRowModelIconRenderData(row).resourcePath))
+                .width(20)
+                .height(20)
+                .objectFit(ImageFit.Contain)
+            } else {
+              Image(this.getRowModelIconRenderData(row).resourcePath)
+                .width(20)
+                .height(20)
+                .objectFit(ImageFit.Contain)
+            }
+          } else {
+            ProviderIcon({
+              iconType: row.provider.iconType,
+              iconPath: row.provider.iconPath,
+              textIcon: row.provider.textIcon,
+              textIconBgColor: row.provider.textIconBgColor,
+              customImagePath: row.provider.customImagePath,
+              iconSize: 20,
+              radius: 6,
+              bgColor: row.provider.brandColor,
+              brandColor: row.provider.brandColor,
+              fallbackSymbol: $r('sys.symbol.ai_edit'),
+              fallbackColor: $r('app.color.text_tertiary')
+            })
+          }
+        }
+        .width(32)
+        .height(32)
+        .borderRadius(8)
+        .backgroundColor($r('app.color.model_icon_bg'))
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+
+        Column() {
+          Text(this.getRowModelDisplayName(row))
+            .fontSize(15)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.text_primary'))
+
+          Row() {
+            if (row.model.capabilities.supportsReasoning) {
+              this.CapabilityIcon('sys.symbol.AI_deep_thinking')
+            }
+            if (row.model.capabilities.supportsVision) {
+              this.CapabilityIcon('sys.symbol.ohos_photo')
+            }
+            if (row.model.capabilities.supportsTools) {
+              this.CapabilityIcon('sys.symbol.wrench_and_screwdriver')
+            }
+            if (row.model.capabilities.supportsWebSearch) {
+              this.CapabilityIcon('sys.symbol.ohos_wifi')
+            }
+          }
+          .margin({ top: 4 })
+        }
+        .alignItems(HorizontalAlign.Start)
+        .margin({ left: 10 })
+        .layoutWeight(1)
+
+        if (this.showEditEntry) {
+          Button() {
+            SymbolGlyph($r('sys.symbol.square_and_pencil'))
+              .fontSize(17)
+              .fontColor([$r('app.color.text_tertiary')])
+          }
+          .type(ButtonType.Circle)
+          .width(32)
+          .height(32)
+          .backgroundColor(Color.Transparent)
+          .onClick(() => {
+            this.onLongPressModel(row.model, row.provider)
+          })
+        }
+
+        if (this.showFavoriteActions) {
+          Button() {
+            SymbolGlyph(row.isFavorite ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
+              .fontSize(18)
+              .fontColor([row.isFavorite ? $r('app.color.status_error') : $r('app.color.text_tertiary')])
+          }
+          .type(ButtonType.Circle)
+          .width(32)
+          .height(32)
+          .backgroundColor(Color.Transparent)
+          .onClick(() => {
+            this.toggleFavorite(row.model, row.provider)
+          })
+        }
+
+        if (this.isSelectedModel(row)) {
+          SymbolGlyph($r('sys.symbol.checkmark'))
+            .fontSize(18)
+            .fontColor([this.themePrimary])
+        }
+      }
+      .width('100%')
+      .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+      .backgroundColor(this.isSelectedModel(row) ? this.themePrimaryLight : $r('app.color.surface'))
+      .borderRadius(this.buildRowRadius(row.groupPosition))
+      .onClick(() => {
+        this.onSelectModel(row.provider.id, row.model.id, this.getRowModelDisplayName(row))
+      })
+      .gesture(LongPressGesture({ duration: 500 })
+        .onAction(() => {
+          if (this.showEditEntry) {
+            this.onLongPressModel(row.model, row.provider)
+          }
+        }))
+
+      if (row.groupPosition === ModelRowGroupPosition.FIRST || row.groupPosition === ModelRowGroupPosition.MIDDLE) {
+        Divider()
+          .color($r('app.color.divider'))
+          .margin({ left: 60, right: 12 })
+      }
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16 })
   }
 
   @Builder
@@ -337,170 +468,6 @@ export struct ModelSelectorContent {
     .width('100%')
     .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
-  }
-
-  @Builder
-  ProviderSection(provider: ModelProvider) {
-    Column() {
-      Row() {
-        // 使用 ProviderIcon 组件显示供应商图标
-        ProviderIcon({
-          iconType: provider.iconType,
-          iconPath: provider.iconPath,
-          textIcon: provider.textIcon,
-          textIconBgColor: provider.textIconBgColor,
-          customImagePath: provider.customImagePath,
-          iconSize: 28,
-          radius: 8,
-          bgColor: provider.brandColor,
-          brandColor: provider.brandColor,
-          fallbackSymbol: $r('sys.symbol.message'),
-          fallbackColor: Color.White
-        })
-
-        Text(provider.name)
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_secondary'))
-          .margin({ left: 8 })
-      }
-      .width('100%')
-      .padding({ top: 10, bottom: 6, left: 4 })
-
-      Column() {
-        ForEach(this.getFilteredModels(provider), (model: ModelInfo) => {
-          Row() {
-            // 模型图标
-            Column() {
-              if (this.hasModelIcon(model.id, provider.id, model.name)) {
-                if (this.isRawfileIcon(model.id, provider.id, model.name)) {
-                  Image($rawfile(this.getModelIconResourcePath(model.id, provider.id, model.name)))
-                    .width(20)
-                    .height(20)
-                    .objectFit(ImageFit.Contain)
-                } else {
-                  Image(this.getModelIconResourcePath(model.id, provider.id, model.name))
-                    .width(20)
-                    .height(20)
-                    .objectFit(ImageFit.Contain)
-                }
-              } else {
-                ProviderIcon({
-                  iconType: provider.iconType,
-                  iconPath: provider.iconPath,
-                  textIcon: provider.textIcon,
-                  textIconBgColor: provider.textIconBgColor,
-                  customImagePath: provider.customImagePath,
-                  iconSize: 20,
-                  radius: 6,
-                  bgColor: provider.brandColor,
-                  brandColor: provider.brandColor,
-                  fallbackSymbol: $r('sys.symbol.ai_edit'),
-                  fallbackColor: $r('app.color.text_tertiary')
-                })
-              }
-            }
-            .width(32)
-            .height(32)
-            .borderRadius(8)
-            .backgroundColor($r('app.color.model_icon_bg'))
-            .justifyContent(FlexAlign.Center)
-            .alignItems(HorizontalAlign.Center)
-
-            Column() {
-              Text(model.name !== '' ? model.name : model.id)
-                .fontSize(15)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('app.color.text_primary'))
-
-              // 模型能力图标
-              Row() {
-                if (model.capabilities.supportsReasoning) {
-                  this.CapabilityIcon('sys.symbol.AI_deep_thinking')
-                }
-                if (model.capabilities.supportsVision) {
-                  this.CapabilityIcon('sys.symbol.ohos_photo')
-                }
-                if (model.capabilities.supportsTools) {
-                  this.CapabilityIcon('sys.symbol.wrench_and_screwdriver')
-                }
-                if (model.capabilities.supportsWebSearch) {
-                  this.CapabilityIcon('sys.symbol.ohos_wifi')
-                }
-              }
-              .margin({ top: 4 })
-            }
-            .alignItems(HorizontalAlign.Start)
-            .margin({ left: 10 })
-            .layoutWeight(1)
-
-            if (this.showEditEntry) {
-              // 编辑按钮
-              Button() {
-                SymbolGlyph($r('sys.symbol.square_and_pencil'))
-                  .fontSize(17)
-                  .fontColor([$r('app.color.text_tertiary')])
-              }
-              .type(ButtonType.Circle)
-              .width(32)
-              .height(32)
-              .backgroundColor(Color.Transparent)
-              .onClick(() => {
-                this.onLongPressModel(model, provider)
-              })
-            }
-
-            if (this.showFavoriteActions) {
-              // 收藏按钮
-              Button() {
-                SymbolGlyph(this.isFavorite(model.id, provider.id) ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
-                  .fontSize(18)
-                  .fontColor([this.isFavorite(model.id, provider.id) ? $r('app.color.status_error') : $r('app.color.text_tertiary')])
-              }
-              .type(ButtonType.Circle)
-              .width(32)
-              .height(32)
-              .backgroundColor(Color.Transparent)
-              .onClick(() => {
-                this.toggleFavorite(model, provider)
-              })
-            }
-
-            // 选中状态
-            if (model.id === this.currentModelId) {
-              SymbolGlyph($r('sys.symbol.checkmark'))
-                .fontSize(18)
-                .fontColor([this.themePrimary])
-            }
-          }
-          .width('100%')
-          .padding({ left: 12, right: 12, top: 10, bottom: 10 })
-          .backgroundColor(model.id === this.currentModelId ? this.themePrimaryLight : Color.Transparent)
-          .borderRadius(12)
-          .onClick(() => {
-            const modelName = model.name !== '' ? model.name : model.id
-            this.onSelectModel(provider.id, model.id, modelName)
-          })
-          .gesture(LongPressGesture({ duration: 500 })
-            .onAction(() => {
-              if (this.showEditEntry) {
-                this.onLongPressModel(model, provider)
-              }
-            }))
-        }, (model: ModelInfo): string =>
-          `${provider.id}_${model.id}_${model.isEnabled}_${model.capabilities.supportsTools}_` +
-          `${model.capabilities.supportsReasoning}_${model.capabilities.supportsVision}_` +
-          `${model.capabilities.supportsWebSearch}`)
-      }
-      .width('100%')
-      .backgroundColor($r('app.color.surface'))
-      .borderRadius(16)
-      .border({
-        width: 1,
-        color: $r('app.color.divider')
-      })
-    }
-    .width('100%')
   }
 
   @Builder

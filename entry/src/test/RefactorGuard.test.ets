@@ -1,9 +1,18 @@
 import { describe, it, expect } from '@ohos/hypium'
-import { ModelInfo, ChatSession } from '../main/ets/models/ChatModels'
+import { ModelInfo, ChatSession, ModelProvider, ProviderType, ApiStyle } from '../main/ets/models/ChatModels'
 import {
   buildProviderModelGroups,
   filterProviderModelsByKeyword
 } from '../main/ets/config/ProviderDetailShared'
+import {
+  buildModelSelectorRows,
+  buildModelPickerRows,
+  ModelRowGroupPosition,
+  ModelSelectorModelRow,
+  ModelSelectorRowType,
+  ModelPickerModelRow,
+  ModelPickerRowType
+} from '../main/ets/config/ModelListProjection'
 import { SessionFilterType, SessionGroupData } from '../main/ets/pages/index/IndexPageTypes'
 import { buildSessionGroupRenderKey, buildSessionRenderKeyForIndex } from '../main/ets/pages/index/IndexSessionGroupHelper'
 import { AppError, AppErrorCode, Result } from '../main/ets/models/AppError'
@@ -50,6 +59,69 @@ export default function refactorGuardTest() {
       expect(byName[0].id).assertEqual('claude-3-5-sonnet')
       expect(byId.length).assertEqual(1)
       expect(byId[0].id).assertEqual('gpt-4o')
+    })
+
+    it('buildModelSelectorRows_should_filter_enabled_models_and_keep_provider_order', 0, () => {
+      const providerA = new ModelProvider('openai', 'OpenAI', ProviderType.CUSTOM, 'message', '' as Resource, '',
+        ApiStyle.OPENAI)
+      providerA.models = [
+        new ModelInfo('gpt-4o', 'GPT-4o', 4096, true, false),
+        new ModelInfo('gpt-4.1', 'GPT-4.1', 4096, false, false)
+      ]
+
+      const providerB = new ModelProvider('anthropic', 'Anthropic', ProviderType.CUSTOM, 'message', '' as Resource, '',
+        ApiStyle.OPENAI)
+      providerB.models = [
+        new ModelInfo('claude-3-5-sonnet', 'Claude Sonnet', 4096, true, false)
+      ]
+
+      const result = buildModelSelectorRows([providerA, providerB], '', new Set<string>(), false, false)
+
+      expect(result.enabledModelCount).assertEqual(2)
+      expect(result.matchedModelCount).assertEqual(2)
+      expect(result.rows.length).assertEqual(4)
+      expect(result.rows[0].type).assertEqual(ModelSelectorRowType.PROVIDER_HEADER)
+      expect(result.rows[1].type).assertEqual(ModelSelectorRowType.MODEL_ITEM)
+      expect(result.rows[2].type).assertEqual(ModelSelectorRowType.PROVIDER_HEADER)
+      expect(result.rows[3].type).assertEqual(ModelSelectorRowType.MODEL_ITEM)
+      expect((result.rows[1] as ModelSelectorModelRow).groupPosition).assertEqual(ModelRowGroupPosition.SINGLE)
+    })
+
+    it('buildModelSelectorRows_should_support_favorite_and_model_id_search', 0, () => {
+      const provider = new ModelProvider('gateway', 'Gateway', ProviderType.CUSTOM, 'message', '' as Resource, '',
+        ApiStyle.OPENAI)
+      provider.models = [
+        new ModelInfo('gpt-4o', 'GPT Four', 4096, true, false),
+        new ModelInfo('claude-3-5-sonnet', 'Claude Sonnet', 4096, true, false)
+      ]
+
+      const favorites = new Set<string>(['gateway::gpt-4o'])
+      const favoriteOnly = buildModelSelectorRows([provider], '', favorites, true, false)
+      const byId = buildModelSelectorRows([provider], 'gpt-4o', favorites, false, true)
+
+      expect(favoriteOnly.rows.length).assertEqual(2)
+      expect(favoriteOnly.favoriteEnabledCount).assertEqual(1)
+      expect(byId.rows.length).assertEqual(2)
+      expect((byId.rows[1] as ModelSelectorModelRow).model.id).assertEqual('gpt-4o')
+    })
+
+    it('buildModelPickerRows_should_flatten_groups_with_expansion_state', 0, () => {
+      const expansionState = new Map<string, boolean>()
+      expansionState.set('Claude', false)
+
+      const result = buildModelPickerRows(
+        ['gpt-4o', 'gpt-4.1', 'claude-3-5-sonnet'],
+        new Set<string>(['gpt-4o']),
+        '',
+        expansionState
+      )
+
+      expect(result.filteredModelIds.length).assertEqual(3)
+      expect(result.rows.length).assertEqual(4)
+      expect(result.rows[0].type).assertEqual(ModelPickerRowType.GROUP_HEADER)
+      expect(result.rows[1].type).assertEqual(ModelPickerRowType.MODEL_ITEM)
+      expect(result.rows[3].type).assertEqual(ModelPickerRowType.GROUP_HEADER)
+      expect((result.rows[1] as ModelPickerModelRow).isExisting).assertEqual(true)
     })
 
     it('result_should_wrap_app_error', 0, () => {
