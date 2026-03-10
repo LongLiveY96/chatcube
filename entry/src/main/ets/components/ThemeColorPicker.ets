@@ -40,7 +40,7 @@ export struct ThemeColorPicker {
           .width(24)
           .height(24)
           .borderRadius(12)
-          .backgroundColor(this.isDarkMode ? theme.dark.background : theme.light.background)
+          .backgroundColor(theme.previewColors[0])
           .border({
             width: 1,
             color: this.isDarkMode ? theme.dark.divider : theme.light.divider
@@ -51,7 +51,7 @@ export struct ThemeColorPicker {
           .width(24)
           .height(24)
           .borderRadius(12)
-          .backgroundColor(this.isDarkMode ? theme.dark.primary : theme.light.primary)
+          .backgroundColor(theme.previewColors[1])
           .margin({ left: 8 })
 
         // 气泡色预览
@@ -59,7 +59,7 @@ export struct ThemeColorPicker {
           .width(24)
           .height(24)
           .borderRadius(12)
-          .backgroundColor(this.isDarkMode ? theme.dark.userBubble : theme.light.userBubble)
+          .backgroundColor(theme.previewColors[2])
           .margin({ left: 8 })
 
         Blank()

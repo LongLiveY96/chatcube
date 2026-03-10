@@ -52,6 +52,7 @@ export class ChatManualSearchFlowDependencies {
   onClearComposer: () => void
   onBeforeManualSearchStart: () => void
   onSetNewEmptySession: (value: boolean) => void
+  onDraftCommitted: () => void
   onMarkAutoTaskFailed: (message: string) => void
   onMarkAutoTaskCompleted: () => void
   onShowError: (message: string | Resource) => void
@@ -78,6 +79,7 @@ export class ChatManualSearchFlowDependencies {
     onClearComposer: () => void,
     onBeforeManualSearchStart: () => void,
     onSetNewEmptySession: (value: boolean) => void,
+    onDraftCommitted: () => void,
     onMarkAutoTaskFailed: (message: string) => void,
     onMarkAutoTaskCompleted: () => void,
     onShowError: (message: string | Resource) => void,
@@ -103,6 +105,7 @@ export class ChatManualSearchFlowDependencies {
     this.onClearComposer = onClearComposer
     this.onBeforeManualSearchStart = onBeforeManualSearchStart
     this.onSetNewEmptySession = onSetNewEmptySession
+    this.onDraftCommitted = onDraftCommitted
     this.onMarkAutoTaskFailed = onMarkAutoTaskFailed
     this.onMarkAutoTaskCompleted = onMarkAutoTaskCompleted
     this.onShowError = onShowError
@@ -187,6 +190,7 @@ export class ChatManualSearchFlow {
     this.deps.messageDataSource.addMessage(userMessage)
     this.deps.onSyncMessages()
     this.deps.onSetNewEmptySession(false)
+    this.deps.onDraftCommitted()
     this.deps.onScrollBottom()
     return userMessage
   }

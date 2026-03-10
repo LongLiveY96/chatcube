@@ -6,7 +6,8 @@ export enum ColorTheme {
   CHATGPT = 'chatgpt',      // ChatGPT 风格
   VIOLET = 'violet',        // 紫罗兰
   MINT = 'mint',            // 薄荷绿
-  SUNSET = 'sunset'         // 日落橙
+  SUNSET = 'sunset',        // 日落橙
+  BERRY = 'berry'           // 莓果粉
 }
 
 // 主题颜色配置接口
@@ -58,7 +59,7 @@ const DEFAULT_THEME: ThemeInfo = {
   id: ColorTheme.DEFAULT,
   nameKey: 'theme_color_default',
   descriptionKey: 'theme_color_default_desc',
-  previewColors: ['#F1F3F5', '#0A59F7', '#0A59F7'],
+  previewColors: ['#F1F3F5', '#E8F0FE', '#0A59F7'],
   light: {
     primary: '#0A59F7',
     primaryLight: '#E8F0FE',
@@ -114,7 +115,7 @@ const YUANBAO_THEME: ThemeInfo = {
   id: ColorTheme.YUANBAO,
   nameKey: 'theme_color_yuanbao',
   descriptionKey: 'theme_color_yuanbao_desc',
-  previewColors: ['#FAF8F5', '#D4A574', '#D4A574'],
+  previewColors: ['#FAF8F5', '#F5EBE0', '#D4A574'],
   light: {
     primary: '#D4A574',
     primaryLight: '#F5EBE0',
@@ -170,7 +171,7 @@ const CLAUDE_THEME: ThemeInfo = {
   id: ColorTheme.CLAUDE,
   nameKey: 'theme_color_claude',
   descriptionKey: 'theme_color_claude_desc',
-  previewColors: ['#F5F5F0', '#D97757', '#D97757'],
+  previewColors: ['#F5F5F0', '#FDEEE8', '#D97757'],
   light: {
     primary: '#D97757',
     primaryLight: '#FDEEE8',
@@ -226,7 +227,7 @@ const CHATGPT_THEME: ThemeInfo = {
   id: ColorTheme.CHATGPT,
   nameKey: 'theme_color_chatgpt',
   descriptionKey: 'theme_color_chatgpt_desc',
-  previewColors: ['#F7F7F8', '#10A37F', '#10A37F'],
+  previewColors: ['#F7F7F8', '#E6F7F2', '#10A37F'],
   light: {
     primary: '#10A37F',
     primaryLight: '#E6F7F2',
@@ -282,7 +283,7 @@ const VIOLET_THEME: ThemeInfo = {
   id: ColorTheme.VIOLET,
   nameKey: 'theme_color_violet',
   descriptionKey: 'theme_color_violet_desc',
-  previewColors: ['#FAF5FF', '#8B5CF6', '#8B5CF6'],
+  previewColors: ['#FAF5FF', '#EDE9FE', '#8B5CF6'],
   light: {
     primary: '#8B5CF6',
     primaryLight: '#EDE9FE',
@@ -338,7 +339,7 @@ const MINT_THEME: ThemeInfo = {
   id: ColorTheme.MINT,
   nameKey: 'theme_color_mint',
   descriptionKey: 'theme_color_mint_desc',
-  previewColors: ['#F0FDF4', '#10B981', '#10B981'],
+  previewColors: ['#F0FDF4', '#D1FAE5', '#10B981'],
   light: {
     primary: '#10B981',
     primaryLight: '#D1FAE5',
@@ -394,7 +395,7 @@ const SUNSET_THEME: ThemeInfo = {
   id: ColorTheme.SUNSET,
   nameKey: 'theme_color_sunset',
   descriptionKey: 'theme_color_sunset_desc',
-  previewColors: ['#FFFBF5', '#F97316', '#F97316'],
+  previewColors: ['#FFFBF5', '#FFEDD5', '#F97316'],
   light: {
     primary: '#F97316',
     primaryLight: '#FFEDD5',
@@ -445,6 +446,62 @@ const SUNSET_THEME: ThemeInfo = {
   }
 }
 
+// 莓果粉主题
+const BERRY_THEME: ThemeInfo = {
+  id: ColorTheme.BERRY,
+  nameKey: 'theme_color_berry',
+  descriptionKey: 'theme_color_berry_desc',
+  previewColors: ['#FFF1F5', '#FCE7F3', '#EC4899'],
+  light: {
+    primary: '#EC4899',
+    primaryLight: '#FCE7F3',
+    background: '#FFF1F5',
+    surface: '#FFFFFF',
+    divider: '#F5C2D8',
+    userBubble: '#EC4899',
+    userBubbleText: '#FFFFFF',
+    aiBubble: '#FFFFFF',
+    textPrimary: '#4A102A',
+    textSecondary: '#9D4C71',
+    textTertiary: '#D989AE',
+    markdownTitle: '#4A102A',
+    markdownText: '#6B2140',
+    markdownLink: '#DB2777',
+    markdownLinkBg: '#FCE7F3',
+    markdownCodeBg: '#FFF5F8',
+    markdownCodeText: '#BE185D',
+    markdownQuoteBg: '#FFF5F8',
+    markdownTableBg: '#FFFFFF',
+    markdownTableHeaderBg: '#FFF5F8',
+    markdownTableAltBg: '#FFF8FA',
+    markdownTableBorder: '#F5C2D8'
+  },
+  dark: {
+    primary: '#F472B6',
+    primaryLight: '#3C1630',
+    background: '#1F0E18',
+    surface: '#2D1623',
+    divider: '#4A2638',
+    userBubble: '#F472B6',
+    userBubbleText: '#FFFFFF',
+    aiBubble: '#2D1623',
+    textPrimary: '#FFE4F1',
+    textSecondary: '#F9A8D4',
+    textTertiary: '#B86B92',
+    markdownTitle: '#FFE4F1',
+    markdownText: '#FFD3E7',
+    markdownLink: '#F472B6',
+    markdownLinkBg: '#3C1630',
+    markdownCodeBg: '#2D1623',
+    markdownCodeText: '#F9A8D4',
+    markdownQuoteBg: '#2D1623',
+    markdownTableBg: '#2D1623',
+    markdownTableHeaderBg: '#4A2638',
+    markdownTableAltBg: '#351B29',
+    markdownTableBorder: '#4A2638'
+  }
+}
+
 // 所有主题列表
 export const ALL_THEMES: ThemeInfo[] = [
   DEFAULT_THEME,
@@ -453,7 +510,8 @@ export const ALL_THEMES: ThemeInfo[] = [
   CHATGPT_THEME,
   VIOLET_THEME,
   MINT_THEME,
-  SUNSET_THEME
+  SUNSET_THEME,
+  BERRY_THEME
 ]
 
 // 根据主题 ID 获取主题信息

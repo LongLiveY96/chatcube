@@ -56,6 +56,7 @@ import {
   toListScrollIndexForMessage
 } from './chat/ChatMessageActionHelper'
 import { ChatPageRouteParams } from './chat/ChatPageRouteTypes'
+import { getChatContentMaxWidth, LayoutSizeClass } from '../config/LayoutProfile'
 
 const DOMAIN = 0x0003
 const TAG = 'ChatPage'
@@ -132,6 +133,8 @@ export struct ChatPage {
   // 避让区域高度
   @StorageProp('topAvoidHeight') topAvoidHeight: number = 0
   @StorageProp('bottomAvoidHeight') bottomAvoidHeight: number = 0
+  @StorageProp('layout_size_class') layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @StorageProp('window_width_vp') windowWidthVp: number = 0
   // 主题颜色
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
   @StorageProp('theme_user_bubble') themeUserBubble: string = '#0A59F7'
@@ -171,6 +174,7 @@ export struct ChatPage {
   private forcedToolIdsOnce: string[] = []
   private currentTaskId: string = ''
   private lastHandledAlertTimestamp: number = 0
+  private isPageVisible: boolean = false
   private streamSyncTimerId: number = -1
   private manualSearchFlow: ChatManualSearchFlow | null = null
   private sendFlow: ChatSendFlow | null = null
@@ -180,6 +184,8 @@ export struct ChatPage {
   private loadFlow: ChatPageLoadFlow | null = null
   private taskAlertFlow: ChatTaskAlertFlow | null = null
   private scrollUiFlow: ChatScrollUiFlow | null = null
+  private draftAutosaveTimerId: number = -1
+  private readonly draftAutosaveDelayMs: number = 400
 
   private showChatSnack(message: string | Resource, duration: number = 2000,
     tone: SnackBarTone = SnackBarTone.DEFAULT): void {
@@ -272,13 +278,16 @@ export struct ChatPage {
   }
 
   aboutToDisappear(): void {
+    this.isPageVisible = false
     // 释放TTS资源
     this.ttsService.destroy()
     this.clearStreamSyncTimer()
+    this.flushDraftAutosave(true).catch((error: Error): void => {
+      console.error('ChatPage', `Failed to flush draft on disappear: ${JSON.stringify(error)}`)
+    })
     AppStorage.setOrCreate(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, '')
 
-    // 如果是通过"新建对话"创建的空会话，返回时删除
-    if (this.isNewEmptySession && this.messages.length === 0 && this.sessionId !== '') {
+    if (this.shouldDeleteEmptySessionOnDisappear()) {
       this.chatViewModel.deleteSession(this.sessionId)
       console.info('ChatPage', '删除空会话: ' + this.sessionId)
     }
@@ -345,6 +354,8 @@ export struct ChatPage {
     this.initialPromptAutoSent = loadResult.initialPromptAutoSent
     this.sessionId = loadResult.sessionId
     this.sessionTitle = loadResult.sessionTitle
+    this.inputText = loadResult.draftText
+    this.pendingAttachments = [...loadResult.draftAttachments]
     this.isNewChatTransition = loadResult.isNewChatTransition
     this.isNewEmptySession = loadResult.isNewEmptySession
 
@@ -386,6 +397,7 @@ export struct ChatPage {
   }
 
   private handlePageShown(): void {
+    this.isPageVisible = true
     if (this.isLoading || this.sessionId === '') {
       return
     }
@@ -518,6 +530,7 @@ export struct ChatPage {
       (): ChatMessage[] => this.messages,
       (): ReasoningLevel => this.reasoningLevel,
       (): void => {
+        this.clearDraftAutosaveTimer()
         this.inputText = ''
         this.pendingAttachments = []
       },
@@ -541,6 +554,11 @@ export struct ChatPage {
       },
       (value: boolean): void => {
         this.isNewEmptySession = value
+      },
+      (): void => {
+        this.persistCurrentDraftState('', []).catch((error: Error): void => {
+          console.error('ChatPage', `Failed to clear draft after send: ${JSON.stringify(error)}`)
+        })
       },
       (): void => {
         // no-op
@@ -632,6 +650,7 @@ export struct ChatPage {
         this.isSearchCancelled = value
       },
       (): void => {
+        this.clearDraftAutosaveTimer()
         this.inputText = ''
         this.pendingAttachments = []
       },
@@ -641,6 +660,11 @@ export struct ChatPage {
       },
       (value: boolean): void => {
         this.isNewEmptySession = value
+      },
+      (): void => {
+        this.persistCurrentDraftState('', []).catch((error: Error): void => {
+          console.error('ChatPage', `Failed to clear draft after manual search: ${JSON.stringify(error)}`)
+        })
       },
       (message: string): void => {
         // no-op
@@ -765,6 +789,7 @@ export struct ChatPage {
       this.chatTaskOrchestrator,
       (): string => this.taskUnreadBySessionJson,
       (): string => this.sessionId,
+      (): boolean => this.isPageVisible,
       (): number => this.lastHandledAlertTimestamp,
       (count: number): void => {
         this.otherSessionUnreadCount = count
@@ -953,16 +978,29 @@ export struct ChatPage {
     }
   }
 
+  private getChatContentMaxWidth(): number {
+    if (this.layoutSizeClass !== LayoutSizeClass.EXPANDED) {
+      return 0
+    }
+    return getChatContentMaxWidth(this.windowWidthVp)
+  }
+
+  private getPageTopAvoidHeight(): number {
+    if (this.layoutSizeClass === LayoutSizeClass.EXPANDED) {
+      return 0
+    }
+    return this.px2vp(this.topAvoidHeight)
+  }
+
   build() {
     NavDestination() {
-      Stack() {
+        Stack() {
         // 消息列表 - 占满全屏
         ChatMessageListSection({
           isLoading: this.isLoading,
           loadingColor: this.themePrimary,
           scroller: this.scroller,
           messageDataSource: this.messageDataSource,
-          topAvoidHeight: this.px2vp(this.topAvoidHeight),
           isEditingMessage: this.isEditingMessage,
           editingMessageId: this.editingMessageId,
           selectedMessageIds: this.selectedMessageIds,
@@ -972,7 +1010,9 @@ export struct ChatPage {
           showDraftPreview: this.hasDraftContent(),
           draftPreviewTimeText: this.getPreviewTimeText(),
           bottomPadding: this.getListBottomPadding(),
+          topInsetHeight: this.getPageTopAvoidHeight(),
           currentModelId: this.currentModelId,
+          contentMaxWidth: this.getChatContentMaxWidth(),
           onRegenerate: (message: ChatMessage): void => {
             this.handleRegenerate(message)
           },
@@ -1052,9 +1092,10 @@ export struct ChatPage {
           hasMessages: this.messages.length > 0,
           isTitleGenerating: this.isTitleGenerating,
           titleGenerateFailed: this.titleGenerateFailed,
-          topAvoidHeight: this.px2vp(this.topAvoidHeight),
+          contentMaxWidth: this.getChatContentMaxWidth(),
           isSending: this.isSending,
           otherSessionUnreadCount: this.otherSessionUnreadCount,
+          topInsetHeight: this.getPageTopAvoidHeight(),
           onBack: () => {
             this.handleBack()
           },
@@ -1149,6 +1190,7 @@ export struct ChatPage {
             reasoningLevel: $reasoningLevel,
             hasRecentScreenshot: this.hasRecentScreenshot,
             bottomAvoidHeight: this.px2vp(this.bottomAvoidHeight),
+            contentMaxWidth: this.getChatContentMaxWidth(),
             onCancelEdit: (): void => {
               this.handleCancelEdit()
             },
@@ -1181,6 +1223,9 @@ export struct ChatPage {
               if (!this.hasDraftContent()) {
                 this.isInputFocused = false
               }
+            },
+            onComposerContentChanged: (): void => {
+              this.handleComposerContentChanged()
             },
             onRecentPhotoDetected: (detected: boolean): void => {
               this.hasRecentScreenshot = detected
@@ -1458,6 +1503,14 @@ export struct ChatPage {
 
   // 处理返回按钮点击
   private handleBack(): void {
+    this.handleBackAsync().catch((error: Error): void => {
+      console.error('ChatPage', `Failed to prepare chat before back: ${JSON.stringify(error)}`)
+      this.navPathStack.pop()
+    })
+  }
+
+  private async handleBackAsync(): Promise<void> {
+    await this.prepareCurrentSessionForTransition()
     this.navPathStack.pop()
   }
 
@@ -1514,6 +1567,81 @@ export struct ChatPage {
   // 输入内容变化时，自动滚动到底部显示预览气泡
   private onDraftContentChanged(): void {
     this.getScrollUiFlow().onDraftContentChanged()
+  }
+
+  private handleComposerContentChanged(): void {
+    this.scheduleDraftAutosave()
+  }
+
+  private clearDraftAutosaveTimer(): void {
+    if (this.draftAutosaveTimerId < 0) {
+      return
+    }
+    clearTimeout(this.draftAutosaveTimerId)
+    this.draftAutosaveTimerId = -1
+  }
+
+  private scheduleDraftAutosave(): void {
+    if (this.isLoading || this.isEditingMessage || this.sessionId === '') {
+      return
+    }
+    this.clearDraftAutosaveTimer()
+    this.draftAutosaveTimerId = setTimeout(() => {
+      this.draftAutosaveTimerId = -1
+      this.persistCurrentDraftState(this.inputText, this.pendingAttachments).catch((error: Error): void => {
+        console.error('ChatPage', `Failed to autosave draft: ${JSON.stringify(error)}`)
+      })
+    }, this.draftAutosaveDelayMs)
+  }
+
+  private async flushDraftAutosave(immediate: boolean): Promise<void> {
+    this.clearDraftAutosaveTimer()
+    if (!immediate || this.isLoading || this.isEditingMessage || this.sessionId === '') {
+      return
+    }
+    await this.persistCurrentDraftState(this.inputText, this.pendingAttachments)
+  }
+
+  private async persistCurrentDraftState(content: string, attachments: MessageAttachment[]): Promise<void> {
+    if (this.isLoading || this.isEditingMessage || this.sessionId === '') {
+      return
+    }
+    const session = await this.chatViewModel.saveSessionDraft(content, attachments)
+    if (session === null) {
+      return
+    }
+    this.sessionId = session.id
+    this.sessionTitle = session.title
+    AppStorage.setOrCreate(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, session.id)
+  }
+
+  private async prepareCurrentSessionForTransition(): Promise<void> {
+    try {
+      await this.flushDraftAutosave(true)
+    } catch (error) {
+      console.error('ChatPage', `Failed to flush draft before session transition: ${JSON.stringify(error)}`)
+    }
+    if (!this.shouldDeleteEmptySessionOnDisappear()) {
+      return
+    }
+    const deletingSessionId = this.sessionId
+    await this.chatViewModel.deleteSession(deletingSessionId)
+    console.info('ChatPage', '删除空会话: ' + deletingSessionId)
+    if (this.sessionId === deletingSessionId) {
+      this.sessionId = ''
+      this.sessionTitle = ''
+      this.isNewEmptySession = false
+      AppStorage.setOrCreate(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, '')
+    }
+  }
+
+  private shouldDeleteEmptySessionOnDisappear(): boolean {
+    return this.isNewEmptySession &&
+      !this.isSending &&
+      this.currentTaskId === '' &&
+      this.messages.length === 0 &&
+      !this.hasDraftContent() &&
+      this.sessionId !== ''
   }
 
   // 滚动到底部（带动画过渡）
@@ -1704,8 +1832,12 @@ export struct ChatPage {
 
   // 处理新建对话
   private async handleNewChat(): Promise<void> {
+    await this.prepareCurrentSessionForTransition()
+    this.clearDraftAutosaveTimer()
     // 创建新会话
     const session = await this.chatViewModel.createNewSession()
+    this.inputText = ''
+    this.pendingAttachments = []
     // 清空当前消息
     this.messages = []
     this.messageDataSource.clear()
@@ -1717,6 +1849,7 @@ export struct ChatPage {
     this.titleGenerateFailed = false
     // 标记为新建的空会话（返回时需要删除）
     this.isNewEmptySession = true
+    AppStorage.setOrCreate(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, this.sessionId)
 
     this.showChatSnack($r('app.string.chat_created'), 2000, SnackBarTone.SUCCESS)
   }

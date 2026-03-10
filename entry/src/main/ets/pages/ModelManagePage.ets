@@ -2,12 +2,16 @@ import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { ModelProvider, ModelInfo } from '../models/ChatModels'
 import { ProviderViewModel } from '../viewmodels/ProviderViewModel'
 import { showToast } from '../utils/ToastUtil'
-import { ProviderDetailSheet } from '../components/ProviderDetailSheet'
+import { ProviderDetailPanel, ProviderDetailPresentationMode, ProviderDetailSheet } from '../components/ProviderDetailSheet'
 import { ProviderIcon } from '../components/ProviderIcon'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { ModelCapabilityMatcher } from '../services/ModelCapabilityMatcher'
 import { IconDownloadCache } from '../services/IconDownloadCache'
 import { HdsNavigation, HdsNavigationTitleMode, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit'
+import { AppStorageKeys } from '../config/AppStorageKeys'
+import { LayoutSizeClass } from '../config/LayoutProfile'
+import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
+import { isSettingsPageExpandedLayout } from '../utils/SettingsPageLayoutHelper'
 
 @Entry
 @Component
@@ -18,13 +22,96 @@ struct ModelManagePage {
   // 半模态弹窗相关状态
   @State showProviderSheet: boolean = false
   @State selectedProviderId: string = ''
+  @State detailCreateMode: boolean = false
   @State isMatchingIcons: boolean = false
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
+  @StorageProp('layout_size_class') @Watch('onLayoutSizeClassChanged') layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @StorageProp('window_width_vp') windowWidthVp: number = 0
+  @StorageProp('window_height_vp') windowHeightVp: number = 0
+  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE)
+  settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
   private hasLoaded: boolean = false
   private providerViewModel: ProviderViewModel = ServiceRegistry.provider()
 
   private showManageToast(message: string | Resource, duration: number = 2000): void {
     showToast(this.getUIContext(), message, duration)
+  }
+
+  private onLayoutSizeClassChanged(): void {
+    this.ensureExpandedDetailSelection()
+  }
+
+  private isEmbeddedSettingsDetailPane(): boolean {
+    return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
+  }
+
+  private isExpandedLayout(): boolean {
+    return isSettingsPageExpandedLayout(this.layoutSizeClass, this.settingsDetailPresentationMode, this.windowWidthVp,
+      this.windowHeightVp)
+  }
+
+  private hasExpandedDetailSelection(): boolean {
+    return this.detailCreateMode || this.selectedProviderId !== ''
+  }
+
+  private ensureExpandedDetailSelection(): void {
+    if (!this.isExpandedLayout()) {
+      return
+    }
+    if (this.detailCreateMode || this.selectedProviderId !== '') {
+      return
+    }
+    if (this.allProviders.length > 0) {
+      this.selectedProviderId = this.allProviders[0].id
+    }
+  }
+
+  private openProviderDetail(providerId: string): void {
+    if (this.isExpandedLayout()) {
+      this.detailCreateMode = false
+      this.selectedProviderId = providerId
+      return
+    }
+    this.detailCreateMode = false
+    this.selectedProviderId = providerId
+    if (!this.isEmbeddedSettingsDetailPane()) {
+      this.showProviderSheet = true
+    }
+  }
+
+  private openCreateProvider(): void {
+    if (this.isExpandedLayout()) {
+      this.detailCreateMode = true
+      this.selectedProviderId = ''
+      return
+    }
+    this.detailCreateMode = true
+    this.selectedProviderId = ''
+    if (!this.isEmbeddedSettingsDetailPane()) {
+      this.showProviderSheet = true
+    }
+  }
+
+  private handleProviderDetailClosed(): void {
+    this.refreshFromCache()
+    if (this.isExpandedLayout()) {
+      this.detailCreateMode = false
+      this.selectedProviderId = ''
+      this.ensureExpandedDetailSelection()
+      return
+    }
+    if (this.isEmbeddedSettingsDetailPane()) {
+      this.detailCreateMode = false
+      this.selectedProviderId = ''
+      return
+    }
+    this.showProviderSheet = false
+    this.selectedProviderId = ''
+  }
+
+  private showEmbeddedProviderDetailPage(): boolean {
+    return this.isEmbeddedSettingsDetailPane() && this.hasExpandedDetailSelection()
   }
 
   aboutToAppear(): void {
@@ -66,6 +153,7 @@ struct ModelManagePage {
 
     this.isLoading = false
     this.hasLoaded = true
+    this.ensureExpandedDetailSelection()
   }
 
   // 静默刷新数据（从 ViewModel 缓存同步，不访问数据库）
@@ -138,6 +226,7 @@ struct ModelManagePage {
     if (needsRebuild) {
       this.allProviders = savedProviders
     }
+    this.ensureExpandedDetailSelection()
   }
 
   // 查找供应商在 allProviders 中的索引
@@ -175,150 +264,52 @@ struct ModelManagePage {
 
   build() {
     Column() {
-      HdsNavigation() {
+      if (this.showEmbeddedProviderDetailPage()) {
+        this.EmbeddedProviderDetailPage()
+      } else if (this.isEmbeddedSettingsDetailPane()) {
         Column() {
-        // Search Bar
-        Row() {
-          Search({ value: this.searchKeywords, placeholder: $r('app.string.filter_models_placeholder') })
-            .width('100%')
-            .height(40)
-            .backgroundColor($r('app.color.surface'))
-            .onChange((value: string) => {
-              this.searchKeywords = value
-            })
+          this.DetailPaneHeader()
+          this.CompactManageBody()
         }
         .width('100%')
-        .padding({ left: 16, right: 16 })
-
-        if (this.isLoading) {
-          this.LoadingView()
-        } else {
-          List({ space: 8 }) {
-            Repeat<ModelProvider>(this.allProviders)
-              .each((obj: RepeatItem<ModelProvider>) => {
-                ListItem() {
-                  ProviderCardItem({
-                    provider: obj.item,
-                    searchKeywords: this.searchKeywords,
-                    onCardClick: () => {
-                      this.selectedProviderId = obj.item.id
-                      this.showProviderSheet = true
-                    },
-                    onToggleEnabled: () => {
-                      this.toggleProviderEnabled(obj.item)
-                    }
-                  })
-                }
-                .margin({ left: 16, right: 16 })
-                .borderRadius(16)
-                .clip(true)
-                .transition({ type: TransitionType.All, opacity: 0 })
-                .visibility(this.matchesSearch(obj.item) ? Visibility.Visible : Visibility.None)
-              })
-              .key((item: ModelProvider) => {
-                return item.id
-              })
-              .onMove((from: number, to: number) => {
-                let temp = this.allProviders.splice(from, 1)
-                this.allProviders.splice(to, 0, temp[0])
-                this.saveOrder()
-              })
-
-            // 搜索无结果提示
-            if (this.searchKeywords.trim() !== '' && this.getFilteredProviders().length === 0) {
-              ListItem() {
-                Column() {
-                  SymbolGlyph($r('sys.symbol.magnifyingglass'))
-                    .fontSize(48)
-                    .fontColor([$r('app.color.text_tertiary')])
-
-                  Text($r('app.string.provider_models_not_found'))
-                    .fontSize(16)
-                    .fontColor($r('app.color.text_secondary'))
-                    .margin({ top: 16 })
-
-                  Text($r('app.string.search_try_other_keywords'))
-                    .fontSize(14)
-                    .fontColor($r('app.color.text_tertiary'))
-                    .margin({ top: 4 })
-                }
-                .width('100%')
-                .padding({ top: 60, bottom: 60 })
-                .justifyContent(FlexAlign.Center)
-              }
-            }
-
-            // Add Provider Button
-            ListItem() {
-              Column() {
-                Button() {
-                  Row() {
-                    SymbolGlyph($r('sys.symbol.plus_circle'))
-                      .fontSize(22)
-                      .fontColor([this.themePrimary])
-
-                    Text($r('app.string.add_custom_provider'))
-                      .fontSize(15)
-                      .fontWeight(FontWeight.Medium)
-                      .fontColor(this.themePrimary)
-                      .margin({ left: 8 })
-                  }
-                }
-                .width('100%')
-                .height(56)
-                .backgroundColor($r('app.color.surface'))
-                .borderRadius(24)
-                .onClick(() => {
-                  this.selectedProviderId = ''
-                  this.showProviderSheet = true
-                })
-              }
-              .width('100%')
-              .padding({ left: 16, right: 16, top: 8 })
-            }
-
-            // Bottom Spacer
-            ListItem() {
-              Column().height(100)
-            }
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .scrollBar(BarState.Off)
-          .edgeEffect(EdgeEffect.Spring)
-        }
+        .layoutWeight(1)
+      } else {
+        HdsNavigation() {
+          this.CompactManageBody()
         }
         .width('100%')
-        .height('100%')
+        .layoutWeight(1)
         .backgroundColor($r('app.color.background'))
-      }
-      .width('100%')
-      .layoutWeight(1)
-      .backgroundColor($r('app.color.background'))
-      .titleMode(HdsNavigationTitleMode.MINI)
-      .titleBar({
-        avoidLayoutSafeArea: true,
-        enableComponentSafeArea: true,
-        content: {
-          title: {
-            mainTitle: $r('app.string.model_manage_title')
-          },
-          menu: {
-            value: this.getManageMenus()
+        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
+        .mode(NavigationMode.Stack)
+        .titleMode(HdsNavigationTitleMode.MINI)
+        .titleBar({
+          avoidLayoutSafeArea: true,
+          enableComponentSafeArea: true,
+          content: {
+            title: {
+              mainTitle: $r('app.string.model_manage_title')
+            },
+            menu: {
+              value: this.getManageMenus()
+            }
           }
-        }
-      })
-      .bindSheet($$this.showProviderSheet, this.ProviderDetailSheetBuilder(), {
-        height: SheetSize.LARGE,
-        showClose: false,
-        dragBar: true,
-        blurStyle: BlurStyle.Regular,
-        onDisappear: () => {
-          this.selectedProviderId = ''
-          // Sheet 关闭后从缓存同步（无 DB 开销，即时生效）
-          this.refreshFromCache()
-        }
-      })
+        })
+      }
+
+      // 单独的 Sheet 宿主，避免挂在动态重渲染主体上导致偶发收缩
+      Column()
+        .width(0)
+        .height(0)
+        .bindSheet($$this.showProviderSheet, this.ProviderDetailSheetBuilder(), {
+          height: SheetSize.LARGE,
+          showClose: false,
+          dragBar: true,
+          blurStyle: BlurStyle.Regular,
+          onDisappear: () => {
+            this.handleProviderDetailClosed()
+          }
+        })
     }
     .width('100%')
     .height('100%')
@@ -326,14 +317,208 @@ struct ModelManagePage {
   }
 
   @Builder
+  private DetailPaneHeader() {
+    Column() {
+      Row({ space: 10 }) {
+        Text($r('app.string.model_manage_title'))
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+
+        Button() {
+          SymbolGlyph($r('sys.symbol.wand_and_stars'))
+            .fontSize(18)
+            .fontColor([$r('app.color.text_primary')])
+        }
+        .type(ButtonType.Circle)
+        .width(36)
+        .height(36)
+        .backgroundColor($r('app.color.divider'))
+        .onClick(() => {
+          this.matchAllIcons()
+        })
+
+        Button() {
+          SymbolGlyph($r('sys.symbol.plus_circle'))
+            .fontSize(18)
+            .fontColor([$r('app.color.text_primary')])
+        }
+        .type(ButtonType.Circle)
+        .width(36)
+        .height(36)
+        .backgroundColor($r('app.color.divider'))
+        .onClick(() => {
+          this.openCreateProvider()
+        })
+      }
+      .width('100%')
+      .height(64)
+      .padding({ left: 24, right: 24 })
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .backgroundColor($r('app.color.background'))
+    .border({ width: { bottom: 1 }, color: $r('app.color.divider') })
+  }
+
+  @Builder
+  CompactManageBody() {
+    Column() {
+      this.ProviderListPane(false)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.background'))
+  }
+
+  @Builder
+  ProviderListPane(isExpandedPane: boolean) {
+    Column() {
+      Row() {
+        Search({ value: this.searchKeywords, placeholder: $r('app.string.filter_models_placeholder') })
+          .width('100%')
+          .height(40)
+          .backgroundColor($r('app.color.surface'))
+          .onChange((value: string) => {
+            this.searchKeywords = value
+          })
+      }
+      .width('100%')
+      .padding({
+        left: 16,
+        right: 16,
+        top: isExpandedPane ? 16 : 0,
+        bottom: 8
+      })
+
+      if (this.isLoading) {
+        this.LoadingView()
+      } else {
+        List({ space: 8 }) {
+          Repeat<ModelProvider>(this.allProviders)
+            .each((obj: RepeatItem<ModelProvider>) => {
+              ListItem() {
+                ProviderCardItem({
+                  provider: obj.item,
+                  searchKeywords: this.searchKeywords,
+                  active: !this.detailCreateMode && this.selectedProviderId === obj.item.id,
+                  onCardClick: () => {
+                    this.openProviderDetail(obj.item.id)
+                  },
+                  onToggleEnabled: () => {
+                    this.toggleProviderEnabled(obj.item)
+                  }
+                })
+              }
+              .margin({ left: 16, right: 16 })
+              .borderRadius(16)
+              .clip(true)
+              .transition({ type: TransitionType.All, opacity: 0 })
+              .visibility(this.matchesSearch(obj.item) ? Visibility.Visible : Visibility.None)
+            })
+            .key((item: ModelProvider) => {
+              return item.id
+            })
+            .onMove((from: number, to: number) => {
+              let temp = this.allProviders.splice(from, 1)
+              this.allProviders.splice(to, 0, temp[0])
+              this.saveOrder()
+            })
+
+          if (this.searchKeywords.trim() !== '' && this.getFilteredProviders().length === 0) {
+            ListItem() {
+              Column() {
+                SymbolGlyph($r('sys.symbol.magnifyingglass'))
+                  .fontSize(48)
+                  .fontColor([$r('app.color.text_tertiary')])
+
+                Text($r('app.string.provider_models_not_found'))
+                  .fontSize(16)
+                  .fontColor($r('app.color.text_secondary'))
+                  .margin({ top: 16 })
+
+                Text($r('app.string.search_try_other_keywords'))
+                  .fontSize(14)
+                  .fontColor($r('app.color.text_tertiary'))
+                  .margin({ top: 4 })
+              }
+              .width('100%')
+              .padding({ top: 60, bottom: 60 })
+              .justifyContent(FlexAlign.Center)
+            }
+          }
+
+          ListItem() {
+            Column() {
+              Button() {
+                Row() {
+                  SymbolGlyph($r('sys.symbol.plus_circle'))
+                    .fontSize(22)
+                    .fontColor([this.themePrimary])
+
+                  Text($r('app.string.add_custom_provider'))
+                    .fontSize(15)
+                    .fontWeight(FontWeight.Medium)
+                    .fontColor(this.themePrimary)
+                    .margin({ left: 8 })
+                }
+              }
+              .width('100%')
+              .height(56)
+              .backgroundColor($r('app.color.surface'))
+              .borderRadius(24)
+              .onClick(() => {
+                this.openCreateProvider()
+              })
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 8 })
+          }
+
+          ListItem() {
+            Column().height(100)
+          }
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.background'))
+  }
+
+  @Builder
+  EmbeddedProviderDetailPage() {
+    ProviderDetailPanel({
+      providerId: this.selectedProviderId,
+      isCreateMode: this.detailCreateMode,
+      closeOnSave: true,
+      closeOnModelsSelected: false,
+      presentationMode: ProviderDetailPresentationMode.PAGE,
+      onProviderChanged: (providerId: string, wasCreateMode: boolean) => {
+        this.refreshFromCache()
+        if (wasCreateMode) {
+          this.detailCreateMode = false
+          this.selectedProviderId = providerId
+        }
+      },
+      onClose: () => {
+        this.handleProviderDetailClosed()
+      }
+    })
+  }
+
+  @Builder
   ProviderDetailSheetBuilder() {
     ProviderDetailSheet({
       providerId: this.selectedProviderId,
-      isCreateMode: this.selectedProviderId === '',
+      isCreateMode: this.detailCreateMode,
       onClose: () => {
-        // 立即从缓存同步数据到列表（不等关闭动画）
-        this.refreshFromCache()
-        this.showProviderSheet = false
+        this.handleProviderDetailClosed()
       }
     })
   }
@@ -363,8 +548,7 @@ struct ModelManagePage {
           label: $r('app.string.add_custom_provider'),
           icon: addIcon,
           action: () => {
-            this.selectedProviderId = ''
-            this.showProviderSheet = true
+            this.openCreateProvider()
           }
         }
       }
@@ -475,7 +659,9 @@ struct ModelManagePage {
 struct ProviderCardItem {
   @ObjectLink provider: ModelProvider
   @Prop searchKeywords: string = ''
+  @Prop active: boolean = false
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
   onCardClick: () => void = () => {}
   onToggleEnabled: () => void = () => {}
 
@@ -579,6 +765,16 @@ struct ProviderCardItem {
       })
     }
     .width('100%')
-    .backgroundColor($r('app.color.surface'))
+    .backgroundColor(this.active ? this.themePrimaryLight : $r('app.color.surface'))
+    .border(this.active ? { width: 1.5, color: this.themePrimary } : { width: 0, color: Color.Transparent })
   }
+}
+
+@Builder
+export function ModelManagePageBuilder(name: string, param: Object) {
+  NavDestination() {
+    ModelManagePage()
+  }
+  .hideTitleBar(true)
+  .hideBackButton(true)
 }

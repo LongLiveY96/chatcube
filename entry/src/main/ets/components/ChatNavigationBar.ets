@@ -8,6 +8,10 @@ import {
   getButtonScale,
   getButtonAnimation
 } from '../utils/ButtonAnimationUtils'
+import {
+  CHAT_NAVIGATION_BAR_MIN_HEIGHT,
+  CHAT_NAVIGATION_VISUAL_LAYER_MIN_HEIGHT
+} from '../config/ChatLayout'
 import { buildIconResourcePath, getModelIconPath, isNetworkIconPath, isSandboxIconPath } from '../utils/ProviderIconUtils'
 import { HdsVisualComponent, HdsSceneController, HdsSceneType, hdsEffect } from '@kit.UIDesignKit'
 import { Markdown, MarkdownController } from '@luvi/lv-markdown-in'
@@ -36,12 +40,12 @@ export struct ChatNavigationBar {
   @Prop isTitleGenerating: boolean = false
   // 标题生成是否失败
   @Prop titleGenerateFailed: boolean = false
-  // 顶部安全区域高度（vp）
-  @Prop topAvoidHeight: number = 0
+  @Prop contentMaxWidth: number = 99999
   // 是否正在发送（用于禁用重新生成标题）
   @Prop isSending: boolean = false
   // 其他会话未读完成提醒数量
   @Prop otherSessionUnreadCount: number = 0
+  @Prop topInsetHeight: number = 0
 
   // 回调函数
   onBack: () => void = () => {}
@@ -92,10 +96,10 @@ export struct ChatNavigationBar {
     this.titleMarkdownController
       .setTitleColor(textColor)
       .setTextColor(textColor)
-      .setTextSize(15)
-      .setTextLineHeight(20)
+      .setTextSize(14)
+      .setTextLineHeight(17)
       .setLatexMathTextColor(latexTextColor)
-      .setLatexMathTextSize(17)
+      .setLatexMathTextSize(16)
   }
 
   private hasCurrentModelIdentity(): boolean {
@@ -138,249 +142,254 @@ export struct ChatNavigationBar {
       .buildEffect()
   }
 
+  private getEffectiveContentMaxWidth(): number {
+    return this.contentMaxWidth > 0 ? this.contentMaxWidth : 99999
+  }
+
   build() {
     Column() {
-      // 状态栏占位（额外增加 4vp 间距，避免双行标题紧贴状态栏）
-      Column()
-        .width('100%')
-        .height(this.topAvoidHeight + 2)
-
-      // 导航栏内容
-      Stack({ alignContent: Alignment.Center }) {
-        if (this.uiVisualEnhanced) {
-          this.NavigationVisualLayer()
-        }
-
-        Row() {
-        // 返回按钮
-        Stack({ alignContent: Alignment.TopEnd }) {
-          Button({ type: ButtonType.Circle }) {
-            SymbolGlyph($r('sys.symbol.chevron_left'))
-              .fontSize(20)
-              .fontColor([$r('app.color.text_primary')])
+      Row() {
+        Stack({ alignContent: Alignment.Top }) {
+          if (this.uiVisualEnhanced) {
+            this.NavigationVisualLayer()
           }
-          .width(32)
-          .height(32)
-          .backgroundColor($r('sys.color.comp_background_tertiary'))
-          .shadow({
-            radius: this.backBtnPressed ? 8 : 0,
-            color: 'rgba(0, 0, 0, 0.1)',
-            offsetX: 0,
-            offsetY: this.backBtnPressed ? 2 : 0
-          })
-          .visualEffect(this.buildButtonPressEffect(this.backBtnPressed))
-          .scale(getButtonScale(this.backBtnPressed))
-          .animation({ duration: 200, curve: Curve.EaseInOut })
-          .onTouch(createButtonTouchHandler((pressed: boolean) => {
-            this.backBtnPressed = pressed
-          }))
-          .onClick(() => {
-            this.onBack()
-          })
 
-          if (this.otherSessionUnreadCount > 0) {
-            Text(this.getUnreadBadgeText())
-              .fontSize(9)
-              .fontWeight(FontWeight.Medium)
-              .fontColor('#FFFFFF')
-              .padding({ left: 4, right: 4 })
-              .height(14)
-              .backgroundColor($r('app.color.status_error'))
-              .borderRadius(7)
-              .position({ x: 22, y: -4 })
-          }
-        }
-        .width(36)
-        .height(32)
+          Column() {
+            if (this.topInsetHeight > 0) {
+              Column()
+                .width('100%')
+                .height(this.topInsetHeight)
+            }
 
-        // 标题区域 - 点击可切换模型，长按编辑标题
-        Row() {
-          // 模型图标
-          if (this.hasCurrentModelIdentity()) {
-            if (this.hasCurrentModelIcon()) {
-              Column() {
-                if (this.isRawfileCurrentModelIcon()) {
-                  Image($rawfile(this.getCurrentModelIconResourcePath()))
-                    .width(16)
-                    .height(16)
-                    .objectFit(ImageFit.Contain)
+            Row() {
+            // 返回按钮
+            Stack({ alignContent: Alignment.TopEnd }) {
+              Button({ type: ButtonType.Circle }) {
+                SymbolGlyph($r('sys.symbol.chevron_left'))
+                  .fontSize(17)
+                  .fontColor([$r('app.color.text_primary')])
+              }
+              .width(30)
+              .height(30)
+              .backgroundColor($r('sys.color.comp_background_tertiary'))
+              .shadow({
+                radius: this.backBtnPressed ? 8 : 0,
+                color: 'rgba(0, 0, 0, 0.1)',
+                offsetX: 0,
+                offsetY: this.backBtnPressed ? 2 : 0
+              })
+              .visualEffect(this.buildButtonPressEffect(this.backBtnPressed))
+              .scale(getButtonScale(this.backBtnPressed))
+              .animation({ duration: 200, curve: Curve.EaseInOut })
+              .onTouch(createButtonTouchHandler((pressed: boolean) => {
+                this.backBtnPressed = pressed
+              }))
+              .onClick(() => {
+                this.onBack()
+              })
+
+              if (this.otherSessionUnreadCount > 0) {
+                Text(this.getUnreadBadgeText())
+                  .fontSize(9)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor('#FFFFFF')
+                  .padding({ left: 4, right: 4 })
+                  .height(14)
+                  .backgroundColor($r('app.color.status_error'))
+                  .borderRadius(7)
+                  .position({ x: 20, y: -4 })
+              }
+            }
+            .width(34)
+            .height(30)
+
+            // 标题区域 - 点击可切换模型，长按编辑标题
+            Row() {
+              // 模型图标
+              if (this.hasCurrentModelIdentity()) {
+                if (this.hasCurrentModelIcon()) {
+                  Column() {
+                    if (this.isRawfileCurrentModelIcon()) {
+                      Image($rawfile(this.getCurrentModelIconResourcePath()))
+                        .width(13)
+                        .height(13)
+                        .objectFit(ImageFit.Contain)
+                    } else {
+                      Image(this.getCurrentModelIconResourcePath())
+                        .width(13)
+                        .height(13)
+                        .objectFit(ImageFit.Contain)
+                    }
+                  }
+                  .width(20)
+                  .height(20)
+                  .borderRadius(4)
+                  .backgroundColor($r('app.color.model_icon_bg'))
+                  .justifyContent(FlexAlign.Center)
+                  .alignItems(HorizontalAlign.Center)
                 } else {
-                  Image(this.getCurrentModelIconResourcePath())
-                    .width(16)
-                    .height(16)
-                    .objectFit(ImageFit.Contain)
+                  Column() {
+                    SymbolGlyph($r('sys.symbol.ai_edit'))
+                      .fontSize(13)
+                      .fontColor([$r('app.color.text_tertiary')])
+                  }
+                  .width(20)
+                  .height(20)
+                  .borderRadius(4)
+                  .backgroundColor($r('app.color.model_icon_bg'))
+                  .justifyContent(FlexAlign.Center)
+                  .alignItems(HorizontalAlign.Center)
                 }
               }
-              .width(22)
-              .height(22)
-              .borderRadius(5)
-              .backgroundColor($r('app.color.model_icon_bg'))
-              .justifyContent(FlexAlign.Center)
-              .alignItems(HorizontalAlign.Center)
-            } else {
-              Column() {
-                SymbolGlyph($r('sys.symbol.ai_edit'))
-                  .fontSize(14)
-                  .fontColor([$r('app.color.text_tertiary')])
-              }
-              .width(22)
-              .height(22)
-              .borderRadius(5)
-              .backgroundColor($r('app.color.model_icon_bg'))
-              .justifyContent(FlexAlign.Center)
-              .alignItems(HorizontalAlign.Center)
-            }
-          }
 
-          if (this.isEditingTitle) {
-            // 编辑模式：显示输入框
-            TextInput({ text: this.editingTitleInput, placeholder: '输入标题' })
-              .id('chat_title_input')
-              .defaultFocus(true)
-              .fontSize(16)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.text_primary'))
-              .backgroundColor(Color.Transparent)
-              .border({ width: { bottom: 1 }, color: this.themePrimary })
-              .maxLength(50)
-              .layoutWeight(1)
-              .margin({ left: this.hasCurrentModelIdentity() ? 6 : 0 })
-              .onChange((value: string) => {
-                this.editingTitleInput = value
-              })
-              .onSubmit(() => {
-                this.finishEditingTitle()
-              })
-              .onBlur(() => {
-                this.finishEditingTitle()
-              })
-          } else {
-            // 显示模式：显示标题文本
-            Column() {
-              // 会话标题（带状态指示）
-              Row() {
-                if (this.titleContainsLatex()) {
-                  Markdown({
-                    controller: this.titleMarkdownController,
-                    text: this.normalizeLatexInTitle(this.sessionTitle)
+              if (this.isEditingTitle) {
+                TextInput({ text: this.editingTitleInput, placeholder: '输入标题' })
+                  .id('chat_title_input')
+                  .defaultFocus(true)
+                  .fontSize(15)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.text_primary'))
+                  .backgroundColor(Color.Transparent)
+                  .border({ width: { bottom: 1 }, color: this.themePrimary })
+                  .maxLength(50)
+                  .height(36)
+                  .layoutWeight(1)
+                  .margin({ left: this.hasCurrentModelIdentity() ? 5 : 0 })
+                  .onChange((value: string) => {
+                    this.editingTitleInput = value
                   })
-                    .layoutWeight(1)
-                    .constraintSize({ maxHeight: 44 })
-                    .clip(true)
-                    .backgroundColor(Color.Transparent)
-                } else {
-                  Text(this.sessionTitle)
-                    .fontSize(16)
-                    .fontWeight(FontWeight.Bold)
-                    .fontColor($r('app.color.text_primary'))
-                    .maxLines(2)
-                    .lineHeight(20)
+                  .onSubmit(() => {
+                    this.finishEditingTitle()
+                  })
+                  .onBlur(() => {
+                    this.finishEditingTitle()
+                  })
+              } else {
+                Column() {
+                  Row() {
+                    if (this.titleContainsLatex()) {
+                      Markdown({
+                        controller: this.titleMarkdownController,
+                        text: this.normalizeLatexInTitle(this.sessionTitle)
+                      })
+                        .layoutWeight(1)
+                        .constraintSize({ maxHeight: 20 })
+                        .clip(true)
+                        .backgroundColor(Color.Transparent)
+                    } else {
+                      Text(this.sessionTitle)
+                        .fontSize(15)
+                        .fontWeight(FontWeight.Bold)
+                        .fontColor($r('app.color.text_primary'))
+                        .maxLines(1)
+                        .lineHeight(17)
+                        .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    }
+
+                    if (this.isTitleGenerating) {
+                      LoadingProgress()
+                        .width(12)
+                        .height(12)
+                        .color($r('app.color.text_tertiary'))
+                        .margin({ left: 4 })
+                    }
+
+                    if (this.titleGenerateFailed && !this.isTitleGenerating) {
+                      SymbolGlyph($r('sys.symbol.arrow_clockwise'))
+                        .fontSize(12)
+                        .fontColor([$r('app.color.text_tertiary')])
+                        .margin({ left: 4 })
+                        .onClick(() => {
+                          this.onRegenerateTitle()
+                        })
+                    }
+                  }
+
+                  Text(this.getCurrentModelTitle())
+                    .fontSize(9)
+                    .fontColor($r('app.color.text_secondary'))
+                    .margin({ top: 0 })
+                    .maxLines(1)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
                 }
-
-                // 标题生成中指示器
-                if (this.isTitleGenerating) {
-                  LoadingProgress()
-                    .width(14)
-                    .height(14)
-                    .color($r('app.color.text_tertiary'))
-                    .margin({ left: 6 })
-                }
-
-                // 标题生成失败重试图标
-                if (this.titleGenerateFailed && !this.isTitleGenerating) {
-                  SymbolGlyph($r('sys.symbol.arrow_clockwise'))
-                    .fontSize(14)
-                    .fontColor([$r('app.color.text_tertiary')])
-                    .margin({ left: 6 })
-                    .onClick(() => {
-                      this.onRegenerateTitle()
-                    })
-                }
+                .justifyContent(FlexAlign.Center)
+                .alignItems(HorizontalAlign.Start)
+                .margin({ left: this.hasCurrentModelIdentity() ? 5 : 0 })
+                .layoutWeight(1)
               }
 
-              Text(this.getCurrentModelTitle())
-                .fontSize(10)
-                .fontColor($r('app.color.text_secondary'))
-                .margin({ top: 1 })
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-            }
-            .alignItems(HorizontalAlign.Start)
-            .margin({ left: this.hasCurrentModelIdentity() ? 6 : 0 })
-            .layoutWeight(1)
-          }
-
-          // 下拉箭头（编辑模式不显示）
-          if (!this.isEditingTitle) {
-            SymbolGlyph($r('sys.symbol.chevron_down'))
-              .fontSize(12)
-              .fontColor([$r('app.color.text_tertiary')])
-              .margin({ left: 2 })
-          }
-        }
-        .layoutWeight(1)
-        .margin({ left: 8 })
-        .onClick(() => {
-          if (!this.isEditingTitle) {
-            this.onModelSelect()
-          }
-        })
-        .gesture(
-          LongPressGesture()
-            .onAction(() => {
               if (!this.isEditingTitle) {
-                this.startEditingTitle()
+                SymbolGlyph($r('sys.symbol.chevron_down'))
+                  .fontSize(10)
+                  .fontColor([$r('app.color.text_tertiary')])
+                  .margin({ left: 2 })
+              }
+            }
+            .layoutWeight(1)
+            .margin({ left: 5 })
+            .onClick(() => {
+              if (!this.isEditingTitle) {
+                this.onModelSelect()
               }
             })
-        )
+            .gesture(
+              LongPressGesture()
+                .onAction(() => {
+                  if (!this.isEditingTitle) {
+                    this.startEditingTitle()
+                  }
+                })
+            )
 
-        // 新建对话按钮（仅在有消息时显示）
-        if (this.hasMessages) {
-          Button({ type: ButtonType.Circle }) {
-            SymbolGlyph($r('sys.symbol.plus'))
-              .fontSize(16)
-              .fontColor([$r('app.color.text_primary')])
+            if (this.hasMessages) {
+              Button({ type: ButtonType.Circle }) {
+                SymbolGlyph($r('sys.symbol.plus'))
+                  .fontSize(15)
+                  .fontColor([$r('app.color.text_primary')])
+              }
+              .width(30)
+              .height(30)
+              .backgroundColor($r('sys.color.comp_background_tertiary'))
+              .margin({ left: 4 })
+              .visualEffect(this.buildButtonPressEffect(this.newChatBtnPressed))
+              .scale(getButtonScale(this.newChatBtnPressed))
+              .animation(getButtonAnimation())
+              .onTouch(createButtonTouchHandler((pressed: boolean) => {
+                this.newChatBtnPressed = pressed
+              }))
+              .onClick(() => {
+                this.onNewChat()
+              })
+            }
+
+            Button({ type: ButtonType.Circle }) {
+              SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
+                .fontSize(15)
+                .fontColor([$r('app.color.text_primary')])
+            }
+            .width(30)
+            .height(30)
+            .backgroundColor($r('sys.color.comp_background_tertiary'))
+            .margin({ left: 4 })
+            .visualEffect(this.buildButtonPressEffect(this.moreBtnPressed))
+            .scale(getButtonScale(this.moreBtnPressed))
+            .animation(getButtonAnimation())
+            .onTouch(createButtonTouchHandler((pressed: boolean) => {
+              this.moreBtnPressed = pressed
+            }))
+            .bindMenu(this.buildMoreMenu())
           }
-          .width(32)
-          .height(32)
-          .backgroundColor($r('sys.color.comp_background_tertiary'))
-          .margin({ left: 6 })
-          .visualEffect(this.buildButtonPressEffect(this.newChatBtnPressed))
-          .scale(getButtonScale(this.newChatBtnPressed))
-          .animation(getButtonAnimation())
-          .onTouch(createButtonTouchHandler((pressed: boolean) => {
-            this.newChatBtnPressed = pressed
-          }))
-          .onClick(() => {
-            this.onNewChat()
-          })
-        }
-
-        // 更多菜单按钮
-        Button({ type: ButtonType.Circle }) {
-          SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
-            .fontSize(16)
-            .fontColor([$r('app.color.text_primary')])
-        }
-        .width(32)
-        .height(32)
-        .backgroundColor($r('sys.color.comp_background_tertiary'))
-        .margin({ left: 6 })
-        .visualEffect(this.buildButtonPressEffect(this.moreBtnPressed))
-        .scale(getButtonScale(this.moreBtnPressed))
-        .animation(getButtonAnimation())
-        .onTouch(createButtonTouchHandler((pressed: boolean) => {
-          this.moreBtnPressed = pressed
-        }))
-        .bindMenu(this.buildMoreMenu())
+          .width('100%')
+          .height(CHAT_NAVIGATION_BAR_MIN_HEIGHT)
+          .alignItems(VerticalAlign.Center)
+          .padding({ left: 8, right: 8 })
+          }
         }
         .width('100%')
-        .height(56)
-        .padding({ left: 12, right: 12 })
+        .constraintSize({ maxWidth: this.getEffectiveContentMaxWidth() })
       }
       .width('100%')
-      .height(56)
+      .justifyContent(FlexAlign.Center)
     }
     .width('100%')
     .backgroundBlurStyle(BlurStyle.COMPONENT_THIN)
@@ -391,9 +400,10 @@ export struct ChatNavigationBar {
     HdsVisualComponent()
       .scene(HdsSceneType.DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK, this.navSceneController)
       .width('100%')
-      .height(48)
-      .margin({ left: 12, right: 12 })
-      .borderRadius(16)
+      .height('100%')
+      .constraintSize({ minHeight: CHAT_NAVIGATION_VISUAL_LAYER_MIN_HEIGHT })
+      .margin({ left: 10, right: 10 })
+      .borderRadius(12)
       .opacity(this.isDarkMode ? 0.46 : 0.62)
   }
 

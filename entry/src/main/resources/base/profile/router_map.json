@@ -4,6 +4,71 @@
       "name": "ChatPage",
       "pageSourceFile": "src/main/ets/pages/ChatPage.ets",
       "buildFunction": "ChatPageBuilder"
+    },
+    {
+      "name": "ModelManagePage",
+      "pageSourceFile": "src/main/ets/pages/ModelManagePage.ets",
+      "buildFunction": "ModelManagePageBuilder"
+    },
+    {
+      "name": "DefaultModelPage",
+      "pageSourceFile": "src/main/ets/pages/DefaultModelPage.ets",
+      "buildFunction": "DefaultModelPageBuilder"
+    },
+    {
+      "name": "ThemeModeSettingsPage",
+      "pageSourceFile": "src/main/ets/pages/ThemeModeSettingsPage.ets",
+      "buildFunction": "ThemeModeSettingsPageBuilder"
+    },
+    {
+      "name": "LanguageSettingsPage",
+      "pageSourceFile": "src/main/ets/pages/LanguageSettingsPage.ets",
+      "buildFunction": "LanguageSettingsPageBuilder"
+    },
+    {
+      "name": "ColorThemeSettingsPage",
+      "pageSourceFile": "src/main/ets/pages/ColorThemeSettingsPage.ets",
+      "buildFunction": "ColorThemeSettingsPageBuilder"
+    },
+    {
+      "name": "NotificationSettingsPage",
+      "pageSourceFile": "src/main/ets/pages/NotificationSettingsPage.ets",
+      "buildFunction": "NotificationSettingsPageBuilder"
+    },
+    {
+      "name": "HandAdaptiveSettingsPage",
+      "pageSourceFile": "src/main/ets/pages/HandAdaptiveSettingsPage.ets",
+      "buildFunction": "HandAdaptiveSettingsPageBuilder"
+    },
+    {
+      "name": "FontSizeSettingsPage",
+      "pageSourceFile": "src/main/ets/pages/FontSizeSettingsPage.ets",
+      "buildFunction": "FontSizeSettingsPageBuilder"
+    },
+    {
+      "name": "SystemPromptSettingsPage",
+      "pageSourceFile": "src/main/ets/pages/SystemPromptSettingsPage.ets",
+      "buildFunction": "SystemPromptSettingsPageBuilder"
+    },
+    {
+      "name": "ToolsCenterPage",
+      "pageSourceFile": "src/main/ets/pages/ToolsCenterPage.ets",
+      "buildFunction": "ToolsCenterPageBuilder"
+    },
+    {
+      "name": "ExportDataPage",
+      "pageSourceFile": "src/main/ets/pages/ExportDataPage.ets",
+      "buildFunction": "ExportDataPageBuilder"
+    },
+    {
+      "name": "ImportDataPage",
+      "pageSourceFile": "src/main/ets/pages/ImportDataPage.ets",
+      "buildFunction": "ImportDataPageBuilder"
+    },
+    {
+      "name": "AboutPage",
+      "pageSourceFile": "src/main/ets/pages/AboutPage.ets",
+      "buildFunction": "AboutPageBuilder"
     }
   ]
 }

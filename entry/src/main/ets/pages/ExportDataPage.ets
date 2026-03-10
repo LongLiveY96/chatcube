@@ -5,6 +5,10 @@ import { getImportExportService, ExportOptions } from '../services/ImportExportS
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
 import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
+import { AppStorageKeys } from '../config/AppStorageKeys'
+import { LayoutSizeClass } from '../config/LayoutProfile'
+import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
+import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 
 @Entry
 @Component
@@ -12,6 +16,11 @@ struct ExportDataPage {
   @StorageProp('bottomAvoidHeight') bottomAvoidHeight: number = 0
   // 主题颜色
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @StorageProp('layout_size_class') layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @StorageProp('window_width_vp') windowWidthVp: number = 0
+  @StorageProp('window_height_vp') windowHeightVp: number = 0
+  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE)
+  settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
 
   @State sessions: ChatSession[] = []
   @State selectedSessionIds: string[] = []
@@ -26,6 +35,15 @@ struct ExportDataPage {
 
   private px2vp(px: number): number {
     return px / (this.getUIContext().getHostContext()?.resourceManager.getDeviceCapabilitySync().screenDensity ?? 3) * 160
+  }
+
+  private getContentMaxWidth(): number {
+    return getSettingsPageContentMaxWidth(this.layoutSizeClass, this.windowWidthVp, this.settingsDetailPresentationMode,
+      this.windowHeightVp)
+  }
+
+  private isDetailPaneMode(): boolean {
+    return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
   }
 
   private showExportToast(message: string | Resource, duration: number = 2000,
@@ -134,12 +152,11 @@ struct ExportDataPage {
     }
   }
 
-  build() {
+  @Builder
+  private PageContent() {
     Column() {
-      HdsNavigation() {
-        Column() {
-        if (this.isExporting) {
-          // 导出进度界面
+      if (this.isExporting) {
+        Row() {
           Column() {
             Text($r('app.string.export_progress'))
               .fontSize(20)
@@ -158,21 +175,25 @@ struct ExportDataPage {
               .margin({ top: 16 })
           }
           .width('100%')
-          .layoutWeight(1)
+          .constraintSize({ maxWidth: this.getContentMaxWidth() })
           .justifyContent(FlexAlign.Center)
-        } else {
-          // 导出配置界面
-          Scroll() {
+          .alignItems(HorizontalAlign.Center)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+        .padding({ left: 16, right: 16 })
+      } else {
+        Scroll() {
+          Row() {
             Column() {
-              // 会话选择
               this.SectionTitle($r('app.string.export_select_sessions'))
 
               Column() {
-                // 全选按钮
                 Row() {
                   Checkbox({ name: 'selectAll', group: 'sessions' })
                     .select(this.selectAll)
-                    .onChange((value: boolean) => {
+                    .onChange((_value: boolean) => {
                       this.toggleSelectAll()
                     })
                     .margin({ right: 12 })
@@ -188,13 +209,12 @@ struct ExportDataPage {
 
                 Divider().color($r('app.color.divider'))
 
-                // 会话列表
                 ForEach(this.sessions, (session: ChatSession) => {
                   Column() {
                     Row() {
                       Checkbox({ name: session.id, group: 'sessions' })
                         .select(this.selectedSessionIds.includes(session.id))
-                        .onChange((value: boolean) => {
+                        .onChange((_value: boolean) => {
                           this.toggleSession(session.id)
                         })
                         .margin({ right: 12 })
@@ -228,64 +248,38 @@ struct ExportDataPage {
               .borderRadius(16)
               .margin({ bottom: 24 })
 
-              // 导出选项
               this.SectionTitle($r('app.string.export_options'))
 
               Column() {
-                this.OptionRow(
-                  $r('app.string.export_include_attachments'),
-                  '',
-                  this.includeAttachments,
-                  (value: boolean) => {
-                    this.includeAttachments = value
-                  }
-                )
-
+                this.OptionRow($r('app.string.export_include_attachments'), '', this.includeAttachments,
+                  (value: boolean) => { this.includeAttachments = value })
                 Divider().color($r('app.color.divider'))
-
-                this.OptionRow(
-                  $r('app.string.export_include_providers'),
-                  '',
-                  this.includeProviders,
-                  (value: boolean) => {
-                    this.includeProviders = value
-                  }
-                )
-
+                this.OptionRow($r('app.string.export_include_providers'), '', this.includeProviders,
+                  (value: boolean) => { this.includeProviders = value })
                 Divider().color($r('app.color.divider'))
-
-                this.OptionRow(
-                  $r('app.string.export_include_api_keys'),
-                  $r('app.string.export_include_api_keys_warning'),
-                  this.includeApiKeys,
-                  (value: boolean) => {
-                    this.includeApiKeys = value
-                  }
-                )
-
+                this.OptionRow($r('app.string.export_include_api_keys'),
+                  $r('app.string.export_include_api_keys_warning'), this.includeApiKeys,
+                  (value: boolean) => { this.includeApiKeys = value })
                 Divider().color($r('app.color.divider'))
-
-                this.OptionRow(
-                  $r('app.string.export_include_preferences'),
-                  '',
-                  this.includePreferences,
-                  (value: boolean) => {
-                    this.includePreferences = value
-                  }
-                )
+                this.OptionRow($r('app.string.export_include_preferences'), '', this.includePreferences,
+                  (value: boolean) => { this.includePreferences = value })
               }
               .width('100%')
               .backgroundColor($r('app.color.surface'))
               .borderRadius(16)
             }
             .width('100%')
-            .padding({ left: 16, right: 16, bottom: 100 })
+            .constraintSize({ maxWidth: this.getContentMaxWidth() })
           }
           .width('100%')
-          .layoutWeight(1)
-          .scrollBar(BarState.Off)
+          .justifyContent(FlexAlign.Center)
+          .padding({ left: 16, right: 16, bottom: 100 })
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
 
-          // 底部按钮
+        Row() {
           Column() {
             Button($r('app.string.export_start'))
               .width('100%')
@@ -299,31 +293,72 @@ struct ExportDataPage {
               })
           }
           .width('100%')
-          .padding({ left: 16, right: 16, top: 12, bottom: 12 + this.px2vp(this.bottomAvoidHeight) })
-          .backgroundColor($r('app.color.background'))
-          .shadow({
-            radius: 8,
-            color: '#10000000',
-            offsetY: -2
-          })
-        }
+          .constraintSize({ maxWidth: this.getContentMaxWidth() })
         }
         .width('100%')
-        .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .padding({ left: 16, right: 16, top: 12, bottom: 12 + this.px2vp(this.bottomAvoidHeight) })
+        .backgroundColor($r('app.color.background'))
+        .shadow({
+          radius: 8,
+          color: '#10000000',
+          offsetY: -2
+        })
+      }
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder
+  private DetailPaneHeader() {
+    Column() {
+      Row() {
+        Text($r('app.string.export_title'))
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
       }
       .width('100%')
-      .layoutWeight(1)
-      .backgroundColor($r('app.color.background'))
-      .titleMode(HdsNavigationTitleMode.MINI)
-      .titleBar({
-        avoidLayoutSafeArea: true,
-        enableComponentSafeArea: true,
-        content: {
-          title: {
-            mainTitle: $r('app.string.export_title')
-          }
+      .height(64)
+      .padding({ left: 24, right: 24 })
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .backgroundColor($r('app.color.background'))
+    .border({ width: { bottom: 1 }, color: $r('app.color.divider') })
+  }
+
+  build() {
+    Column() {
+      if (this.isDetailPaneMode()) {
+        Column() {
+          this.DetailPaneHeader()
+          this.PageContent()
         }
-      })
+        .width('100%')
+        .layoutWeight(1)
+      } else {
+        HdsNavigation() {
+          this.PageContent()
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .backgroundColor($r('app.color.background'))
+        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
+        .mode(NavigationMode.Stack)
+        .titleMode(HdsNavigationTitleMode.MINI)
+        .titleBar({
+          avoidLayoutSafeArea: true,
+          enableComponentSafeArea: true,
+          content: {
+            title: {
+              mainTitle: $r('app.string.export_title')
+            }
+          }
+        })
+      }
     }
     .width('100%')
     .height('100%')
@@ -368,4 +403,13 @@ struct ExportDataPage {
     .width('100%')
     .padding(16)
   }
+}
+
+@Builder
+export function ExportDataPageBuilder(name: string, param: Object) {
+  NavDestination() {
+    ExportDataPage()
+  }
+  .hideTitleBar(true)
+  .hideBackButton(true)
 }

@@ -133,6 +133,48 @@ export class ChatViewModel {
     AppStorage.setOrCreate<number>(AppStorageKeys.SESSION_LIST_REFRESH_AT, Date.now())
   }
 
+  private cloneAttachments(attachments: MessageAttachment[]): MessageAttachment[] {
+    const cloned: MessageAttachment[] = []
+    for (let i = 0; i < attachments.length; i++) {
+      const attachment = new MessageAttachment(
+        attachments[i].id,
+        attachments[i].type,
+        attachments[i].name,
+        attachments[i].filePath,
+        attachments[i].mimeType,
+        attachments[i].size
+      )
+      attachment.base64Data = attachments[i].base64Data
+      cloned.push(attachment)
+    }
+    return cloned
+  }
+
+  private buildDraftTitle(content: string): string {
+    const normalized = content.replace(/\s+/g, ' ').trim()
+    if (normalized.length === 0) {
+      return '新对话'
+    }
+    if (normalized.length <= 20) {
+      return normalized
+    }
+    return normalized.substring(0, 20) + '...'
+  }
+
+  private buildDraftPreview(content: string, attachments: MessageAttachment[]): string {
+    const normalized = content.replace(/\s+/g, ' ').trim()
+    if (normalized !== '') {
+      if (normalized.length <= 48) {
+        return normalized
+      }
+      return normalized.substring(0, 48) + '...'
+    }
+    if (attachments.length === 0) {
+      return ''
+    }
+    return attachments[0].name !== '' ? attachments[0].name : ''
+  }
+
   private isFirstRoundSession(session: ChatSession | null): boolean {
     return session !== null && session.messages.length === 0
   }
@@ -297,6 +339,39 @@ export class ChatViewModel {
   private async persistPendingSession(): Promise<void> {
     await this.sessionStore.persistPendingSession()
     this.currentSession = this.sessionStore.getCurrentSession()
+  }
+
+  async saveSessionDraft(content: string, attachments: MessageAttachment[]): Promise<ChatSession | null> {
+    const hasDraftContent = content.trim() !== '' || attachments.length > 0
+    if (this.currentSession === null) {
+      if (!hasDraftContent) {
+        return null
+      }
+      this.createPendingSession()
+    }
+    if (hasDraftContent && this.sessionStore.isCurrentSessionPending()) {
+      await this.persistPendingSession()
+    }
+
+    this.currentSession = this.sessionStore.getCurrentSession()
+    if (this.currentSession === null) {
+      return null
+    }
+
+    this.currentSession.draftText = content
+    this.currentSession.draftAttachments = this.cloneAttachments(attachments)
+    if (this.currentSession.messages.length === 0) {
+      this.currentSession.title = this.buildDraftTitle(content)
+      this.currentSession.lastMessagePreview = this.buildDraftPreview(content, attachments)
+      this.currentSession.updatedAt = Date.now()
+    }
+
+    if (this.sessionStore.isCurrentSessionPending()) {
+      return this.currentSession
+    }
+
+    await this.databaseService.updateSessionDraft(this.currentSession.id, content, attachments)
+    return this.currentSession
   }
 
   // 加载会话

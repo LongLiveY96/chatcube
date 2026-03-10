@@ -12,6 +12,7 @@ export class ChatTaskAlertFlowDependencies {
   chatTaskOrchestrator: ChatTaskOrchestratorService
   getTaskUnreadBySessionJson: () => string
   getCurrentSessionId: () => string
+  isCurrentSessionVisible: () => boolean
   getLastHandledAlertTimestamp: () => number
   onSetOtherSessionUnreadCount: (count: number) => void
   onSetLastHandledAlertTimestamp: (value: number) => void
@@ -24,6 +25,7 @@ export class ChatTaskAlertFlowDependencies {
     chatTaskOrchestrator: ChatTaskOrchestratorService,
     getTaskUnreadBySessionJson: () => string,
     getCurrentSessionId: () => string,
+    isCurrentSessionVisible: () => boolean,
     getLastHandledAlertTimestamp: () => number,
     onSetOtherSessionUnreadCount: (count: number) => void,
     onSetLastHandledAlertTimestamp: (value: number) => void,
@@ -35,6 +37,7 @@ export class ChatTaskAlertFlowDependencies {
     this.chatTaskOrchestrator = chatTaskOrchestrator
     this.getTaskUnreadBySessionJson = getTaskUnreadBySessionJson
     this.getCurrentSessionId = getCurrentSessionId
+    this.isCurrentSessionVisible = isCurrentSessionVisible
     this.getLastHandledAlertTimestamp = getLastHandledAlertTimestamp
     this.onSetOtherSessionUnreadCount = onSetOtherSessionUnreadCount
     this.onSetLastHandledAlertTimestamp = onSetLastHandledAlertTimestamp
@@ -65,6 +68,12 @@ export class ChatTaskAlertFlow {
       this.deps.onSetOtherSessionUnreadCount(0)
       console.error('ChatTaskAlertFlow', 'Failed to parse unread map')
       return
+    }
+
+    const currentSessionUnreadCount = unreadBySession.get(currentSessionId) ?? 0
+    if (currentSessionId !== '' && currentSessionUnreadCount > 0 && this.deps.isCurrentSessionVisible()) {
+      this.deps.chatTaskOrchestrator.markSessionRead(currentSessionId)
+      unreadBySession.delete(currentSessionId)
     }
 
     this.deps.onSetOtherSessionUnreadCount(getTotalUnreadCountExcludeSession(unreadBySession, currentSessionId))

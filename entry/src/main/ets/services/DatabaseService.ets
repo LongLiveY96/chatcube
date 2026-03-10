@@ -74,6 +74,15 @@ interface SearchReferenceJsonData {
   timestamp: number
 }
 
+interface DraftAttachmentJsonData {
+  id: string
+  type: string
+  name: string
+  filePath: string
+  mimeType: string
+  size: number
+}
+
 // 数据库服务 - 单例模式
 export class DatabaseService {
   private static instance: DatabaseService | null = null
@@ -169,6 +178,8 @@ export class DatabaseService {
         is_favorite INTEGER DEFAULT 0,
         last_message_preview TEXT DEFAULT '',
         message_count INTEGER DEFAULT 0,
+        draft_text TEXT DEFAULT '',
+        draft_attachments_json TEXT DEFAULT '',
         sync_version INTEGER DEFAULT 0,
         last_modified INTEGER DEFAULT 0,
         sync_status TEXT DEFAULT 'synced',
@@ -258,6 +269,8 @@ export class DatabaseService {
       await this.addSyncColumnsIfNeeded()
       // 尝试添加会话元信息字段（用于会话列表增强）
       await this.addSessionMetaColumnsIfNeeded()
+      // 尝试添加草稿字段（用于会话级草稿恢复）
+      await this.addSessionDraftColumnsIfNeeded()
       // 尝试添加搜索引用相关字段（用于联网搜索）
       await this.addSearchColumnsIfNeeded()
       // 尝试添加消息 model_id 字段（用于图标匹配）
@@ -468,6 +481,24 @@ export class DatabaseService {
     }
   }
 
+  private async addSessionDraftColumnsIfNeeded(): Promise<void> {
+    if (this.rdbStore === null) {
+      return
+    }
+    try {
+      await this.rdbStore.executeSql(`ALTER TABLE ${TableNames.SESSIONS} ADD COLUMN draft_text TEXT DEFAULT ''`)
+    } catch (error) {
+      console.info('DatabaseService', 'draft_text column may already exist')
+    }
+    try {
+      await this.rdbStore.executeSql(
+        `ALTER TABLE ${TableNames.SESSIONS} ADD COLUMN draft_attachments_json TEXT DEFAULT ''`
+      )
+    } catch (error) {
+      console.info('DatabaseService', 'draft_attachments_json column may already exist')
+    }
+  }
+
   // 添加搜索引用相关字段（用于联网搜索）
   private async addSearchColumnsIfNeeded(): Promise<void> {
     if (this.rdbStore === null) {
@@ -519,6 +550,72 @@ export class DatabaseService {
       return normalized
     }
     return normalized.substring(0, 48) + '...'
+  }
+
+  private buildDraftTitle(content: string): string {
+    const normalized = content.replace(/\s+/g, ' ').trim()
+    if (normalized.length === 0) {
+      return '新对话'
+    }
+    if (normalized.length <= 20) {
+      return normalized
+    }
+    return normalized.substring(0, 20) + '...'
+  }
+
+  private buildDraftPreview(content: string, attachments: MessageAttachment[]): string {
+    const preview = this.normalizePreview(content)
+    if (preview !== '') {
+      return preview
+    }
+    if (attachments.length === 0) {
+      return ''
+    }
+    return attachments[0].name !== '' ? attachments[0].name : ''
+  }
+
+  private serializeDraftAttachments(attachments: MessageAttachment[]): string {
+    if (attachments.length === 0) {
+      return ''
+    }
+    const serialized: DraftAttachmentJsonData[] = []
+    for (let i = 0; i < attachments.length; i++) {
+      serialized.push({
+        id: attachments[i].id,
+        type: attachments[i].type,
+        name: attachments[i].name,
+        filePath: attachments[i].filePath,
+        mimeType: attachments[i].mimeType,
+        size: attachments[i].size
+      })
+    }
+    return JSON.stringify(serialized)
+  }
+
+  private parseDraftAttachments(raw: string): MessageAttachment[] {
+    if (raw === '') {
+      return []
+    }
+    try {
+      const parsed = JSON.parse(raw) as DraftAttachmentJsonData[]
+      const attachments: MessageAttachment[] = []
+      for (let i = 0; i < parsed.length; i++) {
+        attachments.push(
+          new MessageAttachment(
+            parsed[i].id,
+            parsed[i].type === AttachmentType.IMAGE ? AttachmentType.IMAGE : AttachmentType.FILE,
+            parsed[i].name,
+            parsed[i].filePath,
+            parsed[i].mimeType,
+            parsed[i].size
+          )
+        )
+      }
+      return attachments
+    } catch (error) {
+      console.error('DatabaseService', `Failed to parse draft attachments: ${JSON.stringify(error)}`)
+      return []
+    }
   }
 
   private async getMessageSessionId(messageId: string): Promise<string> {
@@ -620,7 +717,9 @@ export class DatabaseService {
       updated_at: session.updatedAt,
       is_favorite: session.isFavorite ? 1 : 0,
       last_message_preview: session.lastMessagePreview,
-      message_count: session.messageCount
+      message_count: session.messageCount,
+      draft_text: session.draftText,
+      draft_attachments_json: this.serializeDraftAttachments(session.draftAttachments)
     }
     try {
       await this.rdbStore.insert(TableNames.SESSIONS, valueBucket)
@@ -664,6 +763,50 @@ export class DatabaseService {
       await this.rdbStore.update(valueBucket, predicates)
     } catch (error) {
       console.error('DatabaseService', `Failed to update session title: ${JSON.stringify(error)}`)
+    }
+  }
+
+  async updateSessionDraft(sessionId: string, draftText: string, draftAttachments: MessageAttachment[]): Promise<void> {
+    await this.waitForInitialization()
+    if (this.rdbStore === null || sessionId === '') {
+      return
+    }
+
+    let messageCount = 0
+    const queryPredicates = new relationalStore.RdbPredicates(TableNames.SESSIONS)
+    queryPredicates.equalTo('id', sessionId)
+    try {
+      const resultSet = await this.rdbStore.query(queryPredicates)
+      if (resultSet.goToNextRow()) {
+        try {
+          messageCount = resultSet.getLong(resultSet.getColumnIndex('message_count'))
+        } catch (e) {
+          messageCount = 0
+        }
+      }
+      resultSet.close()
+    } catch (error) {
+      console.error('DatabaseService', `Failed to query session draft meta: ${JSON.stringify(error)}`)
+      return
+    }
+
+    const valueBucket: relationalStore.ValuesBucket = {
+      draft_text: draftText,
+      draft_attachments_json: this.serializeDraftAttachments(draftAttachments)
+    }
+    if (messageCount === 0) {
+      valueBucket.title = this.buildDraftTitle(draftText)
+      valueBucket.last_message_preview = this.buildDraftPreview(draftText, draftAttachments)
+      valueBucket.updated_at = Date.now()
+    }
+
+    const updatePredicates = new relationalStore.RdbPredicates(TableNames.SESSIONS)
+    updatePredicates.equalTo('id', sessionId)
+    try {
+      await this.rdbStore.update(valueBucket, updatePredicates)
+      AppStorage.setOrCreate<number>(AppStorageKeys.SESSION_LIST_REFRESH_AT, Date.now())
+    } catch (error) {
+      console.error('DatabaseService', `Failed to update session draft: ${JSON.stringify(error)}`)
     }
   }
   async toggleSessionFavorite(sessionId: string): Promise<boolean> {
@@ -786,6 +929,18 @@ export class DatabaseService {
         } catch (e) {
           session.messageCount = 0
         }
+        try {
+          session.draftText = resultSet.getString(resultSet.getColumnIndex('draft_text')) || ''
+        } catch (e) {
+          session.draftText = ''
+        }
+        try {
+          session.draftAttachments = this.parseDraftAttachments(
+            resultSet.getString(resultSet.getColumnIndex('draft_attachments_json')) || ''
+          )
+        } catch (e) {
+          session.draftAttachments = []
+        }
         sessions.push(session)
       }
       resultSet.close()
@@ -869,6 +1024,18 @@ export class DatabaseService {
           session.messageCount = resultSet.getLong(resultSet.getColumnIndex('message_count'))
         } catch (e) {
           session.messageCount = 0
+        }
+        try {
+          session.draftText = resultSet.getString(resultSet.getColumnIndex('draft_text')) || ''
+        } catch (e) {
+          session.draftText = ''
+        }
+        try {
+          session.draftAttachments = this.parseDraftAttachments(
+            resultSet.getString(resultSet.getColumnIndex('draft_attachments_json')) || ''
+          )
+        } catch (e) {
+          session.draftAttachments = []
         }
         resultSet.close()
         return session

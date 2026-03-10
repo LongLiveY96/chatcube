@@ -6,6 +6,10 @@ import { bundleManager } from '@kit.AbilityKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
 import { showToast } from '../utils/ToastUtil'
+import { AppStorageKeys } from '../config/AppStorageKeys'
+import { LayoutSizeClass } from '../config/LayoutProfile'
+import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
+import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 
 const TAG = 'AboutPage'
 const GITHUB_URL = 'https://github.com/LongLiveY96/chatcube'
@@ -15,6 +19,11 @@ const GITHUB_URL = 'https://github.com/LongLiveY96/chatcube'
 struct AboutPage {
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
   @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
+  @StorageProp('layout_size_class') layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @StorageProp('window_width_vp') windowWidthVp: number = 0
+  @StorageProp('window_height_vp') windowHeightVp: number = 0
+  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE)
+  settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
   @State showQrSheet: boolean = false
   @State isSaving: boolean = false
   @State versionName: string = ''
@@ -33,163 +42,208 @@ struct AboutPage {
     showToast(this.getUIContext(), message, 2000)
   }
 
-  build() {
-    Column() {
-      HdsNavigation() {
-        Scroll() {
-          Column() {
-            // Header: App icon + name + version + slogan
-            Column({ space: 8 }) {
-              Image($r('app.media.app_icon'))
-                .width(80)
-                .height(80)
-                .borderRadius(20)
-                .shadow({ radius: 12, color: 'rgba(0,0,0,0.1)', offsetY: 4 })
+  private getContentMaxWidth(): number {
+    return getSettingsPageContentMaxWidth(this.layoutSizeClass, this.windowWidthVp, this.settingsDetailPresentationMode,
+      this.windowHeightVp)
+  }
 
-              Text('ChatCube')
-                .fontSize(24)
-                .fontWeight(FontWeight.Bold)
-                .fontColor($r('app.color.text_primary'))
+  private isDetailPaneMode(): boolean {
+    return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
+  }
 
-              Text(`v${this.versionName}`)
-                .fontSize(13)
-                .fontColor($r('app.color.text_secondary'))
+  @Builder
+  private PageContent() {
+    Scroll() {
+      Row() {
+        Column() {
+          // Header: App icon + name + version + slogan
+          Column({ space: 8 }) {
+            Image($r('app.media.app_icon'))
+              .width(80)
+              .height(80)
+              .borderRadius(20)
+              .shadow({ radius: 12, color: 'rgba(0,0,0,0.1)', offsetY: 4 })
 
-              Text($r('app.string.about_page_slogan'))
-                .fontSize(13)
-                .fontColor($r('app.color.text_tertiary'))
-            }
-            .width('100%')
-            .padding({ top: 24, bottom: 28 })
-            .alignItems(HorizontalAlign.Center)
+            Text('ChatCube')
+              .fontSize(24)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.text_primary'))
 
-            // Contact section title
-            Text($r('app.string.about_contact_section'))
-              .fontSize(12)
-              .fontWeight(FontWeight.Medium)
+            Text(`v${this.versionName}`)
+              .fontSize(13)
               .fontColor($r('app.color.text_secondary'))
-              .padding({ left: 16, bottom: 6 })
-              .width('100%')
 
-            // Contact cards
-            Column() {
-              // QQ Group card
-              Row() {
-                Column() {
-                  SymbolGlyph($r('sys.symbol.person_2'))
-                    .fontSize(20)
-                    .fontColor([this.themePrimary])
-                }
-                .width(36)
-                .height(36)
-                .borderRadius(9)
-                .backgroundColor(this.themePrimaryLight)
-                .justifyContent(FlexAlign.Center)
-                .alignItems(HorizontalAlign.Center)
-
-                Column({ space: 2 }) {
-                  Text($r('app.string.about_qq_group'))
-                    .fontSize(14)
-                    .fontWeight(FontWeight.Medium)
-                    .fontColor($r('app.color.text_primary'))
-                  Text($r('app.string.about_qq_group_number'))
-                    .fontSize(12)
-                    .fontColor($r('app.color.text_secondary'))
-                }
-                .alignItems(HorizontalAlign.Start)
-                .margin({ left: 12 })
-                .layoutWeight(1)
-
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(18)
-                  .fontColor([$r('app.color.text_tertiary')])
-              }
-              .width('100%')
-              .height(64)
-              .padding({ left: 16, right: 16 })
-              .alignItems(VerticalAlign.Center)
-              .onClick(() => {
-                this.showQrSheet = true
-              })
-
-              Divider().color($r('app.color.divider')).margin({ left: 64 })
-
-              // GitHub card
-              Row() {
-                Column() {
-                  SymbolGlyph($r('sys.symbol.link'))
-                    .fontSize(20)
-                    .fontColor([this.themePrimary])
-                }
-                .width(36)
-                .height(36)
-                .borderRadius(9)
-                .backgroundColor(this.themePrimaryLight)
-                .justifyContent(FlexAlign.Center)
-                .alignItems(HorizontalAlign.Center)
-
-                Column({ space: 2 }) {
-                  Text($r('app.string.about_github'))
-                    .fontSize(14)
-                    .fontWeight(FontWeight.Medium)
-                    .fontColor($r('app.color.text_primary'))
-                  Text($r('app.string.about_github_repo'))
-                    .fontSize(12)
-                    .fontColor($r('app.color.text_secondary'))
-                }
-                .alignItems(HorizontalAlign.Start)
-                .margin({ left: 12 })
-                .layoutWeight(1)
-
-                SymbolGlyph($r('sys.symbol.chevron_right'))
-                  .fontSize(18)
-                  .fontColor([$r('app.color.text_tertiary')])
-              }
-              .width('100%')
-              .height(64)
-              .padding({ left: 16, right: 16 })
-              .alignItems(VerticalAlign.Center)
-              .onClick(() => {
-                this.copyGitHubLink()
-              })
-            }
-            .width('100%')
-            .backgroundColor($r('app.color.surface'))
-            .borderRadius(16)
-
-            // Footer
-            Column({ space: 4 }) {
-              Text($r('app.string.about_open_source'))
-                .fontSize(12)
-                .fontColor($r('app.color.text_tertiary'))
-              Text($r('app.string.about_copyright'))
-                .fontSize(11)
-                .fontColor($r('app.color.text_tertiary'))
-            }
-            .width('100%')
-            .padding({ top: 32, bottom: 40 })
-            .alignItems(HorizontalAlign.Center)
+            Text($r('app.string.about_page_slogan'))
+              .fontSize(13)
+              .fontColor($r('app.color.text_tertiary'))
           }
           .width('100%')
-          .padding({ left: 16, right: 16 })
+          .padding({ top: 24, bottom: 28 })
+          .alignItems(HorizontalAlign.Center)
+
+          Text($r('app.string.about_contact_section'))
+            .fontSize(12)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.text_secondary'))
+            .padding({ left: 16, bottom: 6 })
+            .width('100%')
+
+          Column() {
+            Row() {
+              Column() {
+                SymbolGlyph($r('sys.symbol.person_2'))
+                  .fontSize(20)
+                  .fontColor([this.themePrimary])
+              }
+              .width(36)
+              .height(36)
+              .borderRadius(9)
+              .backgroundColor(this.themePrimaryLight)
+              .justifyContent(FlexAlign.Center)
+              .alignItems(HorizontalAlign.Center)
+
+              Column({ space: 2 }) {
+                Text($r('app.string.about_qq_group'))
+                  .fontSize(14)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('app.color.text_primary'))
+                Text($r('app.string.about_qq_group_number'))
+                  .fontSize(12)
+                  .fontColor($r('app.color.text_secondary'))
+              }
+              .alignItems(HorizontalAlign.Start)
+              .margin({ left: 12 })
+              .layoutWeight(1)
+
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(18)
+                .fontColor([$r('app.color.text_tertiary')])
+            }
+            .width('100%')
+            .height(64)
+            .padding({ left: 16, right: 16 })
+            .alignItems(VerticalAlign.Center)
+            .onClick(() => {
+              this.showQrSheet = true
+            })
+
+            Divider().color($r('app.color.divider')).margin({ left: 64 })
+
+            Row() {
+              Column() {
+                SymbolGlyph($r('sys.symbol.link'))
+                  .fontSize(20)
+                  .fontColor([this.themePrimary])
+              }
+              .width(36)
+              .height(36)
+              .borderRadius(9)
+              .backgroundColor(this.themePrimaryLight)
+              .justifyContent(FlexAlign.Center)
+              .alignItems(HorizontalAlign.Center)
+
+              Column({ space: 2 }) {
+                Text($r('app.string.about_github'))
+                  .fontSize(14)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('app.color.text_primary'))
+                Text($r('app.string.about_github_repo'))
+                  .fontSize(12)
+                  .fontColor($r('app.color.text_secondary'))
+              }
+              .alignItems(HorizontalAlign.Start)
+              .margin({ left: 12 })
+              .layoutWeight(1)
+
+              SymbolGlyph($r('sys.symbol.chevron_right'))
+                .fontSize(18)
+                .fontColor([$r('app.color.text_tertiary')])
+            }
+            .width('100%')
+            .height(64)
+            .padding({ left: 16, right: 16 })
+            .alignItems(VerticalAlign.Center)
+            .onClick(() => {
+              this.copyGitHubLink()
+            })
+          }
+          .width('100%')
+          .backgroundColor($r('app.color.surface'))
+          .borderRadius(16)
+
+          Column({ space: 4 }) {
+            Text($r('app.string.about_open_source'))
+              .fontSize(12)
+              .fontColor($r('app.color.text_tertiary'))
+            Text($r('app.string.about_copyright'))
+              .fontSize(11)
+              .fontColor($r('app.color.text_tertiary'))
+          }
+          .width('100%')
+          .padding({ top: 32, bottom: 40 })
+          .alignItems(HorizontalAlign.Center)
         }
         .width('100%')
-        .height('100%')
-        .scrollBar(BarState.Off)
+        .constraintSize({ maxWidth: this.getContentMaxWidth() })
       }
       .width('100%')
-      .layoutWeight(1)
-      .backgroundColor($r('app.color.background'))
-      .titleMode(HdsNavigationTitleMode.MINI)
-      .titleBar({
-        avoidLayoutSafeArea: true,
-        enableComponentSafeArea: true,
-        content: {
-          title: {
-            mainTitle: $r('app.string.settings_about')
-          }
+      .justifyContent(FlexAlign.Center)
+      .padding({ left: 16, right: 16 })
+    }
+    .width('100%')
+    .height('100%')
+    .scrollBar(BarState.Off)
+  }
+
+  @Builder
+  private DetailPaneHeader() {
+    Column() {
+      Row() {
+        Text($r('app.string.settings_about'))
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+      }
+      .width('100%')
+      .height(64)
+      .padding({ left: 24, right: 24 })
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .backgroundColor($r('app.color.background'))
+    .border({ width: { bottom: 1 }, color: $r('app.color.divider') })
+  }
+
+  build() {
+    Column() {
+      if (this.isDetailPaneMode()) {
+        Column() {
+          this.DetailPaneHeader()
+          this.PageContent()
         }
-      })
+        .width('100%')
+        .layoutWeight(1)
+      } else {
+        HdsNavigation() {
+          this.PageContent()
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .backgroundColor($r('app.color.background'))
+        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
+        .mode(NavigationMode.Stack)
+        .titleMode(HdsNavigationTitleMode.MINI)
+        .titleBar({
+          avoidLayoutSafeArea: true,
+          enableComponentSafeArea: true,
+          content: {
+            title: {
+              mainTitle: $r('app.string.settings_about')
+            }
+          }
+        })
+      }
     }
     .width('100%')
     .height('100%')
@@ -305,4 +359,13 @@ struct AboutPage {
       this.isSaving = false
     }
   }
+}
+
+@Builder
+export function AboutPageBuilder(name: string, param: Object) {
+  NavDestination() {
+    AboutPage()
+  }
+  .hideTitleBar(true)
+  .hideBackButton(true)
 }

@@ -49,10 +49,6 @@ export class PreferenceKeys {
   static readonly SEARCH_EXA_API_KEY: string = 'search_exa_api_key'
   static readonly SEARCH_EXA_BASE_URL: string = 'search_exa_base_url'
 
-  // 华为官方智能体入口配置
-  static readonly HUAWEI_AGENT_ENTRIES: string = 'huawei_agent_entries'
-  static readonly HUAWEI_AGENT_FEATURE_FLAG: string = 'huawei_agent_feature_flag'
-
   // 主题配色
   static readonly COLOR_THEME: string = 'color_theme'
 

@@ -1,0 +1,192 @@
+import { motion } from '@kit.MultimodalAwarenessKit'
+import { BusinessError } from '@kit.BasicServicesKit'
+import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
+import { AppStorageKeys } from '../config/AppStorageKeys'
+import { LayoutSizeClass } from '../config/LayoutProfile'
+import { PreferenceKeys } from '../services/PreferencesService'
+import { ServiceRegistry } from '../services/ServiceRegistry'
+import { IndexSettingsSheetContent } from '../components/index/IndexSettingsSheetContent'
+import { IndexSettingsSheetActionCallbacks } from './index/IndexSettingsSheetCoordinator'
+import { SettingsSheetType } from './index/IndexPageTypes'
+import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
+import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
+
+@Entry
+@Component
+struct HandAdaptiveSettingsPage {
+  @StorageProp(AppStorageKeys.LAYOUT_SIZE_CLASS) layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @StorageProp(AppStorageKeys.WINDOW_WIDTH_VP) windowWidthVp: number = 0
+  @StorageProp(AppStorageKeys.WINDOW_HEIGHT_VP) windowHeightVp: number = 0
+  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE) settingsDetailPresentationMode: string = 'page'
+
+  @State handAdaptiveEnabled: boolean = false
+  @State handAdaptiveNewChat: boolean = false
+  @State handAdaptiveUnsupported: boolean = false
+
+  private preferencesService = ServiceRegistry.preferences()
+  private readonly probeHoldingHandCallback = (_status: motion.HoldingHandStatus): void => {}
+
+  aboutToAppear(): void {
+    this.loadSettings()
+  }
+
+  private getContentMaxWidth(): number {
+    return getSettingsPageContentMaxWidth(this.layoutSizeClass, this.windowWidthVp, this.settingsDetailPresentationMode,
+      this.windowHeightVp)
+  }
+
+  private isDetailPaneMode(): boolean {
+    return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
+  }
+
+  private async loadSettings(): Promise<void> {
+    const enabled = await this.preferencesService.getBoolean(PreferenceKeys.HAND_ADAPTIVE_ENABLED, false)
+    const newChatEnabled = await this.preferencesService.getBoolean(PreferenceKeys.HAND_ADAPTIVE_NEW_CHAT, enabled)
+    this.handAdaptiveEnabled = enabled
+    this.handAdaptiveNewChat = enabled ? newChatEnabled : false
+    this.handAdaptiveUnsupported = enabled ? !this.isHoldingHandSupported() : false
+  }
+
+  private isHoldingHandSupported(): boolean {
+    try {
+      motion.on('holdingHandChanged', this.probeHoldingHandCallback)
+      motion.off('holdingHandChanged', this.probeHoldingHandCallback)
+      return true
+    } catch (error) {
+      const businessError = error as BusinessError
+      console.error('HandAdaptiveSettingsPage',
+        `Failed to probe holding hand support: ${JSON.stringify(businessError)}`)
+      return false
+    }
+  }
+
+  private async persistSettings(): Promise<void> {
+    await this.preferencesService.setBoolean(PreferenceKeys.HAND_ADAPTIVE_ENABLED, this.handAdaptiveEnabled)
+    await this.preferencesService.setBoolean(PreferenceKeys.HAND_ADAPTIVE_NEW_CHAT, this.handAdaptiveNewChat)
+    AppStorage.setOrCreate(AppStorageKeys.SETTING_HAND_ADAPTIVE_ENABLED, this.handAdaptiveEnabled)
+    AppStorage.setOrCreate(AppStorageKeys.SETTING_HAND_ADAPTIVE_NEW_CHAT, this.handAdaptiveNewChat)
+    AppStorage.setOrCreate(AppStorageKeys.SETTING_HAND_ADAPTIVE_UNSUPPORTED, this.handAdaptiveUnsupported)
+    AppStorage.setOrCreate(AppStorageKeys.SETTINGS_HAND_ADAPTIVE_CHANGED_AT, Date.now())
+  }
+
+  private buildCallbacks(): IndexSettingsSheetActionCallbacks {
+    const callbacks = new IndexSettingsSheetActionCallbacks()
+    callbacks.onToggleHandAdaptiveEnabled = (value: boolean): void => {
+      this.applyMasterSetting(value)
+    }
+    callbacks.onToggleHandAdaptiveNewChat = (value: boolean): void => {
+      this.applyNewChatSetting(value)
+    }
+    return callbacks
+  }
+
+  private applyMasterSetting(value: boolean): void {
+    this.handAdaptiveEnabled = value
+    if (value) {
+      this.handAdaptiveNewChat = true
+      this.handAdaptiveUnsupported = !this.isHoldingHandSupported()
+    } else {
+      this.handAdaptiveNewChat = false
+      this.handAdaptiveUnsupported = false
+    }
+    this.persistSettings().catch((error: Error): void => {
+      console.error('HandAdaptiveSettingsPage', `Failed to persist master setting: ${JSON.stringify(error)}`)
+    })
+  }
+
+  private applyNewChatSetting(value: boolean): void {
+    this.handAdaptiveNewChat = value
+    this.persistSettings().catch((error: Error): void => {
+      console.error('HandAdaptiveSettingsPage', `Failed to persist new chat setting: ${JSON.stringify(error)}`)
+    })
+  }
+
+  @Builder
+  private PageContent() {
+    Scroll() {
+      Row() {
+        Column() {
+          IndexSettingsSheetContent({
+            settingsSheetType: SettingsSheetType.HAND_ADAPTIVE,
+            handAdaptiveEnabled: this.handAdaptiveEnabled,
+            handAdaptiveNewChat: this.handAdaptiveNewChat,
+            handAdaptiveUnsupported: this.handAdaptiveUnsupported,
+            callbacks: this.buildCallbacks()
+          })
+        }
+        .width('100%')
+        .constraintSize({ maxWidth: this.getContentMaxWidth() })
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
+      .padding({ left: 16, right: 16, bottom: 24 })
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .scrollBar(BarState.Off)
+  }
+
+  @Builder
+  private DetailPaneHeader() {
+    Column() {
+      Row() {
+        Text($r('app.string.hand_adaptive_title'))
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+      }
+      .width('100%')
+      .height(64)
+      .padding({ left: 24, right: 24 })
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .backgroundColor($r('app.color.background'))
+    .border({ width: { bottom: 1 }, color: $r('app.color.divider') })
+  }
+
+  build() {
+    Column() {
+      if (this.isDetailPaneMode()) {
+        Column() {
+          this.DetailPaneHeader()
+          this.PageContent()
+        }
+        .width('100%')
+        .layoutWeight(1)
+      } else {
+        HdsNavigation() {
+          this.PageContent()
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .backgroundColor($r('app.color.background'))
+        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
+        .mode(NavigationMode.Stack)
+        .titleMode(HdsNavigationTitleMode.MINI)
+        .titleBar({
+          avoidLayoutSafeArea: true,
+          enableComponentSafeArea: true,
+          content: {
+            title: {
+              mainTitle: $r('app.string.hand_adaptive_title')
+            }
+          }
+        })
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.background'))
+  }
+}
+
+@Builder
+export function HandAdaptiveSettingsPageBuilder(name: string, param: Object) {
+  NavDestination() {
+    HandAdaptiveSettingsPage()
+  }
+  .hideTitleBar(true)
+  .hideBackButton(true)
+}

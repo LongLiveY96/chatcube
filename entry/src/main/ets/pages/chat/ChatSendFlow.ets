@@ -48,6 +48,7 @@ export class ChatSendFlowDependencies {
   onSyncMessages: () => void
   onScrollBottom: () => void
   onSetNewEmptySession: (value: boolean) => void
+  onDraftCommitted: () => void
   onMarkAutoTaskCompleted: () => void
   onMarkAutoTaskFailed: (message: string) => void
   onShowError: (message: string | Resource) => void
@@ -72,6 +73,7 @@ export class ChatSendFlowDependencies {
     onSyncMessages: () => void,
     onScrollBottom: () => void,
     onSetNewEmptySession: (value: boolean) => void,
+    onDraftCommitted: () => void,
     onMarkAutoTaskCompleted: () => void,
     onMarkAutoTaskFailed: (message: string) => void,
     onShowError: (message: string | Resource) => void,
@@ -95,6 +97,7 @@ export class ChatSendFlowDependencies {
     this.onSyncMessages = onSyncMessages
     this.onScrollBottom = onScrollBottom
     this.onSetNewEmptySession = onSetNewEmptySession
+    this.onDraftCommitted = onDraftCommitted
     this.onMarkAutoTaskCompleted = onMarkAutoTaskCompleted
     this.onMarkAutoTaskFailed = onMarkAutoTaskFailed
     this.onShowError = onShowError
@@ -271,6 +274,7 @@ export class ChatSendFlow {
     this.deps.messageDataSource.addMessage(userMessage)
     this.deps.onSyncMessages()
     this.deps.onSetNewEmptySession(false)
+    this.deps.onDraftCommitted()
     this.deps.onScrollBottom()
   }
 

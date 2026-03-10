@@ -1,4 +1,4 @@
-import { ChatMessage, ModelProvider } from '../../models/ChatModels'
+import { ChatMessage, MessageAttachment, ModelProvider } from '../../models/ChatModels'
 import { AppStateManager } from '../../viewmodels/AppStateManager'
 import { ProviderViewModel } from '../../viewmodels/ProviderViewModel'
 import { ChatViewModel } from '../../viewmodels/ChatViewModel'
@@ -16,6 +16,8 @@ export class ChatPageLoadResult {
   sessionId: string = ''
   sessionTitle: string = '新对话'
   messages: ChatMessage[] = []
+  draftText: string = ''
+  draftAttachments: MessageAttachment[] = []
   isNewChatTransition: boolean = true
   isNewEmptySession: boolean = false
 }
@@ -81,6 +83,8 @@ export class ChatPageLoadFlow {
       if (session !== null) {
         result.sessionTitle = session.title
         result.messages = [...session.messages]
+        result.draftText = session.draftText
+        result.draftAttachments = this.cloneDraftAttachments(session.draftAttachments)
       }
       result.isNewEmptySession = false
       return result
@@ -91,7 +95,24 @@ export class ChatPageLoadFlow {
     result.sessionTitle = pendingSession.title
     result.messages = []
     result.isNewChatTransition = true
-    result.isNewEmptySession = false
+    result.isNewEmptySession = true
     return result
+  }
+
+  private cloneDraftAttachments(attachments: MessageAttachment[]): MessageAttachment[] {
+    const cloned: MessageAttachment[] = []
+    for (let i = 0; i < attachments.length; i++) {
+      cloned.push(
+        new MessageAttachment(
+          attachments[i].id,
+          attachments[i].type,
+          attachments[i].name,
+          attachments[i].filePath,
+          attachments[i].mimeType,
+          attachments[i].size
+        )
+      )
+    }
+    return cloned
   }
 }

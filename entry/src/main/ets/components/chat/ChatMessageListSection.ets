@@ -3,6 +3,7 @@ import { MessageBubble } from '../MessageBubble'
 import { DateDivider } from '../DateDivider'
 import { DraftPreviewBubble } from './DraftPreviewBubble'
 import { MessageDataSource } from '../../datasource/MessageDataSource'
+import { CHAT_NAVIGATION_BAR_DEFAULT_HEIGHT } from '../../config/ChatLayout'
 import { shouldShowMessageHeader } from '../../utils/MessageListUtils'
 
 @Component
@@ -11,7 +12,6 @@ export struct ChatMessageListSection {
   @Prop loadingColor: ResourceColor = '#0A59F7'
   scroller: Scroller = new Scroller()
   messageDataSource: MessageDataSource = new MessageDataSource()
-  @Prop topAvoidHeight: number = 0
   @Prop isEditingMessage: boolean = false
   @Prop editingMessageId: string = ''
   @Prop selectedMessageIds: Array<string> = []
@@ -21,7 +21,9 @@ export struct ChatMessageListSection {
   @Prop showDraftPreview: boolean = false
   @Prop draftPreviewTimeText: string = ''
   @Prop bottomPadding: number = 0
+  @Prop topInsetHeight: number = 0
   @Prop currentModelId: string = ''
+  @Prop contentMaxWidth: number = 99999
   onRegenerate: (message: ChatMessage) => void = (_message: ChatMessage): void => {}
   onDelete: (message: ChatMessage) => void = (_message: ChatMessage): void => {}
   onEdit: (message: ChatMessage) => void = (_message: ChatMessage): void => {}
@@ -57,6 +59,10 @@ export struct ChatMessageListSection {
       currentDate.getDate() !== prevDate.getDate()
   }
 
+  private getEffectiveContentMaxWidth(): number {
+    return this.contentMaxWidth > 0 ? this.contentMaxWidth : 99999
+  }
+
   build() {
     Column() {
       if (this.isLoading) {
@@ -73,64 +79,69 @@ export struct ChatMessageListSection {
         List({ scroller: this.scroller }) {
           ListItem() {
             Column() {
-              Column().height(this.topAvoidHeight + 68)
+              Column().height(CHAT_NAVIGATION_BAR_DEFAULT_HEIGHT + this.topInsetHeight)
             }
           }
 
           LazyForEach(this.messageDataSource, (message: ChatMessage, index: number) => {
             ListItem() {
-              Column() {
-                if (this.checkShouldShowDateDivider(message, index)) {
-                  DateDivider({ timestamp: message.timestamp })
-                }
-
-                MessageBubble({
-                  message: message,
-                  showHeader: this.checkShouldShowMessageHeader(message, index),
-                  currentModelId: this.currentModelId,
-                  isMultiSelectMode: this.isMultiSelectMode,
-                  isSelected: this.selectedMessageIds.includes(message.id),
-                  isEditing: this.isEditingMessage && this.editingMessageId === message.id,
-                  previewContent: (this.isEditingMessage && this.editingMessageId === message.id) ? this.inputText : '',
-                  previewAttachments: (this.isEditingMessage && this.editingMessageId === message.id) ?
-                    this.pendingAttachments : [],
-                  onRegenerate: () => {
-                    this.onRegenerate(message)
-                  },
-                  onDelete: () => {
-                    this.onDelete(message)
-                  },
-                  onEdit: () => {
-                    this.onEdit(message)
-                  },
-                  onCancelEdit: () => {
-                    this.onCancelEdit()
-                  },
-                  onShareMessage: () => {
-                    this.onShareMessage(message)
-                  },
-                  onTranslate: (content: string, targetLang: string,
-                    callback: (result: string, errorMessage: string) => void) => {
-                    this.onTranslate(content, targetLang, callback)
-                  },
-                  onImageClick: (images: Array<string>, imageIndex: number) => {
-                    this.onImageClick(images, imageIndex)
-                  },
-                  onTTS: (messageId: string, content: string) => {
-                    this.onTTS(messageId, content)
-                  },
-                  onTTSStop: () => {
-                    this.onTTSStop()
-                  },
-                  onSelect: (messageId: string) => {
-                    this.onSelect(messageId)
-                  },
-                  onEnterMultiSelect: (messageId: string) => {
-                    this.onEnterMultiSelect(messageId)
+              Row() {
+                Column() {
+                  if (this.checkShouldShowDateDivider(message, index)) {
+                    DateDivider({ timestamp: message.timestamp })
                   }
-                })
+
+                  MessageBubble({
+                    message: message,
+                    showHeader: this.checkShouldShowMessageHeader(message, index),
+                    currentModelId: this.currentModelId,
+                    isMultiSelectMode: this.isMultiSelectMode,
+                    isSelected: this.selectedMessageIds.includes(message.id),
+                    isEditing: this.isEditingMessage && this.editingMessageId === message.id,
+                    previewContent: (this.isEditingMessage && this.editingMessageId === message.id) ? this.inputText : '',
+                    previewAttachments: (this.isEditingMessage && this.editingMessageId === message.id) ?
+                      this.pendingAttachments : [],
+                    onRegenerate: () => {
+                      this.onRegenerate(message)
+                    },
+                    onDelete: () => {
+                      this.onDelete(message)
+                    },
+                    onEdit: () => {
+                      this.onEdit(message)
+                    },
+                    onCancelEdit: () => {
+                      this.onCancelEdit()
+                    },
+                    onShareMessage: () => {
+                      this.onShareMessage(message)
+                    },
+                    onTranslate: (content: string, targetLang: string,
+                      callback: (result: string, errorMessage: string) => void) => {
+                      this.onTranslate(content, targetLang, callback)
+                    },
+                    onImageClick: (images: Array<string>, imageIndex: number) => {
+                      this.onImageClick(images, imageIndex)
+                    },
+                    onTTS: (messageId: string, content: string) => {
+                      this.onTTS(messageId, content)
+                    },
+                    onTTSStop: () => {
+                      this.onTTSStop()
+                    },
+                    onSelect: (messageId: string) => {
+                      this.onSelect(messageId)
+                    },
+                    onEnterMultiSelect: (messageId: string) => {
+                      this.onEnterMultiSelect(messageId)
+                    }
+                  })
+                }
+                .width('100%')
+                .constraintSize({ maxWidth: this.getEffectiveContentMaxWidth() })
               }
               .width('100%')
+              .justifyContent(FlexAlign.Center)
             }
             .padding({ left: 14, right: 14, top: 5, bottom: 5 })
             .opacity(this.isEditingMessage && this.editingMessageId !== message.id ? 0.4 : 1)
@@ -139,11 +150,19 @@ export struct ChatMessageListSection {
 
           if (!this.isEditingMessage && this.showDraftPreview) {
             ListItem() {
-              DraftPreviewBubble({
-                inputText: this.inputText,
-                pendingAttachments: this.pendingAttachments,
-                previewTimeText: this.draftPreviewTimeText
-              })
+              Row() {
+                Column() {
+                  DraftPreviewBubble({
+                    inputText: this.inputText,
+                    pendingAttachments: this.pendingAttachments,
+                    previewTimeText: this.draftPreviewTimeText
+                  })
+                }
+                .width('100%')
+                .constraintSize({ maxWidth: this.getEffectiveContentMaxWidth() })
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.Center)
             }
             .padding({ left: 14, right: 14, top: 5, bottom: 5 })
           }

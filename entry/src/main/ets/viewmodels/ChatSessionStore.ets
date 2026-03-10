@@ -28,6 +28,8 @@ export class ChatSessionStore {
   }
 
   async createNewSession(title: string = ''): Promise<ChatSession> {
+    // Switching to a real session invalidates any in-memory placeholder session.
+    this.pendingSession = null
     const sessionId = this.createId()
     const modelId = this.appStateManager.getCurrentModelId()
     const providerId = this.appStateManager.getCurrentProviderId()
@@ -72,6 +74,7 @@ export class ChatSessionStore {
 
     const messages = await this.databaseService.getMessages(sessionId)
     session.messages = messages
+    this.pendingSession = null
     this.currentSession = session
     return session
   }
@@ -117,6 +120,13 @@ export class ChatSessionStore {
 
   setCurrentSession(session: ChatSession | null): void {
     this.currentSession = session
+    if (session === null) {
+      this.pendingSession = null
+      return
+    }
+    if (this.pendingSession !== null && this.pendingSession.id !== session.id) {
+      this.pendingSession = null
+    }
   }
 
   getCurrentSessionTitle(): string {
@@ -124,5 +134,15 @@ export class ChatSessionStore {
       return this.currentSession.title
     }
     return this.defaultTitle
+  }
+
+  hasPendingSession(): boolean {
+    return this.pendingSession !== null
+  }
+
+  isCurrentSessionPending(): boolean {
+    return this.currentSession !== null &&
+      this.pendingSession !== null &&
+      this.currentSession.id === this.pendingSession.id
   }
 }

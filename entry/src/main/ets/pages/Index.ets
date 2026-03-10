@@ -14,6 +14,13 @@ import { SharePreviewSheet } from '../components/SharePreviewSheet'
 import { ColorTheme, ThemeColorConfig } from '../models/ThemeColors'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { AppStorageKeys } from '../config/AppStorageKeys'
+import { SettingsRouteName } from '../config/SettingsRouteName'
+import {
+  getCenteredPageMaxWidth,
+  getIndexChatListPaneWidth,
+  getIndexPageHorizontalPadding,
+  LayoutSizeClass
+} from '../config/LayoutProfile'
 import { createButtonTouchHandler, getButtonAnimation, getButtonScale } from '../utils/ButtonAnimationUtils'
 import {
   countSelectedIdsInCandidates,
@@ -54,6 +61,7 @@ import {
   normalizeSystemPromptTemplate,
   SystemPromptTemplateDefaults
 } from '../utils/SystemPromptTemplateUtils'
+import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 
 @Entry
 @Component
@@ -69,6 +77,8 @@ struct Index {
   @State @Watch('onSettingsSummaryStateChanged') handAdaptiveEnabled: boolean = false
   @State @Watch('onSettingsSummaryStateChanged') handAdaptiveNewChat: boolean = false
   @State @Watch('onSettingsSummaryStateChanged') handAdaptiveUnsupported: boolean = false
+  @StorageProp(AppStorageKeys.SETTINGS_HAND_ADAPTIVE_CHANGED_AT)
+  @Watch('onHandAdaptiveSettingsTickChanged') handAdaptiveSettingsChangedAt: number = 0
   @State currentHoldingHand: motion.HoldingHandStatus = motion.HoldingHandStatus.UNKNOWN_STATUS
   @State fabPressed: boolean = false
   @State @Watch('onSettingsSummaryStateChanged') currentColorTheme: ColorTheme = ColorTheme.DEFAULT
@@ -79,9 +89,14 @@ struct Index {
   @State searchText: string = ''
   @State isSearchExpanded: boolean = false
   @State currentSessionFilter: SessionFilterType = SessionFilterType.ALL
+  @State tabletDetailSessionId: string = ''
+  @StorageProp(AppStorageKeys.ACTIVE_CHAT_SESSION_ID) activeChatSessionId: string = ''
   // 避让区域高度
   @StorageProp('topAvoidHeight') topAvoidHeight: number = 0
   @StorageProp('bottomAvoidHeight') bottomAvoidHeight: number = 0
+  @StorageProp('layout_size_class') @Watch('onLayoutSizeClassChanged') layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @StorageProp('window_width_vp') @Watch('onWindowMetricsChanged') windowWidthVp: number = 0
+  @StorageProp('window_height_vp') @Watch('onWindowMetricsChanged') windowHeightVp: number = 0
   // 主题颜色
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
   @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
@@ -105,6 +120,10 @@ struct Index {
   private settingsSheetClosing: boolean = false
   private pendingSettingsSheetType: SettingsSheetType = SettingsSheetType.NONE
   private navPathStack: NavPathStack = new NavPathStack()
+  private tabletChatDetailPathStack: NavPathStack = new NavPathStack()
+  private settingsNavPathStack: NavPathStack = new NavPathStack()
+  private currentTabletDetailParams: ChatPageRouteParams | null = null
+  @State currentSettingsRouteName: string = ''
   // 返回键退出控制
   private lastBackPressTime: number = 0
   private chatViewModel: ChatViewModel = ServiceRegistry.chat()
@@ -134,22 +153,178 @@ struct Index {
       `${this.handAdaptiveUnsupported}, notify=${this.notifyEnabled}/${this.notifyOnComplete}/${this.notifyOnFailed}`)
   }
 
-  private safePushUrl(url: string, params?: Object): void {
-    const navRouter = this.getUIContext().getRouter()
-    try {
-      if (params !== undefined) {
-        navRouter.pushUrl({ url: url, params: params })
-      } else {
-        navRouter.pushUrl({ url: url })
-      }
-    } catch (error) {
-      console.error('Index', `Router pushUrl failed: ${JSON.stringify(error)}`)
+  private onLayoutSizeClassChanged(): void {
+    if (this.currentTabIndex === 2 && this.settingsNavPathStack.size() > 0) {
+      this.syncSettingsDetailPresentationMode()
     }
+    if (this.isSettingsSplitMode()) {
+      this.dismissSettingsSheetForNavigation()
+      if (this.currentTabIndex === 2) {
+        this.ensureSettingsSplitLandingRoute()
+      }
+      return
+    }
+    if (this.currentTabIndex === 1 && this.currentTabletDetailParams !== null && this.navPathStack.size() === 0) {
+      const params = this.currentTabletDetailParams
+      this.clearTabletChatDetail(false)
+      this.navPathStack.pushPath({ name: 'ChatPage', param: params as ChatPageRouteParams })
+      return
+    }
+  }
+
+  private isExpandedLayout(): boolean {
+    return this.layoutSizeClass === LayoutSizeClass.EXPANDED
+  }
+
+  private onWindowMetricsChanged(): void {
+    if (this.currentTabIndex !== 2) {
+      return
+    }
+    this.syncSettingsDetailPresentationMode()
+    if (this.isSettingsSplitMode()) {
+      this.dismissSettingsSheetForNavigation()
+      this.ensureSettingsSplitLandingRoute()
+    }
+  }
+
+  private isLandscapeWindow(): boolean {
+    if (this.windowWidthVp <= 0 || this.windowHeightVp <= 0) {
+      return false
+    }
+    return this.windowWidthVp > this.windowHeightVp
+  }
+
+  private getExpandedChatListWidth(): number {
+    return getIndexChatListPaneWidth(this.windowWidthVp)
+  }
+
+  private getExpandedPageHorizontalPadding(): number {
+    return getIndexPageHorizontalPadding(this.windowWidthVp)
+  }
+
+  private getExpandedCenterColumnMaxWidth(): number {
+    return getCenteredPageMaxWidth(this.windowWidthVp)
+  }
+
+  private getExpandedSettingsListWidth(): number {
+    return getIndexChatListPaneWidth(this.windowWidthVp)
+  }
+
+  private isSettingsSplitMode(): boolean {
+    return this.isExpandedLayout() && this.isLandscapeWindow()
+  }
+
+  private syncSettingsDetailPresentationMode(): void {
+    AppStorage.setOrCreate(
+      AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE,
+      this.isSettingsSplitMode() ? SettingsPagePresentationMode.DETAIL_PANE : SettingsPagePresentationMode.PAGE
+    )
+  }
+
+  private dismissSettingsSheetForNavigation(): void {
+    this.pendingSettingsSheetType = SettingsSheetType.NONE
+    if (this.showSettingsSheet) {
+      this.settingsSheetClosing = true
+      this.showSettingsSheet = false
+      return
+    }
+    if (!this.settingsSheetClosing) {
+      this.activeSettingsSheetType = SettingsSheetType.NONE
+    }
+  }
+
+  private openSettingsPanelEntry(routeName: SettingsRouteName, sheetType: SettingsSheetType): void {
+    if (this.isSettingsSplitMode()) {
+      this.openSettingsDestination(routeName)
+      return
+    }
+    this.openSettingsSheet(sheetType)
+  }
+
+  private getDefaultSettingsSplitRoute(): SettingsRouteName {
+    return SettingsRouteName.MODEL_MANAGE
+  }
+
+  private ensureSettingsSplitLandingRoute(): void {
+    if (!this.isSettingsSplitMode()) {
+      return
+    }
+    if (this.currentSettingsRouteName !== '' || this.settingsNavPathStack.size() > 0) {
+      return
+    }
+    const routeName = this.getDefaultSettingsSplitRoute()
+    this.currentSettingsRouteName = routeName
+    this.syncSettingsDetailPresentationMode()
+    this.settingsNavPathStack.pushPath({ name: routeName })
+  }
+
+  private switchToTab(index: number, shouldEnsureSettingsSplitLanding: boolean = true): void {
+    if (this.currentTabIndex === 2 && index !== 2) {
+      this.clearSettingsDestination(false)
+    }
+    if (index !== 2) {
+      this.dismissSettingsSheetForNavigation()
+    }
+    this.currentTabIndex = index
+    if (index === 1) {
+      this.loadSessions()
+      return
+    }
+    if (index === 2 && shouldEnsureSettingsSplitLanding) {
+      this.ensureSettingsSplitLandingRoute()
+    }
+  }
+
+  private openChatRoute(params: ChatPageRouteParams): void {
+    this.switchToTab(1)
+    if (this.isExpandedLayout()) {
+      this.openTabletChatDetail(params)
+      return
+    }
+    this.navPathStack.pushPath({ name: 'ChatPage', param: params as ChatPageRouteParams })
+  }
+
+  private openTabletChatDetail(params: ChatPageRouteParams): void {
+    this.currentTabletDetailParams = params
+    this.tabletDetailSessionId = params.sessionId ?? ''
+    if (this.tabletChatDetailPathStack.size() > 0) {
+      this.tabletChatDetailPathStack.replacePath({ name: 'ChatPage', param: params as ChatPageRouteParams })
+      return
+    }
+    this.tabletChatDetailPathStack.pushPath({ name: 'ChatPage', param: params as ChatPageRouteParams })
+  }
+
+  private clearTabletChatDetail(animated: boolean = false): void {
+    if (this.tabletChatDetailPathStack.size() > 0) {
+      this.tabletChatDetailPathStack.clear(animated)
+    }
+    this.currentTabletDetailParams = null
+    this.tabletDetailSessionId = ''
+  }
+
+  private openSettingsDestination(routeName: SettingsRouteName): void {
+    this.switchToTab(2, false)
+    this.dismissSettingsSheetForNavigation()
+    this.currentSettingsRouteName = routeName
+    this.syncSettingsDetailPresentationMode()
+    if (this.isSettingsSplitMode() && this.settingsNavPathStack.size() > 0) {
+      this.settingsNavPathStack.replacePath({ name: routeName })
+      return
+    }
+    this.settingsNavPathStack.pushPath({ name: routeName })
+  }
+
+  private clearSettingsDestination(animated: boolean = false): void {
+    if (this.settingsNavPathStack.size() > 0) {
+      this.settingsNavPathStack.clear(animated)
+    }
+    this.currentSettingsRouteName = ''
+    AppStorage.setOrCreate(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE, SettingsPagePresentationMode.PAGE)
   }
 
   onOpenNewChat(): void {
     if (this.openNewChatTimestamp > 0) {
-      this.navPathStack.pushPath({ name: 'ChatPage', param: {} as ChatPageRouteParams })
+      this.openChatRoute({} as ChatPageRouteParams)
     }
   }
 
@@ -178,6 +353,12 @@ struct Index {
     }
   }
 
+  private onHandAdaptiveSettingsTickChanged(): void {
+    if (this.handAdaptiveSettingsChangedAt > 0) {
+      this.loadHandAdaptiveSettings()
+    }
+  }
+
   aboutToAppear(): void {
     this.navPathStack.setInterception({
       didShow: (from: NavDestinationContext | "navBar", to: NavDestinationContext | "navBar",
@@ -186,6 +367,30 @@ struct Index {
           // pop 完成，navPathStack.size() 已变为 0，loadSessions 不再跳过
           this.loadSessions()
           this.parseUnreadBySessionJson(this.taskUnreadBySessionJson)
+        }
+      }
+    })
+    this.tabletChatDetailPathStack.setInterception({
+      didShow: (from: NavDestinationContext | "navBar", to: NavDestinationContext | "navBar",
+        operation: NavigationOperation, isAnimated: boolean): void => {
+        if (to === 'navBar' || this.tabletChatDetailPathStack.size() <= 0) {
+          this.currentTabletDetailParams = null
+          this.tabletDetailSessionId = ''
+          return
+        }
+        const topParam = this.tabletChatDetailPathStack.getParamByIndex(
+          this.tabletChatDetailPathStack.size() - 1
+        ) as ChatPageRouteParams | undefined
+        this.currentTabletDetailParams = topParam ?? null
+        this.tabletDetailSessionId = topParam?.sessionId ?? ''
+      }
+    })
+    this.settingsNavPathStack.setInterception({
+      didShow: (from: NavDestinationContext | "navBar", to: NavDestinationContext | "navBar",
+        operation: NavigationOperation, isAnimated: boolean): void => {
+        if (to === 'navBar' || this.settingsNavPathStack.size() <= 0) {
+          this.currentSettingsRouteName = ''
+          AppStorage.setOrCreate(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE, SettingsPagePresentationMode.PAGE)
         }
       }
     })
@@ -233,6 +438,15 @@ struct Index {
       return true
     }
 
+    if (this.currentTabIndex === 2 && this.settingsNavPathStack.size() > 0) {
+      if (this.isSettingsSplitMode()) {
+        this.clearSettingsDestination(false)
+      } else {
+        this.settingsNavPathStack.pop()
+      }
+      return true
+    }
+
     // 如果在多选模式，退出多选模式
     if (this.isMultiSelectMode) {
       this.handleExitMultiSelectMode()
@@ -242,6 +456,11 @@ struct Index {
     // 如果搜索框展开，收起搜索框
     if (this.isSearchExpanded) {
       this.collapseSearch()
+      return true
+    }
+
+    if (this.isExpandedLayout() && this.currentTabIndex === 1 && this.tabletChatDetailPathStack.size() > 0) {
+      this.clearTabletChatDetail(false)
       return true
     }
 
@@ -322,9 +541,9 @@ struct Index {
     AppStorage.setOrCreate('setting_notify_enabled', this.notifyEnabled)
     AppStorage.setOrCreate('setting_notify_on_complete', this.notifyOnComplete)
     AppStorage.setOrCreate('setting_notify_on_failed', this.notifyOnFailed)
-    AppStorage.setOrCreate('setting_hand_adaptive_enabled', this.handAdaptiveEnabled)
-    AppStorage.setOrCreate('setting_hand_adaptive_new_chat', this.handAdaptiveNewChat)
-    AppStorage.setOrCreate('setting_hand_adaptive_unsupported', this.handAdaptiveUnsupported)
+    AppStorage.setOrCreate(AppStorageKeys.SETTING_HAND_ADAPTIVE_ENABLED, this.handAdaptiveEnabled)
+    AppStorage.setOrCreate(AppStorageKeys.SETTING_HAND_ADAPTIVE_NEW_CHAT, this.handAdaptiveNewChat)
+    AppStorage.setOrCreate(AppStorageKeys.SETTING_HAND_ADAPTIVE_UNSUPPORTED, this.handAdaptiveUnsupported)
     AppStorage.setOrCreate(AppStorageKeys.CHAT_FONT_SIZE, this.chatFontSize)
   }
 
@@ -483,7 +702,7 @@ struct Index {
       return
     }
     this.chatTaskOrchestrator.markSessionRead(payload.sessionId)
-    this.navPathStack.pushPath({ name: 'ChatPage', param: { sessionId: payload.sessionId } as ChatPageRouteParams })
+    this.openChatRoute({ sessionId: payload.sessionId } as ChatPageRouteParams)
     AppStorage.setOrCreate(AppStorageKeys.OPEN_SESSION_PAYLOAD, '')
   }
 
@@ -504,7 +723,7 @@ struct Index {
     opts.actionText = $r('app.string.task_alert_view')
     opts.onAction = (): void => {
       this.chatTaskOrchestrator.markSessionRead(payload.sessionId)
-      this.navPathStack.pushPath({ name: 'ChatPage', param: { sessionId: payload.sessionId } as ChatPageRouteParams })
+      this.openChatRoute({ sessionId: payload.sessionId } as ChatPageRouteParams)
     }
     showSnackBar(this.getUIContext(), opts)
     AppStorage.setOrCreate(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, '')
@@ -527,14 +746,6 @@ struct Index {
 
     this.activeSettingsSheetType = type
     this.showSettingsSheet = true
-  }
-
-  private openHandAdaptiveSheet(): void {
-    if (this.showSettingsSheet && this.activeSettingsSheetType === SettingsSheetType.HAND_ADAPTIVE) {
-      return
-    }
-    // 纯 UI 展示切换，避免在点击路径引入异步刷新导致动画周期内重渲染。
-    this.openSettingsSheet(SettingsSheetType.HAND_ADAPTIVE)
   }
 
   private closeAllSettingsSheets(): void {
@@ -592,6 +803,8 @@ struct Index {
             existing.updatedAt = fresh.updatedAt
             existing.lastMessagePreview = fresh.lastMessagePreview
             existing.messageCount = fresh.messageCount
+            existing.draftText = fresh.draftText
+            existing.draftAttachments = [...fresh.draftAttachments]
             existing.isFavorite = fresh.isFavorite
             existing.modelId = fresh.modelId
             existing.providerId = fresh.providerId
@@ -608,9 +821,13 @@ struct Index {
 
   async deleteSession(sessionId: string): Promise<void> {
     await this.chatViewModel.deleteSession(sessionId)
-    const index = this.sessions.findIndex((s: ChatSession) => s.id === sessionId)
-    if (index >= 0) {
-      this.sessions.splice(index, 1)
+    this.sessions = this.sessions.filter((session: ChatSession): boolean => session.id !== sessionId)
+    this.selectedSessionIds = this.selectedSessionIds.filter((selectedId: string): boolean => selectedId !== sessionId)
+    if (this.tabletDetailSessionId === sessionId) {
+      this.clearTabletChatDetail(false)
+    }
+    if (this.activeChatSessionId === sessionId) {
+      AppStorage.setOrCreate(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, '')
     }
     this.showIndexSnack($r('app.string.conversation_deleted'), 2000, SnackBarTone.SUCCESS)
   }
@@ -639,51 +856,36 @@ struct Index {
     return count.toString()
   }
 
+  private shouldApplyCompactContentTopInset(): boolean {
+    return !(this.currentTabIndex === 2 && !this.isSettingsSplitMode() && this.currentSettingsRouteName !== '')
+  }
+
+  private shouldApplyExpandedContentTopInset(): boolean {
+    return true
+  }
+
   private getGroupRenderKey(group: SessionGroupData): string {
     return buildSessionGroupRenderKey(group, this.currentSessionFilter, this.searchText)
+  }
+
+  private getActiveSessionIdForChatList(): string {
+    if (!this.isExpandedLayout()) {
+      return ''
+    }
+    if (this.activeChatSessionId !== '') {
+      return this.activeChatSessionId
+    }
+    return this.tabletDetailSessionId
   }
 
   build() {
     Navigation(this.navPathStack) {
       Stack() {
-        Column() {
-          // 顶部状态栏占位 - 透明背景，自动继承当前 Tab 的背景色
-          Column()
-            .width('100%')
-            .height(this.px2vp(this.topAvoidHeight))
-
-          HdsTabs({ barPosition: BarPosition.End, index: this.currentTabIndex }) {
-            TabContent() {
-              this.AssistantTab()
-            }
-            .tabBar(this.TabBarAssistant())
-
-            TabContent() {
-              this.ChatTab()
-            }
-            .tabBar(this.TabBarChat())
-
-            TabContent() {
-              this.SettingsTab()
-            }
-            .tabBar(this.TabBarSettings())
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .barMode(BarMode.Fixed)
-          .barHeight(56 + this.px2vp(this.bottomAvoidHeight))
-          .barBackgroundBlurStyle(BlurStyle.COMPONENT_THICK)
-          .scrollable(false)
-          .onChange((index: number) => {
-            this.currentTabIndex = index
-            if (index === 1) {
-              this.loadSessions()
-            }
-          })
+        if (this.isExpandedLayout()) {
+          this.ExpandedRoot()
+        } else {
+          this.CompactRoot()
         }
-        .width('100%')
-        .height('100%')
-        .backgroundColor($r('app.color.background'))
 
         // bindSheet 宿主：每个 bindSheet 必须挂在独立组件上，避免多 bindSheet 冲突
         Column()
@@ -708,6 +910,10 @@ struct Index {
             height: this.getActiveSettingsSheetHeight(),
             dragBar: false,
             showClose: false,
+            backgroundColor: this.getSettingsSheetBackgroundColor(),
+            blurStyle: BlurStyle.Thin,
+            preferType: SheetType.BOTTOM,
+            maskColor: '#66000000',
             // 禁止遮罩点击/拖拽关闭，只允许显式点击关闭按钮/返回键关闭。
             shouldDismiss: (_dismissAction: SheetDismiss) => {
             },
@@ -747,6 +953,159 @@ struct Index {
     .hideTitleBar(true)
     .hideBackButton(true)
     .mode(NavigationMode.Stack)
+  }
+
+  @Builder
+  CompactRoot() {
+    Column() {
+      if (this.shouldApplyCompactContentTopInset()) {
+        Column()
+          .width('100%')
+          .height(this.px2vp(this.topAvoidHeight))
+      }
+
+      HdsTabs({ barPosition: BarPosition.End, index: this.currentTabIndex }) {
+        TabContent() {
+          this.AssistantTab()
+        }
+        .tabBar(this.TabBarAssistant())
+
+        TabContent() {
+          this.ChatTab()
+        }
+        .tabBar(this.TabBarChat())
+
+        TabContent() {
+          this.SettingsTab()
+        }
+        .tabBar(this.TabBarSettings())
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .barMode(BarMode.Fixed)
+      .barHeight(56 + this.px2vp(this.bottomAvoidHeight))
+      .barBackgroundBlurStyle(BlurStyle.COMPONENT_THICK)
+      .scrollable(false)
+      .onChange((index: number) => {
+        this.switchToTab(index)
+      })
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.background'))
+  }
+
+  @Builder
+  ExpandedRoot() {
+    Row() {
+      this.ExpandedNavigationRail()
+
+        Column() {
+          if (this.shouldApplyExpandedContentTopInset()) {
+            Column()
+              .width('100%')
+              .height(this.px2vp(this.topAvoidHeight))
+          }
+
+          if (this.currentTabIndex === 0) {
+            this.ExpandedAssistantTab()
+          } else if (this.currentTabIndex === 1) {
+            this.ExpandedChatTab()
+          } else {
+            this.ExpandedSettingsTab()
+          }
+        }
+        .layoutWeight(1)
+      .height('100%')
+      .backgroundColor($r('app.color.background'))
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.background'))
+  }
+
+  @Builder
+  ExpandedNavigationRail() {
+    Column({ space: 6 }) {
+      Column()
+        .width('100%')
+        .height(this.px2vp(this.topAvoidHeight))
+
+      this.RailTabButton(0, $r('sys.symbol.person_fill'), $r('sys.symbol.person'), $r('app.string.tab_assistant'))
+      this.RailTabButton(1, $r('sys.symbol.message_fill'), $r('sys.symbol.message'), $r('app.string.tab_chat'),
+        this.getTotalUnreadCount())
+      this.RailTabButton(2, $r('sys.symbol.gearshape_fill'), $r('sys.symbol.gearshape'),
+        $r('app.string.tab_settings'))
+
+      Blank()
+    }
+    .width(88)
+    .height('100%')
+    .padding({ left: 8, right: 8, top: 8, bottom: 12 })
+    .backgroundColor($r('app.color.surface'))
+    .border({
+      width: { right: 1 },
+      color: $r('app.color.divider')
+    })
+  }
+
+  @Builder
+  ExpandedAssistantTab() {
+    Row() {
+      Column() {
+        this.AssistantTab()
+      }
+      .width('100%')
+      .constraintSize({ maxWidth: this.getExpandedCenterColumnMaxWidth() })
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .justifyContent(FlexAlign.Center)
+    .padding({
+      left: this.getExpandedPageHorizontalPadding(),
+      right: this.getExpandedPageHorizontalPadding(),
+      bottom: 12
+    })
+  }
+
+  @Builder
+  ExpandedSettingsTab() {
+    Column() {
+      this.SettingsTab()
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .backgroundColor($r('app.color.background'))
+    .borderRadius(24)
+    .clip(true)
+    .border({
+      width: 1,
+      color: $r('app.color.divider')
+    })
+    .padding({
+      left: this.getExpandedPageHorizontalPadding(),
+      right: this.getExpandedPageHorizontalPadding()
+    })
+  }
+
+  @Builder
+  RailTabButton(index: number, activeIcon: Resource, inactiveIcon: Resource, label: Resource, badgeCount: number = 0) {
+    Column() {
+      IndexBottomTabItem({
+        active: this.isTabActive(index),
+        activeIcon: activeIcon,
+        inactiveIcon: inactiveIcon,
+        label: label,
+        badgeCount: badgeCount
+      })
+    }
+    .width('100%')
+    .height(64)
+    .borderRadius(18)
+    .backgroundColor(this.isTabActive(index) ? this.themePrimaryLight : Color.Transparent)
+    .onClick(() => {
+      this.switchToTab(index)
+    })
   }
 
   @Builder
@@ -873,6 +1232,15 @@ struct Index {
 
   @Builder
   ChatTab() {
+    Column() {
+      this.ChatListPanel()
+    }
+      .width('100%')
+      .layoutWeight(1)
+  }
+
+  @Builder
+  ChatListPanel() {
     Stack({ alignContent: Alignment.BottomEnd }) {
       Column() {
         if (!this.isMultiSelectMode) {
@@ -984,16 +1352,16 @@ struct Index {
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
         } else if (this.sessions.length === 0) {
-          IndexEmptyStateCard({
-            icon: $r('sys.symbol.ellipsis_message'),
-            title: $r('app.string.no_sessions'),
-            description: $r('app.string.start_new_chat'),
-            showButton: true,
-            buttonText: $r('app.string.new_chat'),
-            onButtonClick: (): void => {
-              this.navPathStack.pushPath({ name: 'ChatPage', param: {} as ChatPageRouteParams })
-            }
-          })
+            IndexEmptyStateCard({
+              icon: $r('sys.symbol.ellipsis_message'),
+              title: $r('app.string.no_sessions'),
+              description: $r('app.string.start_new_chat'),
+              showButton: true,
+              buttonText: $r('app.string.new_chat'),
+              onButtonClick: (): void => {
+                this.openChatRoute({} as ChatPageRouteParams)
+              }
+            })
         } else {
           if (this.getFilteredSessions().length === 0) {
             if (this.searchText.trim() !== '') {
@@ -1014,6 +1382,8 @@ struct Index {
               sessionGroups: this.getSessionGroups(),
               isMultiSelectMode: this.isMultiSelectMode,
               selectedSessionIds: this.selectedSessionIds,
+              activeSessionId: this.getActiveSessionIdForChatList(),
+              unreadRenderVersion: this.unreadRenderTick,
               onGetUnreadCount: (sessionId: string): number => {
                 return this.getUnreadCountForSession(sessionId)
               },
@@ -1027,10 +1397,7 @@ struct Index {
                 this.handleSessionCardClick(sessionId)
               },
               onOpenSession: (sessionId: string): void => {
-                this.navPathStack.pushPath({
-                  name: 'ChatPage',
-                  param: { sessionId: sessionId } as ChatPageRouteParams
-                })
+                this.openChatRoute({ sessionId: sessionId } as ChatPageRouteParams)
               },
               onDeleteSession: (sessionId: string): void => {
                 this.deleteSession(sessionId)
@@ -1049,7 +1416,7 @@ struct Index {
         }
       }
       .width('100%')
-      .layoutWeight(1)
+      .height('100%')
       .backgroundColor($r('app.color.background'))
 
       if (!this.isMultiSelectMode) {
@@ -1076,7 +1443,78 @@ struct Index {
       }
     }
     .width('100%')
+    .height('100%')
+  }
+
+  @Builder
+  ExpandedChatTab() {
+    Row({ space: 16 }) {
+      Column() {
+        this.ChatListPanel()
+      }
+      .width(this.getExpandedChatListWidth())
+      .height('100%')
+      .backgroundColor($r('app.color.background'))
+      .borderRadius(24)
+      .clip(true)
+      .border({
+        width: 1,
+        color: $r('app.color.divider')
+      })
+
+      Column() {
+        this.TabletChatDetailPane()
+      }
+      .layoutWeight(1)
+      .height('100%')
+      .backgroundColor($r('app.color.background'))
+      .borderRadius(24)
+      .clip(true)
+      .border({
+        width: 1,
+        color: $r('app.color.divider')
+      })
+    }
+    .width('100%')
     .layoutWeight(1)
+    .padding({
+      left: this.getExpandedPageHorizontalPadding(),
+      right: this.getExpandedPageHorizontalPadding(),
+      bottom: 12
+    })
+  }
+
+  @Builder
+  TabletChatDetailPane() {
+    Navigation(this.tabletChatDetailPathStack) {
+      Stack() {
+        if (this.tabletChatDetailPathStack.size() === 0) {
+          this.TabletChatDetailEmptyState()
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('app.color.background'))
+    }
+    .width('100%')
+    .height('100%')
+    .hideTitleBar(true)
+    .hideBackButton(true)
+    .mode(NavigationMode.Stack)
+  }
+
+  @Builder
+  TabletChatDetailEmptyState() {
+    IndexEmptyStateCard({
+      icon: $r('sys.symbol.ellipsis_message'),
+      title: $r('app.string.tablet_chat_detail_empty_title'),
+      description: $r('app.string.tablet_chat_detail_empty_desc'),
+      showButton: true,
+      buttonText: $r('app.string.new_chat'),
+      onButtonClick: (): void => {
+        this.openChatRoute({} as ChatPageRouteParams)
+      }
+    })
   }
 
   @Builder
@@ -1107,7 +1545,7 @@ struct Index {
     }))
     .onClick(() => {
       this.fabPressed = false
-      this.navPathStack.pushPath({ name: 'ChatPage', param: {} as ChatPageRouteParams })
+      this.openChatRoute({} as ChatPageRouteParams)
     })
   }
 
@@ -1131,133 +1569,183 @@ struct Index {
   }
 
   @Builder
-  SettingsTab() {
-    Column() {
-      Row() {
-        Text($r('app.string.tab_settings'))
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
+  SettingsNavigationContent() {
+    IndexSettingsPanel({
+      currentThemeMode: $currentThemeMode,
+      currentLanguage: $currentLanguage,
+      currentColorTheme: $currentColorTheme,
+      handAdaptiveEnabled: $handAdaptiveEnabled,
+      handAdaptiveNewChat: $handAdaptiveNewChat,
+      handAdaptiveUnsupported: $handAdaptiveUnsupported,
+      notifyEnabled: $notifyEnabled,
+      notifyOnComplete: $notifyOnComplete,
+      notifyOnFailed: $notifyOnFailed,
+      sidebarMode: this.isSettingsSplitMode(),
+      selectedRouteName: this.currentSettingsRouteName,
+      highlightSelection: this.isSettingsSplitMode(),
+      onOpenModelManage: (): void => {
+        this.openSettingsDestination(SettingsRouteName.MODEL_MANAGE)
+      },
+      onOpenDefaultModel: (): void => {
+        this.openSettingsDestination(SettingsRouteName.DEFAULT_MODEL)
+      },
+      onOpenToolsCenter: (): void => {
+        this.openSettingsDestination(SettingsRouteName.TOOLS_CENTER)
+      },
+      onOpenSystemPrompt: (): void => {
+        this.openSettingsDestination(SettingsRouteName.SYSTEM_PROMPT)
+      },
+      onOpenHandAdaptive: (): void => {
+        this.openSettingsPanelEntry(SettingsRouteName.HAND_ADAPTIVE, SettingsSheetType.HAND_ADAPTIVE)
+      },
+      onOpenTheme: (): void => {
+        this.openSettingsDestination(SettingsRouteName.THEME_MODE)
+      },
+      onOpenColorTheme: (): void => {
+        this.openSettingsDestination(SettingsRouteName.THEME_MODE)
+      },
+      onOpenLanguage: (): void => {
+        this.openSettingsPanelEntry(SettingsRouteName.LANGUAGE, SettingsSheetType.LANGUAGE)
+      },
+      onOpenNotification: (): void => {
+        this.openSettingsPanelEntry(SettingsRouteName.NOTIFICATION, SettingsSheetType.NOTIFICATION)
+      },
+      onOpenFontSize: (): void => {
+        this.openSettingsDestination(SettingsRouteName.THEME_MODE)
+      },
+      onOpenExportData: (): void => {
+        this.openSettingsDestination(SettingsRouteName.EXPORT_DATA)
+      },
+      onOpenImportData: (): void => {
+        this.openSettingsDestination(SettingsRouteName.IMPORT_DATA)
+      },
+      onOpenAbout: (): void => {
+        this.openSettingsDestination(SettingsRouteName.ABOUT)
       }
-      .width('100%')
-      .height(56)
-      .padding({ left: 8, right: 8 })
-      .alignItems(VerticalAlign.Center)
+    })
+  }
 
-      IndexSettingsPanel({
-        currentThemeMode: $currentThemeMode,
-        currentLanguage: $currentLanguage,
-        currentColorTheme: $currentColorTheme,
-        handAdaptiveEnabled: $handAdaptiveEnabled,
-        handAdaptiveNewChat: $handAdaptiveNewChat,
-        handAdaptiveUnsupported: $handAdaptiveUnsupported,
-        notifyEnabled: $notifyEnabled,
-        notifyOnComplete: $notifyOnComplete,
-        notifyOnFailed: $notifyOnFailed,
-        onOpenModelManage: (): void => {
-          this.safePushUrl('pages/ModelManagePage')
-        },
-        onOpenDefaultModel: (): void => {
-          this.safePushUrl('pages/DefaultModelPage')
-        },
-        onOpenToolsCenter: (): void => {
-          this.safePushUrl('pages/ToolsCenterPage')
-        },
-        onOpenSystemPrompt: (): void => {
-          this.openSystemPromptSheet()
-        },
-        onOpenHandAdaptive: (): void => {
-          this.openHandAdaptiveSheet()
-        },
-        onOpenTheme: (): void => {
-          this.openSettingsSheet(SettingsSheetType.THEME)
-        },
-        onOpenColorTheme: (): void => {
-          this.openSettingsSheet(SettingsSheetType.COLOR_THEME)
-        },
-        onOpenLanguage: (): void => {
-          this.openSettingsSheet(SettingsSheetType.LANGUAGE)
-        },
-        onOpenNotification: (): void => {
-          this.openSettingsSheet(SettingsSheetType.NOTIFICATION)
-        },
-        onOpenFontSize: (): void => {
-          this.openSettingsSheet(SettingsSheetType.FONT_SIZE)
-        },
-        onOpenExportData: (): void => {
-          this.safePushUrl('pages/ExportDataPage')
-        },
-        onOpenImportData: (): void => {
-          this.safePushUrl('pages/ImportDataPage')
-        },
-        onOpenAbout: (): void => {
-          this.safePushUrl('pages/AboutPage')
-        }
-      })
+  @Builder
+  private SettingsNavigationScrollableContent() {
+    List() {
+      ListItem() {
+        this.SettingsNavigationContent()
+      }
     }
     .width('100%')
-    .layoutWeight(1)
+    .height('100%')
+    .scrollBar(BarState.Off)
     .backgroundColor($r('app.color.background'))
   }
 
-  private getActiveSettingsSheetHeight(): SheetSize {
-    if (this.activeSettingsSheetType === SettingsSheetType.COLOR_THEME) {
-      return SheetSize.MEDIUM
+  private shouldIgnoreCompactSettingsTopSafeArea(): boolean {
+    return !this.isSettingsSplitMode()
+  }
+
+  @Builder
+  SettingsTab() {
+    if (this.isSettingsSplitMode()) {
+      Navigation(this.settingsNavPathStack) {
+        this.SettingsNavigationScrollableContent()
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('app.color.background'))
+      .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
+      .title($r('app.string.tab_settings'))
+      .titleMode(NavigationTitleMode.Mini)
+      .mode(NavigationMode.Split)
+      .navBarWidth(this.getExpandedSettingsListWidth())
+      .hideBackButton(true)
+      .hideToolBar(true)
+      .onAppear(() => {
+        this.ensureSettingsSplitLandingRoute()
+      })
+    } else {
+      Navigation(this.settingsNavPathStack) {
+        this.SettingsNavigationScrollableContent()
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('app.color.background'))
+      .ignoreLayoutSafeArea(
+        [LayoutSafeAreaType.SYSTEM],
+        this.shouldIgnoreCompactSettingsTopSafeArea() ? [LayoutSafeAreaEdge.TOP] : []
+      )
+      .title($r('app.string.tab_settings'))
+      .titleMode(NavigationTitleMode.Mini)
+      .mode(NavigationMode.Stack)
+      .navBarWidth(this.windowWidthVp)
+      .hideBackButton(true)
+      .hideToolBar(true)
     }
+  }
+
+  private getActiveSettingsSheetHeight(): SheetSize {
     return SheetSize.FIT_CONTENT
+  }
+
+  private getSettingsSheetBackgroundColor(): Resource {
+    return $r('app.color.surface')
   }
 
   @Builder
   SettingsSheetBuilder() {
     Column() {
-      // 自绘标题栏：唯一关闭入口，避免系统遮罩/拖拽关闭造成“点快了自己收缩/吞点击”。
-      Row() {
-        Button() {
-          SymbolGlyph($r('sys.symbol.xmark'))
-            .fontSize(18)
-            .fontColor([$r('app.color.text_secondary')])
-        }
-        .type(ButtonType.Circle)
-        .width(36)
-        .height(36)
-        .backgroundColor($r('app.color.divider'))
-        .onClick(() => {
-          this.closeAllSettingsSheets()
-        })
-
-        Text(getSettingsSheetTitleText(this.activeSettingsSheetType))
-          .fontSize(17)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
-          .layoutWeight(1)
-          .textAlign(TextAlign.Center)
-
-        // 占位，保持标题居中
-        Column()
+      Column() {
+        // 自绘标题栏：唯一关闭入口，避免系统遮罩/拖拽关闭造成“点快了自己收缩/吞点击”。
+        Row() {
+          Button() {
+            SymbolGlyph($r('sys.symbol.xmark'))
+              .fontSize(18)
+              .fontColor([$r('app.color.text_secondary')])
+          }
+          .type(ButtonType.Circle)
           .width(36)
           .height(36)
+          .backgroundColor($r('app.color.divider'))
+          .onClick(() => {
+            this.closeAllSettingsSheets()
+          })
+
+          Text(getSettingsSheetTitleText(this.activeSettingsSheetType))
+            .fontSize(17)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.text_primary'))
+            .layoutWeight(1)
+            .textAlign(TextAlign.Center)
+
+          // 占位，保持标题居中
+          Column()
+            .width(36)
+            .height(36)
+        }
+        .width('100%')
+        .height(56)
+        .padding({ left: 16, right: 16 })
+        .alignItems(VerticalAlign.Center)
+
+        IndexSettingsSheetContent({
+          settingsSheetType: this.activeSettingsSheetType,
+          currentThemeMode: this.currentThemeMode,
+          currentLanguage: this.currentLanguage,
+          notifyEnabled: this.notifyEnabled,
+          notifyOnComplete: this.notifyOnComplete,
+          notifyOnFailed: this.notifyOnFailed,
+          handAdaptiveEnabled: this.handAdaptiveEnabled,
+          handAdaptiveNewChat: this.handAdaptiveNewChat,
+          handAdaptiveUnsupported: this.handAdaptiveUnsupported,
+          callbacks: this.buildSettingsSheetCallbacks()
+        })
       }
       .width('100%')
-      .height(56)
-      .padding({ left: 16, right: 16 })
-      .alignItems(VerticalAlign.Center)
-
-      IndexSettingsSheetContent({
-        settingsSheetType: this.activeSettingsSheetType,
-        currentThemeMode: this.currentThemeMode,
-        currentLanguage: this.currentLanguage,
-        notifyEnabled: this.notifyEnabled,
-        notifyOnComplete: this.notifyOnComplete,
-        notifyOnFailed: this.notifyOnFailed,
-        handAdaptiveEnabled: this.handAdaptiveEnabled,
-        handAdaptiveNewChat: this.handAdaptiveNewChat,
-        handAdaptiveUnsupported: this.handAdaptiveUnsupported,
-        chatFontSize: this.chatFontSize,
-        callbacks: this.buildSettingsSheetCallbacks()
-      })
+      .constraintSize({ maxWidth: 560 })
+      .backgroundColor(this.getSettingsSheetBackgroundColor())
+      .borderRadius({ topLeft: 28, topRight: 28, bottomLeft: 28, bottomRight: 28 })
     }
     .width('100%')
-    .backgroundColor($r('app.color.background'))
+    .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+    .backgroundColor(this.getSettingsSheetBackgroundColor())
   }
 
   @Builder
@@ -1280,22 +1768,6 @@ struct Index {
   LanguageSheetBuilder() {
     IndexSettingsSheetContent({
       settingsSheetType: SettingsSheetType.LANGUAGE,
-      currentThemeMode: this.currentThemeMode,
-      currentLanguage: this.currentLanguage,
-      notifyEnabled: this.notifyEnabled,
-      notifyOnComplete: this.notifyOnComplete,
-      notifyOnFailed: this.notifyOnFailed,
-      handAdaptiveEnabled: this.handAdaptiveEnabled,
-      handAdaptiveNewChat: this.handAdaptiveNewChat,
-      handAdaptiveUnsupported: this.handAdaptiveUnsupported,
-      callbacks: this.buildSettingsSheetCallbacks()
-    })
-  }
-
-  @Builder
-  ColorThemeSheetBuilder() {
-    IndexSettingsSheetContent({
-      settingsSheetType: SettingsSheetType.COLOR_THEME,
       currentThemeMode: this.currentThemeMode,
       currentLanguage: this.currentLanguage,
       notifyEnabled: this.notifyEnabled,
@@ -1340,23 +1812,6 @@ struct Index {
     })
   }
 
-  @Builder
-  FontSizeSheetBuilder() {
-    IndexSettingsSheetContent({
-      settingsSheetType: SettingsSheetType.FONT_SIZE,
-      currentThemeMode: this.currentThemeMode,
-      currentLanguage: this.currentLanguage,
-      notifyEnabled: this.notifyEnabled,
-      notifyOnComplete: this.notifyOnComplete,
-      notifyOnFailed: this.notifyOnFailed,
-      handAdaptiveEnabled: this.handAdaptiveEnabled,
-      handAdaptiveNewChat: this.handAdaptiveNewChat,
-      handAdaptiveUnsupported: this.handAdaptiveUnsupported,
-      chatFontSize: this.chatFontSize,
-      callbacks: this.buildSettingsSheetCallbacks()
-    })
-  }
-
   private buildSettingsSheetCallbacks(): IndexSettingsSheetActionCallbacks {
     const callbacks = new IndexSettingsSheetActionCallbacks()
     callbacks.onSelectTheme = async (mode: ThemeMode): Promise<void> => {
@@ -1381,9 +1836,6 @@ struct Index {
         this.refreshSettingsState()
       }
     }
-    callbacks.onSelectColorTheme = (theme: ColorTheme): void => {
-      this.handleColorThemeSelected(theme)
-    }
     callbacks.onToggleHandAdaptiveEnabled = (value: boolean): void => {
       this.handleHandAdaptiveEnabledChanged(value)
     }
@@ -1407,13 +1859,6 @@ struct Index {
     }
     callbacks.onOpenSystemNotificationSettings = (): void => {
       this.openSystemNotificationSettings()
-    }
-    callbacks.onFontSizeChanged = (size: number): void => {
-      this.chatFontSize = size
-      this.syncSettingsSummaryToStorage()
-      this.settingsManager.setChatFontSize(size).catch((error: Error) => {
-        console.error('Index', `Failed to update chat font size: ${JSON.stringify(error)}`)
-      })
     }
     return callbacks
   }

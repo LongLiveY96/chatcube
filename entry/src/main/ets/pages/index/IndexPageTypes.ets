@@ -4,10 +4,8 @@ export enum SettingsSheetType {
   NONE = 0,
   THEME = 1,
   LANGUAGE = 2,
-  COLOR_THEME = 3,
-  NOTIFICATION = 4,
-  HAND_ADAPTIVE = 5,
-  FONT_SIZE = 6
+  NOTIFICATION = 3,
+  HAND_ADAPTIVE = 4
 }
 
 export enum SessionFilterType {

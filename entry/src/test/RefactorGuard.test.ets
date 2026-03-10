@@ -13,6 +13,7 @@ import {
   ModelPickerModelRow,
   ModelPickerRowType
 } from '../main/ets/config/ModelListProjection'
+import { LayoutSizeClass, resolveLayoutSizeClass } from '../main/ets/config/LayoutProfile'
 import { SessionFilterType, SessionGroupData } from '../main/ets/pages/index/IndexPageTypes'
 import { buildSessionGroupRenderKey, buildSessionRenderKeyForIndex } from '../main/ets/pages/index/IndexSessionGroupHelper'
 import { AppError, AppErrorCode, Result } from '../main/ets/models/AppError'
@@ -122,6 +123,13 @@ export default function refactorGuardTest() {
       expect(result.rows[1].type).assertEqual(ModelPickerRowType.MODEL_ITEM)
       expect(result.rows[3].type).assertEqual(ModelPickerRowType.GROUP_HEADER)
       expect((result.rows[1] as ModelPickerModelRow).isExisting).assertEqual(true)
+    })
+
+    it('resolveLayoutSizeClass_should_follow_breakpoints', 0, () => {
+      expect(resolveLayoutSizeClass(599)).assertEqual(LayoutSizeClass.COMPACT)
+      expect(resolveLayoutSizeClass(600)).assertEqual(LayoutSizeClass.MEDIUM)
+      expect(resolveLayoutSizeClass(839)).assertEqual(LayoutSizeClass.MEDIUM)
+      expect(resolveLayoutSizeClass(840)).assertEqual(LayoutSizeClass.EXPANDED)
     })
 
     it('result_should_wrap_app_error', 0, () => {

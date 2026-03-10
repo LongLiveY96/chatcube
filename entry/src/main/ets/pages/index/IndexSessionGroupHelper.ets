@@ -1,5 +1,6 @@
 import { ChatSession } from '../../models/ChatModels'
 import { SessionFilterType, SessionGroupData } from './IndexPageTypes'
+import { getSessionDisplayPreviewText } from '../../utils/ChatSessionDisplayHelper'
 
 export function getFilteredSessionsForIndex(sessions: ChatSession[], searchText: string,
   filterType: SessionFilterType): ChatSession[] {
@@ -13,7 +14,7 @@ export function getFilteredSessionsForIndex(sessions: ChatSession[], searchText:
     }
     if (keyword !== '') {
       const titleMatched = session.title.toLowerCase().includes(keyword)
-      const previewMatched = session.lastMessagePreview.toLowerCase().includes(keyword)
+      const previewMatched = getSessionDisplayPreviewText(session).toLowerCase().includes(keyword)
       if (!titleMatched && !previewMatched) {
         continue
       }
@@ -90,7 +91,7 @@ export function buildSessionRenderKeyForIndex(session: ChatSession): string {
   const updatedAt = session.updatedAt.toString()
   const messageCount = session.messageCount.toString()
   const title = session.title
-  const preview = session.lastMessagePreview
+  const preview = getSessionDisplayPreviewText(session)
   return `${id}_${favorite}_${updatedAt}_${messageCount}_${title}_${preview}`
 }
 

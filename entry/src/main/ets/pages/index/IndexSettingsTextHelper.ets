@@ -3,22 +3,16 @@ import { SettingsSheetType } from './IndexPageTypes'
 
 export function getSettingsSheetTitleText(sheetType: SettingsSheetType): Resource {
   if (sheetType === SettingsSheetType.THEME) {
-    return $r('app.string.settings_dark_mode')
+    return $r('app.string.settings_appearance')
   }
   if (sheetType === SettingsSheetType.LANGUAGE) {
     return $r('app.string.settings_language')
-  }
-  if (sheetType === SettingsSheetType.COLOR_THEME) {
-    return $r('app.string.settings_color_theme')
   }
   if (sheetType === SettingsSheetType.HAND_ADAPTIVE) {
     return $r('app.string.hand_adaptive_title')
   }
   if (sheetType === SettingsSheetType.NOTIFICATION) {
     return $r('app.string.settings_notifications')
-  }
-  if (sheetType === SettingsSheetType.FONT_SIZE) {
-    return $r('app.string.settings_font_size')
   }
   return $r('app.string.tab_settings')
 }

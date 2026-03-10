@@ -9,7 +9,6 @@ import { getToolExecutionService, ToolExecutionService } from './ToolExecutionSe
 import { getWebSearchService, WebSearchService } from './WebSearchService'
 import { getShareService, ShareService } from './ShareService'
 import { getToolRegistry, ToolRegistry } from './ToolRegistry'
-import { getHuaweiAgentService, HuaweiAgentService } from './HuaweiAgentService'
 import { getChatTaskOrchestratorService, ChatTaskOrchestratorService } from './ChatTaskOrchestratorService'
 import { getBackgroundRunGuardService, BackgroundRunGuardService } from './BackgroundRunGuardService'
 import { getChatNotificationService, ChatNotificationService } from './ChatNotificationService'
@@ -75,10 +74,6 @@ export class ServiceRegistry {
 
   static provider(): ProviderViewModel {
     return getProviderViewModel()
-  }
-
-  static huaweiAgent(): HuaweiAgentService {
-    return getHuaweiAgentService()
   }
 
   static chatTaskOrchestrator(): ChatTaskOrchestratorService {

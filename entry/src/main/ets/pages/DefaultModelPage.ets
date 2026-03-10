@@ -6,12 +6,21 @@ import { DefaultPrompts } from '../config/DefaultPrompts'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { DefaultModelSelectSheetContent } from '../components/defaultmodel/DefaultModelSelectSheetContent'
 import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
+import { AppStorageKeys } from '../config/AppStorageKeys'
+import { LayoutSizeClass } from '../config/LayoutProfile'
+import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
+import { getSettingsPageContentMaxWidth, isSettingsPageExpandedLayout } from '../utils/SettingsPageLayoutHelper'
 
 @Entry
 @Component
 struct DefaultModelPage {
   // 主题颜色
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @StorageProp('layout_size_class') layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @StorageProp('window_width_vp') windowWidthVp: number = 0
+  @StorageProp('window_height_vp') windowHeightVp: number = 0
+  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE)
+  settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
 
   @State chatModel: DefaultModelConfig = new DefaultModelConfig()
   @State titleModel: DefaultModelConfig = new DefaultModelConfig()
@@ -27,6 +36,20 @@ struct DefaultModelPage {
   @State currentPrompt: string = ''
   private defaultModelService: DefaultModelService = ServiceRegistry.defaultModel()
   private providerViewModel: ProviderViewModel = ServiceRegistry.provider()
+
+  private isExpandedLayout(): boolean {
+    return isSettingsPageExpandedLayout(this.layoutSizeClass, this.settingsDetailPresentationMode, this.windowWidthVp,
+      this.windowHeightVp)
+  }
+
+  private getContentMaxWidth(): number {
+    return getSettingsPageContentMaxWidth(this.layoutSizeClass, this.windowWidthVp, this.settingsDetailPresentationMode,
+      this.windowHeightVp)
+  }
+
+  private isDetailPaneMode(): boolean {
+    return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
+  }
 
   aboutToAppear(): void {
     this.loadConfig()
@@ -48,122 +71,91 @@ struct DefaultModelPage {
     console.info(`[DefaultModelPage] Loaded ${this.providers.length} enabled providers`)
   }
 
+  @Builder
+  private PageContent() {
+    Scroll() {
+      Row() {
+        Column() {
+          if (this.isExpandedLayout()) {
+            this.ExpandedModelSections()
+          } else {
+            this.CompactModelSections()
+          }
+        }
+        .width('100%')
+        .constraintSize({ maxWidth: this.getContentMaxWidth() })
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
+      .padding({ left: 16, right: 16 })
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .scrollBar(BarState.Off)
+    .align(Alignment.Top)
+    .edgeEffect(EdgeEffect.Spring)
+  }
+
+  @Builder
+  private DetailPaneHeader() {
+    Column() {
+      Row() {
+        Text($r('app.string.settings_default_model'))
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+      }
+      .width('100%')
+      .height(64)
+      .padding({ left: 24, right: 24 })
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .backgroundColor($r('app.color.background'))
+    .border({ width: { bottom: 1 }, color: $r('app.color.divider') })
+  }
+
   build() {
     Column() {
-      HdsNavigation() {
-        Scroll() {
-          Column() {
-            // 聊天模型配置
-            this.SectionTitle($r('app.string.default_model_section_chat'))
-            ModelConfigCard({
-              roleName: $r('app.string.default_model_role_chat'),
-              description: $r('app.string.default_model_desc_chat'),
-              showPromptEdit: false,
-              isConfigured: this.chatModel.isConfigured(),
-              displayName: this.chatModel.getDisplayName(),
-              isDefaultPrompt: true,
-              onCardClick: () => {
-                this.showPromptSheet = false
-                this.currentEditRole = ModelRole.CHAT
-                this.showModelSheet = true
-              },
-              onPromptClick: () => {}
-            })
-
-            // 标题生成模型配置
-            this.SectionTitle($r('app.string.default_model_section_title_generation'))
-            ModelConfigCard({
-              roleName: $r('app.string.default_model_role_title_generation'),
-              description: $r('app.string.default_model_desc_title_generation'),
-              showPromptEdit: true,
-              isConfigured: this.titleModel.isConfigured(),
-              displayName: this.titleModel.getDisplayName(),
-              isDefaultPrompt: this.defaultModelService.isDefaultTitlePrompt(),
-              onCardClick: () => {
-                this.showPromptSheet = false
-                this.currentEditRole = ModelRole.TITLE
-                this.showModelSheet = true
-              },
-              onPromptClick: () => {
-                this.showModelSheet = false
-                this.currentPromptRole = ModelRole.TITLE
-                this.currentPrompt = this.defaultModelService.getTitlePromptTemplate()
-                this.showPromptSheet = true
-              }
-            })
-
-            // 翻译模型配置
-            this.SectionTitle($r('app.string.default_model_section_translate'))
-            ModelConfigCard({
-              roleName: $r('app.string.default_model_role_translate'),
-              description: $r('app.string.default_model_desc_translate'),
-              showPromptEdit: true,
-              isConfigured: this.translateModel.isConfigured(),
-              displayName: this.translateModel.getDisplayName(),
-              isDefaultPrompt: this.defaultModelService.isDefaultTranslatePrompt(),
-              onCardClick: () => {
-                this.showPromptSheet = false
-                this.currentEditRole = ModelRole.TRANSLATE
-                this.showModelSheet = true
-              },
-              onPromptClick: () => {
-                this.showModelSheet = false
-                this.currentPromptRole = ModelRole.TRANSLATE
-                this.currentPrompt = this.defaultModelService.getTranslatePromptTemplate()
-                this.showPromptSheet = true
-              }
-            })
-
-            // 搜索优化模型配置
-            this.SectionTitle($r('app.string.search_optimization_model'))
-            ModelConfigCard({
-              roleName: $r('app.string.search_optimization_model'),
-              description: $r('app.string.search_optimization_desc'),
-              showPromptEdit: false,
-              isConfigured: this.searchOptimizationModel.isConfigured(),
-              displayName: this.searchOptimizationModel.getDisplayName(),
-              isDefaultPrompt: true,
-              onCardClick: () => {
-                this.showPromptSheet = false
-                this.currentEditRole = ModelRole.SEARCH_OPTIMIZATION
-                this.showModelSheet = true
-              },
-              onPromptClick: () => {}
-            })
-
-            // 底部留白
-            Column().height(40)
-          }
-          .width('100%')
-          .padding({ left: 16, right: 16 })
+      if (this.isDetailPaneMode()) {
+        Column() {
+          this.DetailPaneHeader()
+          this.PageContent()
         }
         .width('100%')
         .layoutWeight(1)
-        .scrollBar(BarState.Off)
-        .align(Alignment.Top)
-        .edgeEffect(EdgeEffect.Spring)
-      }
-      .width('100%')
-      .layoutWeight(1)
-      .backgroundColor($r('app.color.background'))
-      .titleMode(HdsNavigationTitleMode.MINI)
-      .titleBar({
-        avoidLayoutSafeArea: true,
-        enableComponentSafeArea: true,
-        content: {
-          title: {
-            mainTitle: $r('app.string.settings_default_model')
-          }
+      } else {
+        HdsNavigation() {
+          this.PageContent()
         }
-      })
-      .bindSheet($$this.showModelSheet, this.ModelSelectSheet(), {
-        height: SheetSize.MEDIUM,
-        dragBar: true,
-        showClose: true,
-        title: { title: this.getSheetTitle() }
-      })
+        .width('100%')
+        .layoutWeight(1)
+        .backgroundColor($r('app.color.background'))
+        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
+        .mode(NavigationMode.Stack)
+        .titleMode(HdsNavigationTitleMode.MINI)
+        .titleBar({
+          avoidLayoutSafeArea: true,
+          enableComponentSafeArea: true,
+          content: {
+            title: {
+              mainTitle: $r('app.string.settings_default_model')
+            }
+          }
+        })
+      }
 
-      // bindSheet 宿主：每个 bindSheet 必须挂在独立组件上，避免多 bindSheet 冲突
+      Column()
+        .width(0)
+        .height(0)
+        .bindSheet($$this.showModelSheet, this.ModelSelectSheet(), {
+          height: SheetSize.MEDIUM,
+          dragBar: true,
+          showClose: true,
+          title: { title: this.getSheetTitle() }
+        })
+
       Column()
         .width(0)
         .height(0)
@@ -176,6 +168,152 @@ struct DefaultModelPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.background'))
+  }
+
+  @Builder
+  CompactModelSections() {
+    Column() {
+      this.ChatModelSection()
+      this.TitleModelSection()
+      this.TranslateModelSection()
+      this.SearchOptimizationModelSection()
+      Column().height(40)
+    }
+    .width('100%')
+  }
+
+  @Builder
+  ExpandedModelSections() {
+    Column({ space: 20 }) {
+      Row({ space: 16 }) {
+        Column() {
+          this.ChatModelSection()
+        }
+        .layoutWeight(1)
+
+        Column() {
+          this.TitleModelSection()
+        }
+        .layoutWeight(1)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Top)
+
+      Row({ space: 16 }) {
+        Column() {
+          this.TranslateModelSection()
+        }
+        .layoutWeight(1)
+
+        Column() {
+          this.SearchOptimizationModelSection()
+        }
+        .layoutWeight(1)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Top)
+
+      Column().height(40)
+    }
+    .width('100%')
+  }
+
+  @Builder
+  ChatModelSection() {
+    Column() {
+      this.SectionTitle($r('app.string.default_model_section_chat'))
+      ModelConfigCard({
+        roleName: $r('app.string.default_model_role_chat'),
+        description: $r('app.string.default_model_desc_chat'),
+        showPromptEdit: false,
+        isConfigured: this.chatModel.isConfigured(),
+        displayName: this.chatModel.getDisplayName(),
+        isDefaultPrompt: true,
+        onCardClick: () => {
+          this.showPromptSheet = false
+          this.currentEditRole = ModelRole.CHAT
+          this.showModelSheet = true
+        },
+        onPromptClick: () => {}
+      })
+    }
+    .width('100%')
+  }
+
+  @Builder
+  TitleModelSection() {
+    Column() {
+      this.SectionTitle($r('app.string.default_model_section_title_generation'))
+      ModelConfigCard({
+        roleName: $r('app.string.default_model_role_title_generation'),
+        description: $r('app.string.default_model_desc_title_generation'),
+        showPromptEdit: true,
+        isConfigured: this.titleModel.isConfigured(),
+        displayName: this.titleModel.getDisplayName(),
+        isDefaultPrompt: this.defaultModelService.isDefaultTitlePrompt(),
+        onCardClick: () => {
+          this.showPromptSheet = false
+          this.currentEditRole = ModelRole.TITLE
+          this.showModelSheet = true
+        },
+        onPromptClick: () => {
+          this.showModelSheet = false
+          this.currentPromptRole = ModelRole.TITLE
+          this.currentPrompt = this.defaultModelService.getTitlePromptTemplate()
+          this.showPromptSheet = true
+        }
+      })
+    }
+    .width('100%')
+  }
+
+  @Builder
+  TranslateModelSection() {
+    Column() {
+      this.SectionTitle($r('app.string.default_model_section_translate'))
+      ModelConfigCard({
+        roleName: $r('app.string.default_model_role_translate'),
+        description: $r('app.string.default_model_desc_translate'),
+        showPromptEdit: true,
+        isConfigured: this.translateModel.isConfigured(),
+        displayName: this.translateModel.getDisplayName(),
+        isDefaultPrompt: this.defaultModelService.isDefaultTranslatePrompt(),
+        onCardClick: () => {
+          this.showPromptSheet = false
+          this.currentEditRole = ModelRole.TRANSLATE
+          this.showModelSheet = true
+        },
+        onPromptClick: () => {
+          this.showModelSheet = false
+          this.currentPromptRole = ModelRole.TRANSLATE
+          this.currentPrompt = this.defaultModelService.getTranslatePromptTemplate()
+          this.showPromptSheet = true
+        }
+      })
+    }
+    .width('100%')
+  }
+
+  @Builder
+  SearchOptimizationModelSection() {
+    Column() {
+      this.SectionTitle($r('app.string.search_optimization_model'))
+      ModelConfigCard({
+        roleName: $r('app.string.search_optimization_model'),
+        description: $r('app.string.search_optimization_desc'),
+        showPromptEdit: false,
+        isConfigured: this.searchOptimizationModel.isConfigured(),
+        displayName: this.searchOptimizationModel.getDisplayName(),
+        isDefaultPrompt: true,
+        onCardClick: () => {
+          this.showPromptSheet = false
+          this.currentEditRole = ModelRole.SEARCH_OPTIMIZATION
+          this.showModelSheet = true
+        },
+        onPromptClick: () => {}
+      })
+    }
+    .width('100%')
   }
 
   @Builder
@@ -518,4 +656,13 @@ struct ModelConfigCard {
     .backgroundColor($r('app.color.surface'))
     .borderRadius(16)
   }
+}
+
+@Builder
+export function DefaultModelPageBuilder(name: string, param: Object) {
+  NavDestination() {
+    DefaultModelPage()
+  }
+  .hideTitleBar(true)
+  .hideBackButton(true)
 }

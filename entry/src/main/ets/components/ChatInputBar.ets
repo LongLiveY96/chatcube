@@ -62,6 +62,8 @@ export struct ChatInputBar {
   } // 输入框获得焦点回调
   onInputBlur: () => void = () => {
   } // 输入框失去焦点回调
+  onComposerContentChanged: () => void = () => {
+  }
   // 最近截图检测回调（通知父组件渲染 banner）
   onRecentPhotoDetected: (detected: boolean) => void = () => {
   }
@@ -451,6 +453,9 @@ export struct ChatInputBar {
   }
 
   private onInputOrAttachmentsChanged(): void {
+    if (!this.isSending) {
+      this.onComposerContentChanged()
+    }
     if (this.isSending) {
       return
     }

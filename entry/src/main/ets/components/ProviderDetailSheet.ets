@@ -1,3 +1,4 @@
+import { KeyboardAvoidMode } from '@kit.ArkUI'
 import { ModelProvider, ModelInfo, ProviderType, ProviderIconType, ApiStyle } from '../models/ChatModels'
 import { ModelEditSheet } from '../components/ModelEditSheet'
 import { ModelPickerSheetHost } from '../components/ModelPickerSheetHost'
@@ -28,11 +29,20 @@ import {
   buildSelectedModelsWithPreservedConfig
 } from '../config/ProviderModelActions'
 
+export enum ProviderDetailPresentationMode {
+  SHEET = 'sheet',
+  PAGE = 'page'
+}
+
 @Component
-export struct ProviderDetailSheet {
-  @Prop providerId: string = ''
-  @Prop isCreateMode: boolean = false
+export struct ProviderDetailPanel {
+  @Prop @Watch('onProviderInputChanged') providerId: string = ''
+  @Prop @Watch('onProviderInputChanged') isCreateMode: boolean = false
+  @Prop closeOnSave: boolean = true
+  @Prop closeOnModelsSelected: boolean = true
+  @Prop presentationMode: ProviderDetailPresentationMode = ProviderDetailPresentationMode.SHEET
   onClose: () => void = () => {}
+  onProviderChanged: (providerId: string, isCreateMode: boolean) => void = (_providerId: string, _isCreateMode: boolean) => {}
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
   @StorageProp('isDarkMode') isDarkMode: boolean = false
 
@@ -71,6 +81,21 @@ export struct ProviderDetailSheet {
   private apiStyleOptions: ApiStyleOption[] = getDefaultApiStyleOptions()
 
   aboutToAppear(): void {
+    if (this.isPagePresentation()) {
+      this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
+    }
+    this.loadProviderData()
+  }
+
+  private onProviderInputChanged(): void {
+    this.searchKeywords = ''
+    this.modelGroups = []
+    this.provider = null
+    this.showEditSheet = false
+    this.editingModel = null
+    this.showSheet = false
+    this.activeSheet = 'none'
+    this.fetchedModels = []
     this.loadProviderData()
   }
 
@@ -129,6 +154,13 @@ export struct ProviderDetailSheet {
       return
     }
     await this.providerViewModel.saveProvider(this.provider)
+  }
+
+  private notifyProviderChanged(): void {
+    if (this.provider === null) {
+      return
+    }
+    this.onProviderChanged(this.provider.id, this.isCreateMode)
   }
 
   private refreshModelGroups(): void {
@@ -235,10 +267,14 @@ export struct ProviderDetailSheet {
     // 显示提示
     this.showProviderToast($r('app.string.provider_models_selected'), 2000)
 
-    // 延迟通知父页面关闭并刷新数据（等待内部弹窗关闭动画完成）
-    setTimeout(() => {
-      this.onClose()
-    }, 200)
+    this.notifyProviderChanged()
+
+    if (this.closeOnModelsSelected) {
+      // 延迟通知父页面关闭并刷新数据（等待内部弹窗关闭动画完成）
+      setTimeout(() => {
+        this.onClose()
+      }, 200)
+    }
   }
 
   // 删除单个模型
@@ -251,6 +287,7 @@ export struct ProviderDetailSheet {
 
     await this.saveCurrentProvider()
     this.refreshModelGroups()
+    this.notifyProviderChanged()
 
     console.info('ProviderDetailSheet', `[deleteModel] deleted model: ${model.name}`)
     this.showProviderToast($r('app.string.provider_model_deleted'))
@@ -282,7 +319,10 @@ export struct ProviderDetailSheet {
       } else {
         this.showProviderToast($r('app.string.config_saved'), 1500)
       }
-      this.onClose()
+      this.notifyProviderChanged()
+      if (this.closeOnSave) {
+        this.onClose()
+      }
     } finally {
       this.isSaving = false
     }
@@ -296,6 +336,7 @@ export struct ProviderDetailSheet {
 
     this.provider.isConnected = !this.provider.isConnected
     await this.providerViewModel.updateProviderEnabled(this.provider.id, this.provider.isConnected)
+    this.notifyProviderChanged()
 
     this.showProviderToast(
       this.provider.isConnected ? $r('app.string.provider_enabled') : $r('app.string.provider_disabled'),
@@ -452,6 +493,31 @@ export struct ProviderDetailSheet {
     this.fetchedModels = []
   }
 
+  private isPagePresentation(): boolean {
+    return this.presentationMode === ProviderDetailPresentationMode.PAGE
+  }
+
+  private headerLeadingSymbol(): Resource {
+    if (this.isPagePresentation()) {
+      return $r('sys.symbol.chevron_left')
+    }
+    return $r('sys.symbol.xmark')
+  }
+
+  private headerSaveSymbol(): Resource {
+    if (this.isPagePresentation()) {
+      return $r('sys.symbol.save')
+    }
+    return $r('sys.symbol.checkmark')
+  }
+
+  private closeActionLabel(): Resource {
+    if (this.isPagePresentation()) {
+      return $r('app.string.action_back')
+    }
+    return $r('app.string.action_close')
+  }
+
   build() {
     Column() {
       // 自定义头部
@@ -472,7 +538,7 @@ export struct ProviderDetailSheet {
               Column() {
                 this.ApiConfigCard()
 
-                Column().height(80)
+                Column().height(20)
               }
               .width('100%')
             }
@@ -481,7 +547,6 @@ export struct ProviderDetailSheet {
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
             .align(Alignment.Top)
-            .expandSafeArea([SafeAreaType.KEYBOARD], [SafeAreaEdge.BOTTOM])
           }
           .tabBar(this.ConfigTabBuilder())
 
@@ -489,7 +554,7 @@ export struct ProviderDetailSheet {
             Scroll() {
               Column() {
                 this.ModelsCard()
-                Column().height(80)
+                Column().height(20)
               }
               .width('100%')
             }
@@ -498,12 +563,11 @@ export struct ProviderDetailSheet {
             .scrollBar(BarState.Off)
             .edgeEffect(EdgeEffect.Spring)
             .align(Alignment.Top)
-            .expandSafeArea([SafeAreaType.KEYBOARD], [SafeAreaEdge.BOTTOM])
           }
           .tabBar(this.ModelsTabBuilder())
         }
         .layoutWeight(1)
-        .barOverlap(true)
+        .barOverlap(false)
         .barBackgroundBlurStyle(BlurStyle.Thin)
         .animationDuration(300)
         .onChange((index: number) => {
@@ -515,18 +579,23 @@ export struct ProviderDetailSheet {
           }
         })
       }
+
+      // 单独的 Sheet 宿主，避免详情面板内容切换时误触发关闭
+      Column()
+        .width(0)
+        .height(0)
+        .bindSheet($$this.showSheet, this.UnifiedSheetBuilder(), {
+          height: SheetSize.LARGE,
+          showClose: false,
+          dragBar: true,
+          blurStyle: BlurStyle.Regular,
+          onDisappear: () => {
+            this.clearEditState()
+          }
+        })
     }
     .width('100%')
     .height('100%')
-    .bindSheet($$this.showSheet, this.UnifiedSheetBuilder(), {
-      height: SheetSize.LARGE,
-      showClose: false,
-      dragBar: true,
-      blurStyle: BlurStyle.Regular,
-      onDisappear: () => {
-        this.clearEditState()
-      }
-    })
   }
 
   @Builder
@@ -568,7 +637,7 @@ export struct ProviderDetailSheet {
     Row() {
       // 关闭按钮
       Button() {
-        SymbolGlyph($r('sys.symbol.xmark'))
+        SymbolGlyph(this.headerLeadingSymbol())
           .fontSize(18)
           .fontColor([$r('app.color.text_secondary')])
       }
@@ -607,7 +676,7 @@ export struct ProviderDetailSheet {
 
       // 保存按钮
       Button() {
-        SymbolGlyph($r('sys.symbol.checkmark'))
+        SymbolGlyph(this.headerSaveSymbol())
           .fontSize(18)
           .fontColor([Color.White])
       }
@@ -655,7 +724,7 @@ export struct ProviderDetailSheet {
         .margin({ top: 16 })
 
       Button() {
-        Text($r('app.string.action_close'))
+        Text(this.closeActionLabel())
           .fontSize(14)
           .fontColor($r('app.color.primary'))
       }
@@ -1319,6 +1388,36 @@ export struct ProviderDetailSheet {
     await this.saveCurrentProvider()
     this.showProviderToast($r('app.string.provider_default_icon_reset'))
     this.showTextIconEditor = false
+  }
+}
+
+@Component
+export struct ProviderDetailSheet {
+  @Prop providerId: string = ''
+  @Prop isCreateMode: boolean = false
+  @Prop closeOnSave: boolean = true
+  @Prop closeOnModelsSelected: boolean = true
+  onClose: () => void = () => {}
+  onProviderChanged: (providerId: string, isCreateMode: boolean) => void = (_providerId: string, _isCreateMode: boolean) => {}
+
+  build() {
+    Column() {
+      ProviderDetailPanel({
+        providerId: this.providerId,
+        isCreateMode: this.isCreateMode,
+        closeOnSave: this.closeOnSave,
+        closeOnModelsSelected: this.closeOnModelsSelected,
+        presentationMode: ProviderDetailPresentationMode.SHEET,
+        onClose: () => {
+          this.onClose()
+        },
+        onProviderChanged: (providerId: string, isCreateMode: boolean) => {
+          this.onProviderChanged(providerId, isCreateMode)
+        }
+      })
+    }
+    .width('100%')
+    .height('100%')
   }
 }
 

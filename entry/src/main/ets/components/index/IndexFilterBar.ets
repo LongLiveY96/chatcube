@@ -5,6 +5,7 @@ export struct IndexFilterBar {
   @Prop currentFilter: SessionFilterType = SessionFilterType.ALL
   @Prop countText: string = '0'
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
   onFilterChange: (filterType: SessionFilterType) => void = (_filterType: SessionFilterType): void => {}
 
   @Builder
@@ -20,8 +21,8 @@ export struct IndexFilterBar {
       .padding({ left: 12, right: 12 })
       .margin({ right: 8 })
       .borderRadius(14)
-      .backgroundColor(this.themePrimary + '26')
-      .border({ width: 1, color: this.themePrimary + '4D' })
+      .backgroundColor(this.themePrimaryLight)
+      .border({ width: 1, color: this.themePrimary })
       .onClick(() => {
         this.onFilterChange(filterType)
       })

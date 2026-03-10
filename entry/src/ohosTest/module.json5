@@ -3,7 +3,8 @@
     "name": "entry_test",
     "type": "feature",
     "deviceTypes": [
-      "phone"
+      "phone",
+      "tablet"
     ],
     "deliveryWithInstall": true,
     "installationFree": false

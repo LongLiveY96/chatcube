@@ -2,6 +2,12 @@ import { ChatSession } from '../models/ChatModels'
 import { curves } from '@kit.ArkUI'
 import { HdsListItemCard, PrefixCustomBuilder, SuffixCustomBuilder, hdsEffect } from '@kit.UIDesignKit'
 import { Markdown, MarkdownController } from '@luvi/lv-markdown-in'
+import {
+  getSessionDisplayPreviewText,
+  getSessionPreviewBodyText,
+  hasSessionDraftContent,
+  SESSION_DRAFT_TAG_TEXT
+} from '../utils/ChatSessionDisplayHelper'
 
 @Component
 export struct SessionCard {
@@ -62,6 +68,47 @@ export struct SessionCard {
     return $r('app.string.menu_favorite')
   }
 
+  private getPreviewText(): string {
+    return getSessionDisplayPreviewText(this.session)
+  }
+
+  private getPreviewBodyText(): string {
+    return getSessionPreviewBodyText(this.session)
+  }
+
+  private hasDraftPreview(): boolean {
+    return hasSessionDraftContent(this.session)
+  }
+
+  @Builder
+  private PreviewTextContent() {
+    if (this.hasDraftPreview()) {
+      Row({ space: 6 }) {
+        Text(SESSION_DRAFT_TAG_TEXT)
+          .fontSize(10)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.themePrimary)
+          .padding({ left: 6, right: 6, top: 1, bottom: 1 })
+          .backgroundColor(this.themePrimaryLight)
+          .borderRadius(6)
+
+        Text(this.getPreviewBodyText())
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
+      }
+      .width('100%')
+    } else {
+      Text(this.getPreviewText())
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+  }
+
   @Builder
   SessionContextMenu() {
     Menu() {
@@ -118,12 +165,11 @@ export struct SessionCard {
             .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
 
-        if (this.session.lastMessagePreview !== '') {
-          Text(this.session.lastMessagePreview)
-            .fontSize(12)
-            .fontColor($r('app.color.text_secondary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        if (this.getPreviewText() !== '') {
+          Row() {
+            this.PreviewTextContent()
+          }
+          .width('100%')
             .margin({ top: 2 })
         } else {
           Text($r('app.string.session_no_preview'))
@@ -198,12 +244,11 @@ export struct SessionCard {
       .width('100%')
 
       Row() {
-        if (this.session.lastMessagePreview !== '') {
-          Text(this.session.lastMessagePreview)
-            .fontSize(12)
-            .fontColor($r('app.color.text_secondary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        if (this.getPreviewText() !== '') {
+          Row() {
+            this.PreviewTextContent()
+          }
+          .width('100%')
             .layoutWeight(1)
         } else {
           Text($r('app.string.session_no_preview'))

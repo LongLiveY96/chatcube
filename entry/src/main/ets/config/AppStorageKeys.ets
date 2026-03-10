@@ -18,6 +18,15 @@ export class AppStorageKeys {
   static readonly TOP_AVOID_HEIGHT: string = 'topAvoidHeight'
   static readonly BOTTOM_AVOID_HEIGHT: string = 'bottomAvoidHeight'
   static readonly SPEAKING_MESSAGE_ID: string = 'speakingMessageId'
+  static readonly WINDOW_WIDTH_VP: string = 'window_width_vp'
+  static readonly WINDOW_HEIGHT_VP: string = 'window_height_vp'
+  static readonly LAYOUT_SIZE_CLASS: string = 'layout_size_class'
+  static readonly IS_EXPANDED_LAYOUT: string = 'is_expanded_layout'
+  static readonly SETTINGS_DETAIL_PRESENTATION_MODE: string = 'settings_detail_presentation_mode'
+  static readonly SETTINGS_HAND_ADAPTIVE_CHANGED_AT: string = 'settings_hand_adaptive_changed_at'
+  static readonly SETTING_HAND_ADAPTIVE_ENABLED: string = 'setting_hand_adaptive_enabled'
+  static readonly SETTING_HAND_ADAPTIVE_NEW_CHAT: string = 'setting_hand_adaptive_new_chat'
+  static readonly SETTING_HAND_ADAPTIVE_UNSUPPORTED: string = 'setting_hand_adaptive_unsupported'
 
   // 主题键
   static readonly COLOR_THEME: string = 'color_theme'

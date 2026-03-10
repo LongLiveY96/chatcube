@@ -174,23 +174,6 @@ export enum ModelRole {
   SEARCH_OPTIMIZATION = 'search_optimization'
 }
 
-// 华为官方智能体入口配置
-@Observed
-export class HuaweiAgentEntry {
-  id: string = ''
-  name: string = ''
-  bundleName: string = ''
-  abilityName: string = ''
-  uri: string = ''
-  enabled: boolean = true
-  lastLaunchAt: number = 0
-
-  constructor(id: string = '', name: string = '') {
-    this.id = id
-    this.name = name
-  }
-}
-
 // 推理级别枚举
 export enum ReasoningLevel {
   OFF = 'off',           // 关闭推理
@@ -725,6 +708,8 @@ export class ChatSession {
   isFavorite: boolean
   lastMessagePreview: string
   messageCount: number
+  draftText: string
+  draftAttachments: MessageAttachment[]
   // 同步相关字段(为 WebDAV 同步预留)
   syncVersion: number = 0
   lastModified: number = Date.now()
@@ -742,6 +727,8 @@ export class ChatSession {
     this.isFavorite = false
     this.lastMessagePreview = ''
     this.messageCount = 0
+    this.draftText = ''
+    this.draftAttachments = []
     this.syncVersion = 0
     this.lastModified = Date.now()
     this.syncStatus = 'synced'

@@ -101,6 +101,30 @@
       "value": "点击上方按钮开始新对话"
     },
     {
+      "name": "tablet_chat_detail_empty_title",
+      "value": "选择一个对话"
+    },
+    {
+      "name": "tablet_chat_detail_empty_desc",
+      "value": "从左侧列表打开会话，或开始新对话"
+    },
+    {
+      "name": "tablet_provider_detail_empty_title",
+      "value": "选择一个服务商"
+    },
+    {
+      "name": "tablet_provider_detail_empty_desc",
+      "value": "从左侧列表查看详情，或新增自定义服务商"
+    },
+    {
+      "name": "tablet_settings_detail_empty_title",
+      "value": "选择一个设置模块"
+    },
+    {
+      "name": "tablet_settings_detail_empty_desc",
+      "value": "从左侧设置列表打开需要查看的二级页面"
+    },
+    {
       "name": "loading",
       "value": "加载中..."
     },
@@ -205,8 +229,40 @@
       "value": "English"
     },
     {
+      "name": "settings_appearance",
+      "value": "显示与外观"
+    },
+    {
+      "name": "settings_appearance_desc",
+      "value": "显示模式、主题配色和字体大小"
+    },
+    {
       "name": "settings_dark_mode",
       "value": "主题"
+    },
+    {
+      "name": "settings_dark_mode_desc",
+      "value": "显示模式、主题配色和字体大小"
+    },
+    {
+      "name": "appearance_display_mode_title",
+      "value": "显示模式"
+    },
+    {
+      "name": "appearance_display_mode_desc",
+      "value": "跟随系统或手动切换浅色、深色模式"
+    },
+    {
+      "name": "appearance_color_theme_desc",
+      "value": "统一调整强调色和聊天气泡风格"
+    },
+    {
+      "name": "appearance_live_preview_title",
+      "value": "实时预览"
+    },
+    {
+      "name": "appearance_live_preview_desc",
+      "value": "修改显示模式、主题配色或字体大小时，这里会立即反映效果"
     },
     {
       "name": "settings_language",
@@ -875,6 +931,14 @@
     {
       "name": "theme_color_sunset_desc",
       "value": "活力温暖"
+    },
+    {
+      "name": "theme_color_berry",
+      "value": "莓果粉"
+    },
+    {
+      "name": "theme_color_berry_desc",
+      "value": "柔和莓粉"
     },
     {
       "name": "screenshot_banner_title",

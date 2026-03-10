@@ -10,6 +10,8 @@ export struct IndexSessionListSection {
   @Prop sessionGroups: SessionGroupData[] = []
   @Prop isMultiSelectMode: boolean = false
   @Prop selectedSessionIds: Array<string> = []
+  @Prop activeSessionId: string = ''
+  @Prop unreadRenderVersion: number = 0
   onGetUnreadCount: (sessionId: string) => number = (_sessionId: string): number => 0
   onGetGroupTitle: (groupKey: string) => Resource = (_groupKey: string): Resource => $r('app.string.group_older')
   onGetGroupRenderKey: (group: SessionGroupData) => string = (group: SessionGroupData): string => group.key
@@ -21,6 +23,17 @@ export struct IndexSessionListSection {
   onToggleFavorite: (session: ChatSession) => void = (_session: ChatSession): void => {}
 
   private sessionListScroller: ListScroller = new ListScroller()
+
+  private isSessionActive(sessionId: string): boolean {
+    return !this.isMultiSelectMode && this.activeSessionId === sessionId
+  }
+
+  private buildSessionItemRenderKey(session: ChatSession): string {
+    const unreadCount = this.onGetUnreadCount(session.id)
+    const selectedState = this.isMultiSelectMode && this.selectedSessionIds.includes(session.id) ? 'selected' : 'idle'
+    const activeState = this.isSessionActive(session.id) ? 'active' : 'inactive'
+    return `${buildSessionRenderKeyForIndex(session)}_${unreadCount}_${this.unreadRenderVersion}_${selectedState}_${activeState}`
+  }
 
   @Builder
   private SessionGroupHeader(groupKey: string, count: number) {
@@ -388,9 +401,11 @@ export struct IndexSessionListSection {
           .clip(true)
           .border(this.isMultiSelectMode && this.selectedSessionIds.includes(session.id)
             ? { width: 1.5, color: this.themePrimary }
+            : this.isSessionActive(session.id)
+              ? { width: 1.5, color: this.themePrimary }
             : { width: 0, color: Color.Transparent })
           .animation({ duration: 200 })
-        }, (session: ChatSession) => buildSessionRenderKeyForIndex(session))
+        }, (session: ChatSession) => this.buildSessionItemRenderKey(session))
       }, (group: SessionGroupData) => this.onGetGroupRenderKey(group))
 
       ListItem() {

@@ -10,6 +10,7 @@ import { AppError } from '../models/AppError';
 import { ServiceRegistry } from '../services/ServiceRegistry';
 import { IconDownloadCache } from '../services/IconDownloadCache';
 import { ModelCapabilityMatcher } from '../services/ModelCapabilityMatcher';
+import { isExpandedLayoutClass, resolveLayoutSizeClass } from '../config/LayoutProfile';
 
 const DOMAIN = 0x0000;
 
@@ -22,6 +23,9 @@ export default class EntryAbility extends UIAbility {
   private settingsCallback: SettingsChangeCallback | null = null;
   private pendingNewChat: boolean = false;
   private pendingOpenSessionPayload: string = '';
+  private readonly windowSizeChangeCallback = (size: window.Size): void => {
+    this.updateLayoutProfile(size.width, size.height);
+  };
   // 启动时的关键初始化任务（偏好/数据库/主题等）。
   // 必须在 loadContent 之前完成，否则会出现“先默认主题后切换”的闪屏与设置项状态不同步。
   private servicesInitPromise: Promise<void> | null = null;
@@ -273,6 +277,7 @@ export default class EntryAbility extends UIAbility {
 
       // 获取避让区域高度并存储到 AppStorage
       this.updateAvoidAreaHeight();
+      this.updateLayoutProfileFromWindow();
 
       // 监听避让区域变化
       this.mainWindow.on('avoidAreaChange', (data) => {
@@ -286,6 +291,7 @@ export default class EntryAbility extends UIAbility {
           hilog.info(DOMAIN, 'testTag', 'Bottom avoid area updated: %{public}d', bottomHeight);
         }
       });
+      this.mainWindow.on('windowSizeChange', this.windowSizeChangeCallback);
 
       // 设置窗口背景色
       this.updateWindowBackgroundColor();
@@ -335,6 +341,41 @@ export default class EntryAbility extends UIAbility {
       hilog.error(DOMAIN, 'testTag', 'Failed to get navigation avoid area: %{public}s', JSON.stringify(error));
       AppStorage.setOrCreate(AppStorageKeys.BOTTOM_AVOID_HEIGHT, 0);
     }
+  }
+
+  private updateLayoutProfileFromWindow(): void {
+    if (this.mainWindow === null) {
+      return;
+    }
+    try {
+      const properties = this.mainWindow.getWindowProperties();
+      this.updateLayoutProfile(properties.windowRect.width, properties.windowRect.height);
+    } catch (error) {
+      hilog.error(DOMAIN, 'testTag', 'Failed to get window properties: %{public}s', JSON.stringify(error));
+    }
+  }
+
+  private updateLayoutProfile(widthPx: number, heightPx: number): void {
+    const widthVp = Math.round(this.pxToVp(widthPx));
+    const heightVp = Math.round(this.pxToVp(heightPx));
+    const sizeClass = resolveLayoutSizeClass(widthVp);
+    AppStorage.setOrCreate(AppStorageKeys.WINDOW_WIDTH_VP, widthVp);
+    AppStorage.setOrCreate(AppStorageKeys.WINDOW_HEIGHT_VP, heightVp);
+    AppStorage.setOrCreate(AppStorageKeys.LAYOUT_SIZE_CLASS, sizeClass);
+    AppStorage.setOrCreate(AppStorageKeys.IS_EXPANDED_LAYOUT, isExpandedLayoutClass(sizeClass));
+    hilog.info(
+      DOMAIN,
+      'testTag',
+      'Layout profile updated. widthVp=%{public}d, heightVp=%{public}d, sizeClass=%{public}s',
+      widthVp,
+      heightVp,
+      sizeClass
+    );
+  }
+
+  private pxToVp(px: number): number {
+    const density = this.context.resourceManager.getDeviceCapabilitySync().screenDensity ?? 3;
+    return px / density * 160;
   }
 
   // 监听配置变化（包括主题切换）
@@ -392,6 +433,13 @@ export default class EntryAbility extends UIAbility {
   onWindowStageDestroy(): void {
     // Main window is destroyed, release UI related resources
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageDestroy');
+    if (this.mainWindow !== null) {
+      try {
+        this.mainWindow.off('windowSizeChange', this.windowSizeChangeCallback);
+      } catch (error) {
+        hilog.error(DOMAIN, 'testTag', 'Failed to unregister windowSizeChange: %{public}s', JSON.stringify(error));
+      }
+    }
   }
 
   onForeground(): void {

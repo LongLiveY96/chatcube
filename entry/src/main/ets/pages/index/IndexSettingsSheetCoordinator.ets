@@ -1,25 +1,21 @@
 import { AppLanguage, ThemeMode } from '../../services/PreferencesService'
-import { ColorTheme } from '../../models/ThemeColors'
 import { SettingsManager } from '../../viewmodels/SettingsManager'
 
 export class IndexSettingsSheetActionCallbacks {
   onSelectTheme: (mode: ThemeMode) => Promise<void> = async (_mode: ThemeMode): Promise<void> => {}
   onSelectLanguage: (language: AppLanguage) => Promise<void> = async (_language: AppLanguage): Promise<void> => {}
-  onSelectColorTheme: (theme: ColorTheme) => void = (_theme: ColorTheme): void => {}
   onToggleHandAdaptiveEnabled: (value: boolean) => void = (_value: boolean): void => {}
   onToggleHandAdaptiveNewChat: (value: boolean) => void = (_value: boolean): void => {}
   onToggleNotifyEnabled: (value: boolean) => Promise<void> = async (_value: boolean): Promise<void> => {}
   onToggleNotifyOnComplete: (value: boolean) => Promise<void> = async (_value: boolean): Promise<void> => {}
   onToggleNotifyOnFailed: (value: boolean) => Promise<void> = async (_value: boolean): Promise<void> => {}
   onOpenSystemNotificationSettings: () => void = (): void => {}
-  onFontSizeChanged: (size: number) => void = (_size: number): void => {}
 }
 
 export class IndexSettingsSheetCoordinatorBindOptions {
   onThemeModeUpdated: (mode: ThemeMode) => void = (_mode: ThemeMode): void => {}
   onLanguageUpdated: (language: AppLanguage) => void = (_language: AppLanguage): void => {}
   onCloseSheet: () => void = (): void => {}
-  onColorThemeSelected: (theme: ColorTheme) => void = (_theme: ColorTheme): void => {}
   onHandAdaptiveEnabledChanged: (value: boolean) => void = (_value: boolean): void => {}
   onHandAdaptiveNewChatChanged: (value: boolean) => void = (_value: boolean): void => {}
   onNotifyEnabledUpdated: (value: boolean) => void = (_value: boolean): void => {}
@@ -48,10 +44,6 @@ export class IndexSettingsSheetCoordinator {
       options.onLanguageUpdated(language)
       await this.settingsManager.setLanguage(language)
       options.onCloseSheet()
-    }
-
-    callbacks.onSelectColorTheme = (theme: ColorTheme): void => {
-      options.onColorThemeSelected(theme)
     }
 
     callbacks.onToggleHandAdaptiveEnabled = (value: boolean): void => {

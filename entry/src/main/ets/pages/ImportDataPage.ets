@@ -2,6 +2,10 @@ import { picker, fileIo } from '@kit.CoreFileKit'
 import { getImportExportService, ImportOptions, ImportPreview, ImportResult } from '../services/ImportExportService'
 import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
 import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
+import { AppStorageKeys } from '../config/AppStorageKeys'
+import { LayoutSizeClass } from '../config/LayoutProfile'
+import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
+import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 
 @Entry
 @Component
@@ -9,6 +13,11 @@ struct ImportDataPage {
   @StorageProp('bottomAvoidHeight') bottomAvoidHeight: number = 0
   // 主题颜色
   @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @StorageProp('layout_size_class') layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @StorageProp('window_width_vp') windowWidthVp: number = 0
+  @StorageProp('window_height_vp') windowHeightVp: number = 0
+  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE)
+  settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
 
   @State selectedFilePath: string = ''
   @State preview: ImportPreview | null = null
@@ -21,6 +30,15 @@ struct ImportDataPage {
 
   private px2vp(px: number): number {
     return px / (this.getUIContext().getHostContext()?.resourceManager.getDeviceCapabilitySync().screenDensity ?? 3) * 160
+  }
+
+  private getContentMaxWidth(): number {
+    return getSettingsPageContentMaxWidth(this.layoutSizeClass, this.windowWidthVp, this.settingsDetailPresentationMode,
+      this.windowHeightVp)
+  }
+
+  private isDetailPaneMode(): boolean {
+    return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
   }
 
   private showImportToast(message: string | Resource, duration: number = 2000,
@@ -159,12 +177,11 @@ struct ImportDataPage {
     }
   }
 
-  build() {
+  @Builder
+  private PageContent() {
     Column() {
-      HdsNavigation() {
-        Column() {
-        if (this.isImporting) {
-          // 导入进度界面
+      if (this.isImporting) {
+        Row() {
           Column() {
             Text($r('app.string.import_progress'))
               .fontSize(20)
@@ -183,44 +200,50 @@ struct ImportDataPage {
               .margin({ top: 16 })
           }
           .width('100%')
-          .layoutWeight(1)
+          .constraintSize({ maxWidth: this.getContentMaxWidth() })
           .justifyContent(FlexAlign.Center)
-        } else if (!this.showPreview) {
-          // 文件选择界面
+          .alignItems(HorizontalAlign.Center)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+        .padding({ left: 16, right: 16 })
+      } else if (!this.showPreview) {
+        Row() {
           Column() {
-            Column() {
-              SymbolGlyph($r('sys.symbol.folder'))
-                .fontSize(64)
-                .fontColor([$r('app.color.text_tertiary')])
-                .margin({ bottom: 16 })
+            SymbolGlyph($r('sys.symbol.folder'))
+              .fontSize(64)
+              .fontColor([$r('app.color.text_tertiary')])
+              .margin({ bottom: 16 })
 
-              Text($r('app.string.import_select_file'))
-                .fontSize(16)
-                .fontColor($r('app.color.text_secondary'))
-                .margin({ bottom: 24 })
+            Text($r('app.string.import_select_file'))
+              .fontSize(16)
+              .fontColor($r('app.color.text_secondary'))
+              .margin({ bottom: 24 })
 
-              Button('选择 ZIP 文件')
-                .width(200)
-                .height(48)
-                .fontSize(16)
-                .fontWeight(FontWeight.Medium)
-                .backgroundColor(this.themePrimary)
-                .borderRadius(12)
-                .onClick(() => {
-                  this.selectFile()
-                })
-            }
-            .width('100%')
-            .layoutWeight(1)
-            .justifyContent(FlexAlign.Center)
+            Button('选择 ZIP 文件')
+              .width(200)
+              .height(48)
+              .fontSize(16)
+              .fontWeight(FontWeight.Medium)
+              .backgroundColor(this.themePrimary)
+              .borderRadius(12)
+              .onClick(() => {
+                this.selectFile()
+              })
           }
           .width('100%')
-          .height('100%')
-        } else {
-          // 导入预览和配置界面
-          Scroll() {
+          .constraintSize({ maxWidth: this.getContentMaxWidth() })
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+        }
+        .width('100%')
+        .height('100%')
+        .padding({ left: 16, right: 16 })
+      } else {
+        Scroll() {
+          Row() {
             Column() {
-              // 导入预览
               this.SectionTitle($r('app.string.import_preview'))
 
               Column() {
@@ -259,37 +282,22 @@ struct ImportDataPage {
               .borderRadius(16)
               .margin({ bottom: 24 })
 
-              // 冲突处理策略
               if (this.preview && this.preview.conflicts.length > 0) {
                 this.SectionTitle($r('app.string.import_conflict_strategy'))
 
                 Column() {
-                  this.RadioRow(
-                    $r('app.string.import_strategy_skip'),
-                    'skip',
-                    this.conflictStrategy === 'skip',
-                    () => {
-                      this.conflictStrategy = 'skip'
-                    }
-                  )
+                  this.RadioRow($r('app.string.import_strategy_skip'), 'skip', this.conflictStrategy === 'skip', () => {
+                    this.conflictStrategy = 'skip'
+                  })
                   Divider().color($r('app.color.divider'))
-                  this.RadioRow(
-                    $r('app.string.import_strategy_overwrite'),
-                    'overwrite',
-                    this.conflictStrategy === 'overwrite',
-                    () => {
+                  this.RadioRow($r('app.string.import_strategy_overwrite'), 'overwrite',
+                    this.conflictStrategy === 'overwrite', () => {
                       this.conflictStrategy = 'overwrite'
-                    }
-                  )
+                    })
                   Divider().color($r('app.color.divider'))
-                  this.RadioRow(
-                    $r('app.string.import_strategy_ask'),
-                    'ask',
-                    this.conflictStrategy === 'ask',
-                    () => {
-                      this.conflictStrategy = 'ask'
-                    }
-                  )
+                  this.RadioRow($r('app.string.import_strategy_ask'), 'ask', this.conflictStrategy === 'ask', () => {
+                    this.conflictStrategy = 'ask'
+                  })
                 }
                 .width('100%')
                 .backgroundColor($r('app.color.surface'))
@@ -297,40 +305,33 @@ struct ImportDataPage {
                 .margin({ bottom: 24 })
               }
 
-              // 导入选项
               this.SectionTitle($r('app.string.import_options'))
 
               Column() {
-                this.OptionRow(
-                  $r('app.string.import_providers'),
-                  this.importProviders,
-                  (value: boolean) => {
-                    this.importProviders = value
-                  }
-                )
-
+                this.OptionRow($r('app.string.import_providers'), this.importProviders, (value: boolean) => {
+                  this.importProviders = value
+                })
                 Divider().color($r('app.color.divider'))
-
-                this.OptionRow(
-                  $r('app.string.import_preferences'),
-                  this.importPreferences,
-                  (value: boolean) => {
-                    this.importPreferences = value
-                  }
-                )
+                this.OptionRow($r('app.string.import_preferences'), this.importPreferences, (value: boolean) => {
+                  this.importPreferences = value
+                })
               }
               .width('100%')
               .backgroundColor($r('app.color.surface'))
               .borderRadius(16)
             }
             .width('100%')
-            .padding({ left: 16, right: 16, bottom: 100 })
+            .constraintSize({ maxWidth: this.getContentMaxWidth() })
           }
           .width('100%')
-          .layoutWeight(1)
-          .scrollBar(BarState.Off)
+          .justifyContent(FlexAlign.Center)
+          .padding({ left: 16, right: 16, bottom: 100 })
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
 
-          // 底部按钮
+        Row() {
           Column() {
             Button($r('app.string.import_start'))
               .width('100%')
@@ -344,31 +345,72 @@ struct ImportDataPage {
               })
           }
           .width('100%')
-          .padding({ left: 16, right: 16, top: 12, bottom: 12 + this.px2vp(this.bottomAvoidHeight) })
-          .backgroundColor($r('app.color.background'))
-          .shadow({
-            radius: 8,
-            color: '#10000000',
-            offsetY: -2
-          })
-        }
+          .constraintSize({ maxWidth: this.getContentMaxWidth() })
         }
         .width('100%')
-        .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .padding({ left: 16, right: 16, top: 12, bottom: 12 + this.px2vp(this.bottomAvoidHeight) })
+        .backgroundColor($r('app.color.background'))
+        .shadow({
+          radius: 8,
+          color: '#10000000',
+          offsetY: -2
+        })
+      }
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder
+  private DetailPaneHeader() {
+    Column() {
+      Row() {
+        Text($r('app.string.import_title'))
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
       }
       .width('100%')
-      .layoutWeight(1)
-      .backgroundColor($r('app.color.background'))
-      .titleMode(HdsNavigationTitleMode.MINI)
-      .titleBar({
-        avoidLayoutSafeArea: true,
-        enableComponentSafeArea: true,
-        content: {
-          title: {
-            mainTitle: $r('app.string.import_title')
-          }
+      .height(64)
+      .padding({ left: 24, right: 24 })
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .backgroundColor($r('app.color.background'))
+    .border({ width: { bottom: 1 }, color: $r('app.color.divider') })
+  }
+
+  build() {
+    Column() {
+      if (this.isDetailPaneMode()) {
+        Column() {
+          this.DetailPaneHeader()
+          this.PageContent()
         }
-      })
+        .width('100%')
+        .layoutWeight(1)
+      } else {
+        HdsNavigation() {
+          this.PageContent()
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .backgroundColor($r('app.color.background'))
+        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
+        .mode(NavigationMode.Stack)
+        .titleMode(HdsNavigationTitleMode.MINI)
+        .titleBar({
+          avoidLayoutSafeArea: true,
+          enableComponentSafeArea: true,
+          content: {
+            title: {
+              mainTitle: $r('app.string.import_title')
+            }
+          }
+        })
+      }
     }
     .width('100%')
     .height('100%')
@@ -441,4 +483,13 @@ struct ImportDataPage {
     .width('100%')
     .padding(16)
   }
+}
+
+@Builder
+export function ImportDataPageBuilder(name: string, param: Object) {
+  NavDestination() {
+    ImportDataPage()
+  }
+  .hideTitleBar(true)
+  .hideBackButton(true)
 }

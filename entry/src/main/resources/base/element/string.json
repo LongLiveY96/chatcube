@@ -101,6 +101,30 @@
       "value": "Click the button above to start a new chat"
     },
     {
+      "name": "tablet_chat_detail_empty_title",
+      "value": "Select a conversation"
+    },
+    {
+      "name": "tablet_chat_detail_empty_desc",
+      "value": "Open one from the list on the left, or start a new chat"
+    },
+    {
+      "name": "tablet_provider_detail_empty_title",
+      "value": "Select a provider"
+    },
+    {
+      "name": "tablet_provider_detail_empty_desc",
+      "value": "Pick one from the list on the left, or add a custom provider"
+    },
+    {
+      "name": "tablet_settings_detail_empty_title",
+      "value": "Select a settings module"
+    },
+    {
+      "name": "tablet_settings_detail_empty_desc",
+      "value": "Open a secondary page from the settings list on the left"
+    },
+    {
       "name": "loading",
       "value": "Loading..."
     },
@@ -205,8 +229,40 @@
       "value": "English"
     },
     {
+      "name": "settings_appearance",
+      "value": "Appearance"
+    },
+    {
+      "name": "settings_appearance_desc",
+      "value": "Display mode, color theme, and font size"
+    },
+    {
       "name": "settings_dark_mode",
       "value": "Theme"
+    },
+    {
+      "name": "settings_dark_mode_desc",
+      "value": "Display mode, color theme, and font size"
+    },
+    {
+      "name": "appearance_display_mode_title",
+      "value": "Display Mode"
+    },
+    {
+      "name": "appearance_display_mode_desc",
+      "value": "Follow the system or switch between light and dark mode manually"
+    },
+    {
+      "name": "appearance_color_theme_desc",
+      "value": "Adjust accent colors and chat bubble style together"
+    },
+    {
+      "name": "appearance_live_preview_title",
+      "value": "Live Preview"
+    },
+    {
+      "name": "appearance_live_preview_desc",
+      "value": "Changes to display mode, color theme, and font size appear here immediately"
     },
     {
       "name": "settings_language",
@@ -875,6 +931,14 @@
     {
       "name": "theme_color_sunset_desc",
       "value": "Warm orange"
+    },
+    {
+      "name": "theme_color_berry",
+      "value": "Berry"
+    },
+    {
+      "name": "theme_color_berry_desc",
+      "value": "Soft berry pink"
     },
     {
       "name": "screenshot_banner_title",
