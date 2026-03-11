@@ -5,12 +5,13 @@ import { util } from '@kit.ArkTS'
 import { getAttachmentStorageService } from '../services/AttachmentStorageService'
 import { AppStorageKeys } from '../config/AppStorageKeys'
 
-@Component
+@ComponentV2
 export struct ScreenshotBanner {
-  @Link attachments: MessageAttachment[]
-  @Prop hasRecentPhoto: boolean = false
-  @State dismissed: boolean = false
-  @State bannerHeight: number = 0
+  @Param attachments: MessageAttachment[] = []
+  @Event $attachments: (value: MessageAttachment[]) => void = () => {}
+  @Param hasRecentPhoto: boolean = false
+  @Local dismissed: boolean = false
+  @Local bannerHeight: number = 0
   private recentPhotoOptions: RecentPhotoOptions = new RecentPhotoOptions()
 
   aboutToAppear(): void {
@@ -124,8 +125,7 @@ export struct ScreenshotBanner {
       const filePath = await storageService.saveAttachment(attachment)
       attachment.filePath = filePath
 
-      this.attachments.push(attachment)
-      this.attachments = [...this.attachments]
+      this.$attachments([...this.attachments, attachment])
       this.dismiss()
     } catch (error) {
       console.error('ScreenshotBanner', `Failed to add screenshot: ${JSON.stringify(error)}`)

@@ -9,15 +9,15 @@ import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/Toa
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 
 @Entry
-@Component
+@ComponentV2
 struct SystemPromptSettingsPage {
-  @StorageProp(AppStorageKeys.LAYOUT_SIZE_CLASS) layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @StorageProp(AppStorageKeys.WINDOW_WIDTH_VP) windowWidthVp: number = 0
-  @StorageProp(AppStorageKeys.WINDOW_HEIGHT_VP) windowHeightVp: number = 0
-  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE) settingsDetailPresentationMode: string = 'page'
-  @StorageProp(AppStorageKeys.THEME_PRIMARY) themePrimary: string = '#0A59F7'
+  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @Param windowWidthVp: number = 0
+  @Param windowHeightVp: number = 0
+  @Param settingsDetailPresentationMode: string = 'page'
+  @Param themePrimary: string = '#0A59F7'
 
-  @State customSystemPrompt: string = ''
+  @Local customSystemPrompt: string = ''
 
   private preferencesService = ServiceRegistry.preferences()
 

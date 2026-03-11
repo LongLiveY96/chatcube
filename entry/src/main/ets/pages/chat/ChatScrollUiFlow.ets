@@ -1,8 +1,8 @@
-import { MessageDataSource } from '../../datasource/MessageDataSource'
+import { ChatMessage } from '../../models/ChatModels'
 
 export interface ChatScrollUiFlowDependencies {
   scroller: Scroller
-  messageDataSource: MessageDataSource
+  messages: ChatMessage[]
   getLastScrollOffset: () => number
   setLastScrollOffset: (value: number) => void
   getInputBarShowThreshold: () => number
@@ -110,8 +110,7 @@ export class ChatScrollUiFlow {
   }
 
   scrollToTopWithAnimation(): void {
-    const total = this.deps.messageDataSource.totalCount()
-    if (total <= 0) {
+    if (this.deps.messages.length <= 0) {
       return
     }
     this.setIsAtTop(true)

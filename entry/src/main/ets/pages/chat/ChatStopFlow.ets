@@ -1,12 +1,11 @@
-import { MessageRole } from '../../models/ChatModels'
-import { MessageDataSource } from '../../datasource/MessageDataSource'
+import { ChatMessage, MessageRole } from '../../models/ChatModels'
 import { ChatTaskOrchestratorService } from '../../services/ChatTaskOrchestratorService'
 import { ChatViewModel } from '../../viewmodels/ChatViewModel'
 
 export interface ChatStopFlowDependencies {
   chatViewModel: ChatViewModel
   chatTaskOrchestrator: ChatTaskOrchestratorService
-  messageDataSource: MessageDataSource
+  messages: ChatMessage[]
   getCurrentTaskId: () => string
   onSetCurrentTaskId: (taskId: string) => void
   onSetSearchCancelled: (value: boolean) => void
@@ -46,11 +45,11 @@ export class ChatStopFlow {
   }
 
   private resetLastAssistantMessageState(): void {
-    if (this.deps.messageDataSource.totalCount() <= 0) {
+    if (this.deps.messages.length <= 0) {
       return
     }
 
-    const lastMessage = this.deps.messageDataSource.getData(this.deps.messageDataSource.totalCount() - 1)
+    const lastMessage = this.deps.messages[this.deps.messages.length - 1]
     if (lastMessage.role !== MessageRole.ASSISTANT) {
       return
     }
@@ -63,27 +62,22 @@ export class ChatStopFlow {
       lastMessage.toolCalls.length === 0 &&
       lastMessage.toolResults.length === 0
     if (isEmptyAssistantPlaceholder && (lastMessage.isSearching || lastMessage.isGenerating)) {
-      this.deps.messageDataSource.removeMessageById(lastMessage.id)
+      const idx = this.deps.messages.findIndex((m: ChatMessage) => m.id === lastMessage.id)
+      if (idx >= 0) {
+        this.deps.messages.splice(idx, 1)
+      }
       this.deps.chatViewModel.discardPendingAIMessage(lastMessage.id)
       this.deps.onSyncMessages()
       console.info('ChatStopFlow', '[stopCurrentTask] 移除停止后空白的临时 AI 消息')
       return
     }
 
-    let needUpdate = false
     if (lastMessage.isGenerating) {
       lastMessage.isGenerating = false
-      needUpdate = true
     }
     if (lastMessage.isSearching) {
       lastMessage.isSearching = false
-      needUpdate = true
     }
-    if (!needUpdate) {
-      return
-    }
-
-    this.deps.messageDataSource.notifyLastMessageChanged()
     this.deps.onSyncMessages()
   }
 }

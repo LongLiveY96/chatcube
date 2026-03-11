@@ -16,56 +16,56 @@ import { buildIconResourcePath, getModelIconPath, isNetworkIconPath, isSandboxIc
 import { HdsVisualComponent, HdsSceneController, HdsSceneType, hdsEffect } from '@kit.UIDesignKit'
 import { Markdown, MarkdownController } from '@luvi/lv-markdown-in'
 
-@Component
+@ComponentV2
 export struct ChatNavigationBar {
   // 会话标题
-  @Prop sessionTitle: string = '新对话'
+  @Param sessionTitle: string = '新对话'
   // 当前模型ID
-  @Prop currentModelId: string = ''
+  @Param currentModelId: string = ''
   // 当前服务商ID
-  @Prop currentProviderId: string = ''
+  @Param currentProviderId: string = ''
   // 当前模型名称
-  @Prop currentModelName: string = ''
+  @Param currentModelName: string = ''
   // 当前服务商名称
-  @Prop currentProviderName: string = ''
-  @Prop currentProviderIconType: string = 'svg'
-  @Prop currentProviderIconPath: string = ''
-  @Prop currentProviderTextIcon: string = ''
-  @Prop currentProviderTextIconBgColor: string = ''
-  @Prop currentProviderCustomImagePath: string = ''
-  @Prop currentProviderBrandColor: ResourceColor = ''
+  @Param currentProviderName: string = ''
+  @Param currentProviderIconType: string = 'svg'
+  @Param currentProviderIconPath: string = ''
+  @Param currentProviderTextIcon: string = ''
+  @Param currentProviderTextIconBgColor: string = ''
+  @Param currentProviderCustomImagePath: string = ''
+  @Param currentProviderBrandColor: ResourceColor = ''
   // 是否有消息（用于控制新建对话按钮显示）
-  @Prop hasMessages: boolean = false
+  @Param hasMessages: boolean = false
   // 标题是否正在生成
-  @Prop isTitleGenerating: boolean = false
+  @Param isTitleGenerating: boolean = false
   // 标题生成是否失败
-  @Prop titleGenerateFailed: boolean = false
-  @Prop contentMaxWidth: number = 99999
+  @Param titleGenerateFailed: boolean = false
+  @Param contentMaxWidth: number = 99999
   // 是否正在发送（用于禁用重新生成标题）
-  @Prop isSending: boolean = false
+  @Param isSending: boolean = false
   // 其他会话未读完成提醒数量
-  @Prop otherSessionUnreadCount: number = 0
-  @Prop topInsetHeight: number = 0
+  @Param otherSessionUnreadCount: number = 0
+  @Param topInsetHeight: number = 0
 
   // 回调函数
-  onBack: () => void = () => {}
-  onModelSelect: () => void = () => {}
-  onNewChat: () => void = () => {}
-  onRegenerateTitle: () => void = () => {}
-  onTitleChanged: (newTitle: string) => void = () => {}
-  onNavigateToModelManage: () => void = () => {}
-  onDeleteChat: () => void = () => {}
+  @Event onBack: () => void = () => {}
+  @Event onModelSelect: () => void = () => {}
+  @Event onNewChat: () => void = () => {}
+  @Event onRegenerateTitle: () => void = () => {}
+  @Event onTitleChanged: (newTitle: string) => void = () => {}
+  @Event onNavigateToModelManage: () => void = () => {}
+  @Event onDeleteChat: () => void = () => {}
 
   // 内部状态
-  @State private backBtnPressed: boolean = false
-  @State private newChatBtnPressed: boolean = false
-  @State private moreBtnPressed: boolean = false
-  @State private isEditingTitle: boolean = false
-  @State private editingTitleInput: string = ''
+  @Local private backBtnPressed: boolean = false
+  @Local private newChatBtnPressed: boolean = false
+  @Local private moreBtnPressed: boolean = false
+  @Local private isEditingTitle: boolean = false
+  @Local private editingTitleInput: string = ''
   // 主题颜色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('isDarkMode') @Watch('onNavDarkModeChange') isDarkMode: boolean = false
-  @StorageProp('ui_visual_enhanced') uiVisualEnhanced: boolean = false
+  @Param themePrimary: string = '#0A59F7'
+  @Param isDarkMode: boolean = false
+  @Param uiVisualEnhanced: boolean = false
   private navSceneController: HdsSceneController = new HdsSceneController().setSceneParams({
     backgroundMaskColors: ['#00000000', '#1A0A59F7', '#00000000'],
     firstEdgeFlowLight: {
@@ -85,7 +85,8 @@ export struct ChatNavigationBar {
     this.configureTitleMarkdownStyles()
   }
 
-  private onNavDarkModeChange(): void {
+  @Monitor('isDarkMode')
+  onNavDarkModeChange(): void {
     this.configureTitleMarkdownStyles()
   }
 

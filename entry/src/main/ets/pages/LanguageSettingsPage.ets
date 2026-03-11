@@ -10,14 +10,14 @@ import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelpe
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 
 @Entry
-@Component
+@ComponentV2
 struct LanguageSettingsPage {
-  @StorageProp(AppStorageKeys.LAYOUT_SIZE_CLASS) layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @StorageProp(AppStorageKeys.WINDOW_WIDTH_VP) windowWidthVp: number = 0
-  @StorageProp(AppStorageKeys.WINDOW_HEIGHT_VP) windowHeightVp: number = 0
-  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE) settingsDetailPresentationMode: string = 'page'
+  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @Param windowWidthVp: number = 0
+  @Param windowHeightVp: number = 0
+  @Param settingsDetailPresentationMode: string = 'page'
 
-  @State currentLanguage: AppLanguage = AppLanguage.SYSTEM
+  @Local currentLanguage: AppLanguage = AppLanguage.SYSTEM
 
   private settingsManager = ServiceRegistry.settings()
 

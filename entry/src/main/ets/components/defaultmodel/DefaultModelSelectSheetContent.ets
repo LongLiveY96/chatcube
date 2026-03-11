@@ -1,16 +1,16 @@
 import { ModelProvider } from '../../models/ChatModels'
 import { ModelSelectorContent } from '../ModelSelector'
 
-@Component
+@ComponentV2
 export struct DefaultModelSelectSheetContent {
-  @Prop currentSelectionText: string | Resource = ''
-  @Prop isProvidersLoaded: boolean = false
-  @Prop providers: ModelProvider[] = []
-  @Prop currentModelId: string = ''
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  onSelectModel: (providerId: string, modelId: string, modelName: string) => void =
+  @Param currentSelectionText: string | Resource = ''
+  @Param isProvidersLoaded: boolean = false
+  @Param providers: ModelProvider[] = []
+  @Param currentModelId: string = ''
+  @Param themePrimary: string = '#0A59F7'
+  @Event onSelectModel: (providerId: string, modelId: string, modelName: string) => void =
     (_providerId: string, _modelId: string, _modelName: string): void => {}
-  onClearSelection: () => void = (): void => {}
+  @Event onClearSelection: () => void = (): void => {}
 
   build() {
     Column() {

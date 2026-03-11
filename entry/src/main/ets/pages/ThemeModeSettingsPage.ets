@@ -7,20 +7,20 @@ import { ServiceRegistry } from '../services/ServiceRegistry'
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 
-@Component
+@ComponentV2
 export struct ThemeAppearanceSettingsView {
-  @StorageProp(AppStorageKeys.LAYOUT_SIZE_CLASS) layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @StorageProp(AppStorageKeys.WINDOW_WIDTH_VP) windowWidthVp: number = 0
-  @StorageProp(AppStorageKeys.WINDOW_HEIGHT_VP) windowHeightVp: number = 0
-  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE) settingsDetailPresentationMode: string =
+  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @Param windowWidthVp: number = 0
+  @Param windowHeightVp: number = 0
+  @Param settingsDetailPresentationMode: string =
     SettingsPagePresentationMode.PAGE
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
-  @StorageProp('isDarkMode') isDarkMode: boolean = false
+  @Param themePrimary: string = '#0A59F7'
+  @Param themePrimaryLight: string = '#E6F2FF'
+  @Param isDarkMode: boolean = false
 
-  @State currentThemeMode: ThemeMode = ThemeMode.SYSTEM
-  @State currentColorTheme: ColorTheme = ColorTheme.DEFAULT
-  @State chatFontSize: number = 15
+  @Local currentThemeMode: ThemeMode = ThemeMode.SYSTEM
+  @Local currentColorTheme: ColorTheme = ColorTheme.DEFAULT
+  @Local chatFontSize: number = 15
 
   private settingsManager = ServiceRegistry.settings()
 
@@ -553,7 +553,7 @@ export struct ThemeAppearanceSettingsView {
 }
 
 @Entry
-@Component
+@ComponentV2
 struct ThemeModeSettingsPage {
   build() {
     Column() {

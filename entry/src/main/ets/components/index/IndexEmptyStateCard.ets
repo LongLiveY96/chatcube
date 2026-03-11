@@ -1,12 +1,12 @@
-@Component
+@ComponentV2
 export struct IndexEmptyStateCard {
-  @Prop icon: Resource = $r('sys.symbol.circle')
-  @Prop title: Resource = $r('app.string.no_sessions')
-  @Prop description: Resource = $r('app.string.start_new_chat')
-  @Prop showButton: boolean = false
-  @Prop buttonText: Resource = $r('app.string.new_chat')
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  onButtonClick: () => void = () => {}
+  @Param icon: Resource = $r('sys.symbol.circle')
+  @Param title: Resource = $r('app.string.no_sessions')
+  @Param description: Resource = $r('app.string.start_new_chat')
+  @Param showButton: boolean = false
+  @Param buttonText: Resource = $r('app.string.new_chat')
+  @Param themePrimary: string = '#0A59F7'
+  @Event onButtonClick: () => void = () => {}
 
   build() {
     Column() {

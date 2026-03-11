@@ -18,45 +18,54 @@ class SettingsGroupModel {
   items: SettingsListItemModel[] = []
 }
 
-@Component
+@ComponentV2
 export struct IndexSettingsPanel {
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
-  @Link @Watch('onSummaryLinkChanged') currentThemeMode: ThemeMode
-  @Link @Watch('onSummaryLinkChanged') currentLanguage: AppLanguage
-  @Link @Watch('onSummaryLinkChanged') currentColorTheme: ColorTheme
-  @Link @Watch('onSummaryLinkChanged') handAdaptiveEnabled: boolean
-  @Link @Watch('onSummaryLinkChanged') handAdaptiveNewChat: boolean
-  @Link @Watch('onSummaryLinkChanged') handAdaptiveUnsupported: boolean
-  @Link @Watch('onSummaryLinkChanged') notifyEnabled: boolean
-  @Link @Watch('onSummaryLinkChanged') notifyOnComplete: boolean
-  @Link @Watch('onSummaryLinkChanged') notifyOnFailed: boolean
-  @StorageProp('chat_font_size') @Watch('onSummaryLinkChanged') chatFontSize: number = 15
-  @State themeModeSummary: string = ''
-  @State languageSummary: string = ''
-  @State colorThemeSummary: string = ''
-  @State handAdaptiveSummary: string = ''
-  @State notifySummary: string = ''
-  @State fontSizeSummary: string = ''
-  @State versionName: string = ''
+  @Param themePrimary: string = '#0A59F7'
+  @Param themePrimaryLight: string = '#E6F2FF'
+  @Param currentThemeMode: ThemeMode = ThemeMode.SYSTEM
+  @Event $currentThemeMode: (value: ThemeMode) => void = () => {}
+  @Param currentLanguage: AppLanguage = AppLanguage.SYSTEM
+  @Event $currentLanguage: (value: AppLanguage) => void = () => {}
+  @Param currentColorTheme: ColorTheme = ColorTheme.DEFAULT
+  @Event $currentColorTheme: (value: ColorTheme) => void = () => {}
+  @Param handAdaptiveEnabled: boolean = false
+  @Event $handAdaptiveEnabled: (value: boolean) => void = () => {}
+  @Param handAdaptiveNewChat: boolean = false
+  @Event $handAdaptiveNewChat: (value: boolean) => void = () => {}
+  @Param handAdaptiveUnsupported: boolean = false
+  @Event $handAdaptiveUnsupported: (value: boolean) => void = () => {}
+  @Param notifyEnabled: boolean = false
+  @Event $notifyEnabled: (value: boolean) => void = () => {}
+  @Param notifyOnComplete: boolean = false
+  @Event $notifyOnComplete: (value: boolean) => void = () => {}
+  @Param notifyOnFailed: boolean = false
+  @Event $notifyOnFailed: (value: boolean) => void = () => {}
+  @Param chatFontSize: number = 15
+  @Local themeModeSummary: string = ''
+  @Local languageSummary: string = ''
+  @Local colorThemeSummary: string = ''
+  @Local handAdaptiveSummary: string = ''
+  @Local notifySummary: string = ''
+  @Local fontSizeSummary: string = ''
+  @Local versionName: string = ''
 
-  sidebarMode: boolean = false
-  selectedRouteName: string = ''
-  highlightSelection: boolean = false
-  onOpenModelManage: () => void = () => {}
-  onOpenDefaultModel: () => void = () => {}
-  onOpenToolsCenter: () => void = () => {}
-  onOpenSystemPrompt: () => void = () => {}
-  onOpenHandAdaptive: () => void = () => {}
-  onOpenTheme: () => void = () => {}
-  onOpenColorTheme: () => void = () => {}
-  onOpenLanguage: () => void = () => {}
-  onOpenNotification: () => void = () => {}
-  onOpenFontSize: () => void = () => {}
-  onOpenExportData: () => void = () => {}
-  onOpenImportData: () => void = () => {}
-  onOpenAbout: () => void = () => {}
-  onOpenPrivacy: () => void = () => {}
+  @Param sidebarMode: boolean = false
+  @Param selectedRouteName: string = ''
+  @Param highlightSelection: boolean = false
+  @Event onOpenModelManage: () => void = () => {}
+  @Event onOpenDefaultModel: () => void = () => {}
+  @Event onOpenToolsCenter: () => void = () => {}
+  @Event onOpenSystemPrompt: () => void = () => {}
+  @Event onOpenHandAdaptive: () => void = () => {}
+  @Event onOpenTheme: () => void = () => {}
+  @Event onOpenColorTheme: () => void = () => {}
+  @Event onOpenLanguage: () => void = () => {}
+  @Event onOpenNotification: () => void = () => {}
+  @Event onOpenFontSize: () => void = () => {}
+  @Event onOpenExportData: () => void = () => {}
+  @Event onOpenImportData: () => void = () => {}
+  @Event onOpenAbout: () => void = () => {}
+  @Event onOpenPrivacy: () => void = () => {}
 
   aboutToAppear(): void {
     this.refreshSummaryStates()
@@ -93,7 +102,8 @@ export struct IndexSettingsPanel {
     this.fontSizeSummary = this.resourceToString(this.getFontSizeSummaryText(this.chatFontSize))
   }
 
-  private onSummaryLinkChanged(): void {
+  @Monitor('currentThemeMode', 'currentLanguage', 'currentColorTheme', 'handAdaptiveEnabled', 'handAdaptiveNewChat', 'handAdaptiveUnsupported', 'notifyEnabled', 'notifyOnComplete', 'notifyOnFailed', 'chatFontSize')
+  onSummaryLinkChanged(): void {
     this.refreshSummaryStates()
   }
 

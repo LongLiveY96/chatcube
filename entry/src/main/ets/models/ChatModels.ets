@@ -107,12 +107,12 @@ export class ToolDefinition {
 }
 
 // 工具调用（AI 返回）
-@Observed
+@ObservedV2
 export class ToolCall {
-  id: string = ''
-  type: string = 'function'
-  functionName: string = ''
-  arguments: string = ''
+  @Trace id: string = ''
+  @Trace type: string = 'function'
+  @Trace functionName: string = ''
+  @Trace arguments: string = ''
 
   constructor(id: string = '', functionName: string = '', args: string = '') {
     this.id = id
@@ -133,14 +133,14 @@ export class ToolResult {
 }
 
 // 工具配置（用于 UI 开关管理）
-@Observed
+@ObservedV2
 export class ToolConfig {
-  id: string = ''           // 工具唯一标识，如 'web_search'
-  name: string = ''         // 显示名称，如 '联网搜索'
-  description: string = ''  // 工具描述
-  icon: Resource | null = null  // 图标
-  enabled: boolean = false  // 是否启用
-  requiresSetup: boolean = false  // 是否需要额外配置
+  @Trace id: string = ''           // 工具唯一标识，如 'web_search'
+  @Trace name: string = ''         // 显示名称，如 '联网搜索'
+  @Trace description: string = ''  // 工具描述
+  @Trace icon: Resource | null = null  // 图标
+  @Trace enabled: boolean = false  // 是否启用
+  @Trace requiresSetup: boolean = false  // 是否需要额外配置
 
   constructor(
     id: string = '',
@@ -183,12 +183,12 @@ export enum ReasoningLevel {
 }
 
 // 默认模型配置类
-@Observed
+@ObservedV2
 export class DefaultModelConfig {
-  modelId: string = ''
-  providerId: string = ''
-  modelName: string = ''
-  providerName: string = ''
+  @Trace modelId: string = ''
+  @Trace providerId: string = ''
+  @Trace modelName: string = ''
+  @Trace providerName: string = ''
 
   constructor(modelId: string = '', providerId: string = '', modelName: string = '', providerName: string = '') {
     this.modelId = modelId
@@ -233,13 +233,13 @@ export enum OutputMode {
 }
 
 // ============ 模型能力配置 ============
-@Observed
+@ObservedV2
 export class ModelCapabilities {
-  supportsTools: boolean      // 支持工具调用/Function Calling
-  supportsReasoning: boolean  // 支持推理/思维链（如 o1, DeepSeek R1）
-  supportsWebSearch: boolean  // 支持联网搜索
-  supportsVision: boolean     // 支持图片输入
-  supportsStreaming: boolean  // 支持流式输出
+  @Trace supportsTools: boolean      // 支持工具调用/Function Calling
+  @Trace supportsReasoning: boolean  // 支持推理/思维链（如 o1, DeepSeek R1）
+  @Trace supportsWebSearch: boolean  // 支持联网搜索
+  @Trace supportsVision: boolean     // 支持图片输入
+  @Trace supportsStreaming: boolean  // 支持流式输出
 
   constructor(
     supportsTools: boolean = false,
@@ -289,13 +289,13 @@ export interface ModelCapabilitiesJson {
 }
 
 // ============ 模型默认参数 ============
-@Observed
+@ObservedV2
 export class ModelParameters {
-  temperature: number         // 温度 0-2
-  topP: number               // Top P 0-1
-  maxTokens: number          // 最大输出 Token
-  presencePenalty: number    // 存在惩罚 -2 到 2
-  frequencyPenalty: number   // 频率惩罚 -2 到 2
+  @Trace temperature: number         // 温度 0-2
+  @Trace topP: number               // Top P 0-1
+  @Trace maxTokens: number          // 最大输出 Token
+  @Trace presencePenalty: number    // 存在惩罚 -2 到 2
+  @Trace frequencyPenalty: number   // 频率惩罚 -2 到 2
 
   constructor(
     temperature: number = 0.7,
@@ -363,13 +363,13 @@ export enum SearchEngine {
 }
 
 // 搜索服务配置类
-@Observed
+@ObservedV2
 export class SearchServiceConfig {
-  enabled: boolean = true
-  searchEngine: SearchEngine = SearchEngine.BING
-  maxResults: number = 10
-  timeout: number = 5000
-  autoTestConnection: boolean = true
+  @Trace enabled: boolean = true
+  @Trace searchEngine: SearchEngine = SearchEngine.BING
+  @Trace maxResults: number = 10
+  @Trace timeout: number = 5000
+  @Trace autoTestConnection: boolean = true
 
   constructor() {
     this.enabled = true
@@ -381,13 +381,13 @@ export class SearchServiceConfig {
 }
 
 // 搜索引用项
-@Observed
+@ObservedV2
 export class SearchReference {
-  id: string
-  title: string
-  url: string
-  snippet: string
-  timestamp: number
+  @Trace id: string
+  @Trace title: string
+  @Trace url: string
+  @Trace snippet: string
+  @Trace timestamp: number
 
   constructor(id: string, title: string, url: string, snippet: string) {
     this.id = id
@@ -433,35 +433,35 @@ export class MessageAttachment {
 }
 
 // 聊天消息模型
-@Observed
+@ObservedV2
 export class ChatMessage {
-  id: string
-  role: MessageRole
-  content: string
-  timestamp: number
-  modelName: string
+  @Trace id: string
+  @Trace role: MessageRole
+  @Trace content: string
+  @Trace timestamp: number
+  @Trace modelName: string
   // 模型 ID（用于图标匹配等）
-  modelId: string
+  @Trace modelId: string
   // 推理内容（用于支持 o1, DeepSeek R1 等推理模型）
-  reasoningContent: string
+  @Trace reasoningContent: string
   // 附件列表（图片、文件等）
-  attachments: MessageAttachment[]
+  @Trace attachments: MessageAttachment[]
   // 是否正在生成中（用于 UI 显示动态效果）
-  isGenerating: boolean
+  @Trace isGenerating: boolean
   // 联网搜索引用数据
-  searchReferences: SearchReference[]
+  @Trace searchReferences: SearchReference[]
   // 搜索查询内容
-  searchQuery: string
+  @Trace searchQuery: string
   // 搜索引擎名称
-  searchEngine: string
+  @Trace searchEngine: string
   // 搜索来源：manual(手动) / tool(工具调用)
-  searchSource: string
+  @Trace searchSource: string
   // 是否正在搜索
-  isSearching: boolean
+  @Trace isSearching: boolean
   // Function Calling 相关字段
-  toolCalls: ToolCall[]      // AI 请求的工具调用
-  toolResults: ToolResult[]  // 工具执行结果
-  toolCallId: string         // 用于 tool 角色消息，关联到对应的 tool_call
+  @Trace toolCalls: ToolCall[]      // AI 请求的工具调用
+  @Trace toolResults: ToolResult[]  // 工具执行结果
+  @Trace toolCallId: string         // 用于 tool 角色消息，关联到对应的 tool_call
 
   constructor(id: string, role: MessageRole, content: string, modelName: string = '', modelId: string = '') {
     this.id = id
@@ -515,24 +515,24 @@ export class ChatMessage {
 }
 
 // 模型信息
-@Observed
+@ObservedV2
 export class ModelInfo {
-  id: string
-  name: string
-  contextLength: number
-  isEnabled: boolean
-  isRecommended: boolean
+  @Trace id: string
+  @Trace name: string
+  @Trace contextLength: number
+  @Trace isEnabled: boolean
+  @Trace isRecommended: boolean
 
   // 新增字段：模型类型和模式
-  modelType: ModelType
-  inputMode: InputMode
-  outputMode: OutputMode
+  @Trace modelType: ModelType
+  @Trace inputMode: InputMode
+  @Trace outputMode: OutputMode
 
   // 新增字段：能力配置
-  capabilities: ModelCapabilities
+  @Trace capabilities: ModelCapabilities
 
   // 新增字段：默认参数
-  parameters: ModelParameters
+  @Trace parameters: ModelParameters
 
   constructor(
     id: string,
@@ -640,28 +640,28 @@ export enum ApiStyle {
 }
 
 // 模型提供商信息
-@Observed
+@ObservedV2
 export class ModelProvider {
-  id: string
-  name: string
-  type: ProviderType
-  apiStyle: ApiStyle
-  apiKey: string
-  baseUrl: string
-  isConnected: boolean
-  isExpanded: boolean
-  models: ModelInfo[]
-  iconSymbol: string
-  brandColor: Resource
+  @Trace id: string
+  @Trace name: string
+  @Trace type: ProviderType
+  @Trace apiStyle: ApiStyle
+  @Trace apiKey: string
+  @Trace baseUrl: string
+  @Trace isConnected: boolean
+  @Trace isExpanded: boolean
+  @Trace models: ModelInfo[]
+  @Trace iconSymbol: string
+  @Trace brandColor: Resource
   // 新增字段
-  isPreset: boolean     // 是否为预设供应商（不可删除）
-  iconPath: string      // SVG 图标路径（相对于 assets/icons/）
-  apiPath: string       // API 路径（可选，如 /chat/completions）
+  @Trace isPreset: boolean     // 是否为预设供应商（不可删除）
+  @Trace iconPath: string      // SVG 图标路径（相对于 assets/icons/）
+  @Trace apiPath: string       // API 路径（可选，如 /chat/completions）
   // 图标类型相关字段
-  iconType: ProviderIconType = ProviderIconType.SVG
-  textIcon: string = ''
-  textIconBgColor: string = ''
-  customImagePath: string = ''
+  @Trace iconType: ProviderIconType = ProviderIconType.SVG
+  @Trace textIcon: string = ''
+  @Trace textIconBgColor: string = ''
+  @Trace customImagePath: string = ''
 
   constructor(
     id: string,
@@ -696,25 +696,25 @@ export class ModelProvider {
 }
 
 // 对话会话
-@Observed
+@ObservedV2
 export class ChatSession {
-  id: string
-  title: string
-  messages: ChatMessage[]
-  modelId: string
-  providerId: string  // 供应商 ID，用于重启后恢复会话使用的供应商
-  createdAt: number
-  updatedAt: number
-  isFavorite: boolean
-  lastMessagePreview: string
-  messageCount: number
-  draftText: string
-  draftAttachments: MessageAttachment[]
+  @Trace id: string
+  @Trace title: string
+  @Trace messages: ChatMessage[]
+  @Trace modelId: string
+  @Trace providerId: string  // 供应商 ID，用于重启后恢复会话使用的供应商
+  @Trace createdAt: number
+  @Trace updatedAt: number
+  @Trace isFavorite: boolean
+  @Trace lastMessagePreview: string
+  @Trace messageCount: number
+  @Trace draftText: string
+  @Trace draftAttachments: MessageAttachment[]
   // 同步相关字段(为 WebDAV 同步预留)
-  syncVersion: number = 0
-  lastModified: number = Date.now()
-  syncStatus: 'synced' | 'pending' | 'conflict' = 'synced'
-  deviceId: string = ''
+  @Trace syncVersion: number = 0
+  @Trace lastModified: number = Date.now()
+  @Trace syncStatus: 'synced' | 'pending' | 'conflict' = 'synced'
+  @Trace deviceId: string = ''
 
   constructor(id: string, title: string, modelId: string, providerId: string = '') {
     this.id = id

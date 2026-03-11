@@ -1,7 +1,7 @@
 import { ThemeAppearanceSettingsView } from './ThemeModeSettingsPage'
 
 @Entry
-@Component
+@ComponentV2
 struct ColorThemeSettingsPage {
   build() {
     Column() {

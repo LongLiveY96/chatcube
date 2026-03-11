@@ -1,6 +1,5 @@
 import { ChatMessage } from '../../models/ChatModels'
 import { ChatViewModel } from '../../viewmodels/ChatViewModel'
-import { MessageDataSource } from '../../datasource/MessageDataSource'
 import {
   countSelectedIdsInCandidates,
   mergeSelectAllIds,
@@ -11,9 +10,7 @@ import { collectAllMessageIds, collectSelectedMessages, filterMessagesByRemovedI
 
 export interface ChatSelectionFlowDependencies {
   chatViewModel: ChatViewModel
-  messageDataSource: MessageDataSource
-  getMessages: () => ChatMessage[]
-  onSetMessages: (messages: ChatMessage[]) => void
+  messages: ChatMessage[]
   onSyncMessages: () => void
   onSetMultiSelectMode: (value: boolean) => void
   onSetSelectedMessageIds: (ids: string[]) => void
@@ -47,7 +44,7 @@ export class ChatSelectionFlow {
   }
 
   toggleSelectAll(selectedMessageIds: string[]): string[] {
-    const allIds = collectAllMessageIds(this.deps.getMessages())
+    const allIds = collectAllMessageIds(this.deps.messages)
     const selectedCount = countSelectedIdsInCandidates(selectedMessageIds, allIds)
     if (selectedCount === allIds.length) {
       return removeCandidateIds(selectedMessageIds, allIds)
@@ -61,9 +58,8 @@ export class ChatSelectionFlow {
     }
 
     await this.deps.chatViewModel.deleteMessagesFromIndex(selectedMessageIds)
-    const remainingMessages = filterMessagesByRemovedIds(this.deps.getMessages(), selectedMessageIds)
-    this.deps.onSetMessages(remainingMessages)
-    this.deps.messageDataSource.setAllMessages(remainingMessages)
+    const remainingMessages = filterMessagesByRemovedIds(this.deps.messages, selectedMessageIds)
+    this.deps.messages.splice(0, this.deps.messages.length, ...remainingMessages)
     this.deps.onSyncMessages()
     this.exitMode()
     this.deps.onShowToast($r('app.string.messages_deleted'))
@@ -74,7 +70,7 @@ export class ChatSelectionFlow {
       return
     }
 
-    const selectedMessages = collectSelectedMessages(this.deps.getMessages(), selectedMessageIds)
+    const selectedMessages = collectSelectedMessages(this.deps.messages, selectedMessageIds)
     if (selectedMessages.length === 0) {
       this.deps.onShowToast($r('app.string.selected_message_not_found'))
       return

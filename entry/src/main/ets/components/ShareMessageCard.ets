@@ -6,20 +6,17 @@ import { ChatMessage, MessageRole, MessageAttachment, AttachmentType } from '../
 import { getModelIconPath, buildIconResourcePath } from '../utils/ProviderIconUtils'
 import { Markdown, MarkdownController } from '@luvi/lv-markdown-in'
 
-@Component
+@ComponentV2
 export struct ShareMessageCard {
-  messages: ChatMessage[] = []
-  appName: string = 'ChatCube'
-  currentModelId: string = ''
-  // 为每条消息创建独立的 MarkdownController
+  @Param messages: ChatMessage[] = []
+  @Param appName: string = 'ChatCube'
+  @Param currentModelId: string = ''
   private markdownControllers: Map<string, MarkdownController> = new Map()
-  // 暗黑模式适配
-  @StorageProp('isDarkMode') isDarkMode: boolean = false
-  // 主题色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_user_bubble') themeUserBubble: string = '#0A59F7'
-  @StorageProp('theme_user_bubble_text') themeUserBubbleText: string = '#FFFFFF'
-  @StorageProp('theme_ai_bubble') themeAiBubble: string = '#FFFFFF'
+  @Param isDarkMode: boolean = false
+  @Param themePrimary: string = '#0A59F7'
+  @Param themeUserBubble: string = '#0A59F7'
+  @Param themeUserBubbleText: string = '#FFFFFF'
+  @Param themeAiBubble: string = '#FFFFFF'
 
   // 配置 Markdown 样式（与聊天页面保持一致，避免深色模式下不可读）
   private configureMarkdownController(controller: MarkdownController): void {

@@ -10,7 +10,6 @@ import {
   ToolResult
 } from '../../models/ChatModels'
 import { ChatViewModel, ToolCallCallbacks } from '../../viewmodels/ChatViewModel'
-import { MessageDataSource } from '../../datasource/MessageDataSource'
 import { ChatTaskOrchestratorService } from '../../services/ChatTaskOrchestratorService'
 import { ToolRegistry } from '../../services/ToolRegistry'
 import { appendUniqueToolId } from './ChatToolIdHelper'
@@ -31,7 +30,7 @@ export enum ChatSendDispatchResult {
 
 export interface ChatSendFlowDependencies {
   chatViewModel: ChatViewModel
-  messageDataSource: MessageDataSource
+  messages: ChatMessage[]
   chatTaskOrchestrator: ChatTaskOrchestratorService
   toolRegistry: ToolRegistry
   getSessionId: () => string
@@ -226,7 +225,7 @@ export class ChatSendFlow {
   }
 
   private handleUserMessageAdded(userMessage: ChatMessage): void {
-    this.deps.messageDataSource.addMessage(userMessage)
+    this.deps.messages.push(userMessage)
     this.deps.onSyncMessages()
     this.deps.onSetNewEmptySession(false)
     this.deps.onDraftCommitted()
@@ -234,14 +233,14 @@ export class ChatSendFlow {
   }
 
   private handleAIMessageAdded(aiMessage: ChatMessage): void {
-    this.deps.messageDataSource.addMessage(aiMessage)
+    this.deps.messages.push(aiMessage)
     this.deps.onSyncMessages()
     this.deps.onScrollBottom()
   }
 
   private handleAIMessageUpdated(aiMessage: ChatMessage): void {
-    if (this.deps.messageDataSource.totalCount() > 0) {
-      this.deps.messageDataSource.updateLastMessage(aiMessage)
+    if (this.deps.messages.length > 0) {
+      this.deps.messages[this.deps.messages.length - 1] = aiMessage
       this.deps.onSyncMessages()
       this.deps.onScrollBottom()
     }
@@ -451,8 +450,14 @@ export class ChatSendFlow {
     const secondLastMsg = messages[messages.length - 2]
     if (lastMsg.role === MessageRole.ASSISTANT && secondLastMsg.role === MessageRole.USER) {
       const idsToDelete = [lastMsg.id, secondLastMsg.id]
-      this.deps.messageDataSource.removeMessageById(lastMsg.id)
-      this.deps.messageDataSource.removeMessageById(secondLastMsg.id)
+      const idx1 = this.deps.messages.findIndex(m => m.id === lastMsg.id)
+      if (idx1 >= 0) {
+        this.deps.messages.splice(idx1, 1)
+      }
+      const idx2 = this.deps.messages.findIndex(m => m.id === secondLastMsg.id)
+      if (idx2 >= 0) {
+        this.deps.messages.splice(idx2, 1)
+      }
       await this.deps.chatViewModel.deleteMessagesFromIndex(idsToDelete)
     }
   }

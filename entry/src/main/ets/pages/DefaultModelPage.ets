@@ -12,28 +12,27 @@ import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentati
 import { getSettingsPageContentMaxWidth, isSettingsPageExpandedLayout } from '../utils/SettingsPageLayoutHelper'
 
 @Entry
-@Component
+@ComponentV2
 struct DefaultModelPage {
   // 主题颜色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('layout_size_class') layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @StorageProp('window_width_vp') windowWidthVp: number = 0
-  @StorageProp('window_height_vp') windowHeightVp: number = 0
-  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE)
-  settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
+  @Param themePrimary: string = '#0A59F7'
+  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @Param windowWidthVp: number = 0
+  @Param windowHeightVp: number = 0
+  @Param settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
 
-  @State chatModel: DefaultModelConfig = new DefaultModelConfig()
-  @State titleModel: DefaultModelConfig = new DefaultModelConfig()
-  @State translateModel: DefaultModelConfig = new DefaultModelConfig()
-  @State searchOptimizationModel: DefaultModelConfig = new DefaultModelConfig()
+  @Local chatModel: DefaultModelConfig = new DefaultModelConfig()
+  @Local titleModel: DefaultModelConfig = new DefaultModelConfig()
+  @Local translateModel: DefaultModelConfig = new DefaultModelConfig()
+  @Local searchOptimizationModel: DefaultModelConfig = new DefaultModelConfig()
 
-  @State providers: ModelProvider[] = []
-  @State isProvidersLoaded: boolean = false
-  @State showModelSheet: boolean = false
-  @State currentEditRole: ModelRole = ModelRole.CHAT
-  @State showPromptSheet: boolean = false
-  @State currentPromptRole: ModelRole = ModelRole.TITLE
-  @State currentPrompt: string = ''
+  @Local providers: ModelProvider[] = []
+  @Local isProvidersLoaded: boolean = false
+  @Local showModelSheet: boolean = false
+  @Local currentEditRole: ModelRole = ModelRole.CHAT
+  @Local showPromptSheet: boolean = false
+  @Local currentPromptRole: ModelRole = ModelRole.TITLE
+  @Local currentPrompt: string = ''
   private defaultModelService: DefaultModelService = ServiceRegistry.defaultModel()
   private providerViewModel: ProviderViewModel = ServiceRegistry.provider()
 
@@ -563,21 +562,21 @@ struct DefaultModelPage {
 }
 
 // 独立的模型配置卡片组件，解决 @Builder 响应式问题
-@Component
+@ComponentV2
 struct ModelConfigCard {
-  @Prop roleName: string | Resource = ''
-  @Prop description: string | Resource = ''
-  @Prop showPromptEdit: boolean = false
-  @Prop isDefaultPrompt: boolean = true
+  @Param roleName: string | Resource = ''
+  @Param description: string | Resource = ''
+  @Param showPromptEdit: boolean = false
+  @Param isDefaultPrompt: boolean = true
 
   // 使用基本类型避免对象响应式问题
-  @Prop isConfigured: boolean = false
-  @Prop displayName: string = ''
+  @Param isConfigured: boolean = false
+  @Param displayName: string = ''
   // 主题颜色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @Param themePrimary: string = '#0A59F7'
 
-  onCardClick: () => void = () => {}
-  onPromptClick: () => void = () => {}
+  @Event onCardClick: () => void = () => {}
+  @Event onPromptClick: () => void = () => {}
 
   build() {
     Column() {

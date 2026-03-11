@@ -9,16 +9,16 @@ import {
   getButtonAnimation
 } from '../utils/ButtonAnimationUtils'
 
-@Component
+@ComponentV2
 export struct ScrollToBottomLoadingButton {
-  @Prop isVisible: boolean = false
-  @Prop isInputBarVisible: boolean = true
-  @Prop bottomAvoidHeight: number = 0
-  onScrollToBottom: () => void = () => {}
+  @Param isVisible: boolean = false
+  @Param isInputBarVisible: boolean = true
+  @Param bottomAvoidHeight: number = 0
+  @Event onScrollToBottom: () => void = () => {}
 
-  @State private btnPressed: boolean = false
-  @State private loadingAngle: number = 0
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @Local private btnPressed: boolean = false
+  @Local private loadingAngle: number = 0
+  @Param themePrimary: string = '#0A59F7'
 
   build() {
     if (this.isVisible) {

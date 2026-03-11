@@ -13,17 +13,16 @@ class ModelTagGroup {
   }
 }
 
-@Component
+@ComponentV2
 export struct ProviderCard {
-  @ObjectLink provider: ModelProvider
-  @State searchKeywords: string = ''
-  // 主题颜色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
-  onToggleExpand: () => void = () => {}
-  onTestConnection: () => Promise<void> = async (): Promise<void> => {}
-  onSaveConfig: () => Promise<void> = async (): Promise<void> => {}
-  onRefreshModels: () => Promise<void> = async (): Promise<void> => {}
+  @Param provider: ModelProvider = new ModelProvider('', '', ProviderType.OPENAI, '', $r('app.color.primary'))
+  @Local searchKeywords: string = ''
+  @Param themePrimary: string = '#0A59F7'
+  @Param themePrimaryLight: string = '#E6F2FF'
+  @Event onToggleExpand: () => void = () => {}
+  @Event onTestConnection: () => Promise<void> = async (): Promise<void> => {}
+  @Event onSaveConfig: () => Promise<void> = async (): Promise<void> => {}
+  @Event onRefreshModels: () => Promise<void> = async (): Promise<void> => {}
 
   build() {
     Column() {
@@ -446,12 +445,11 @@ export struct ProviderCard {
   }
 }
 
-@Component
+@ComponentV2
 export struct AddProviderCard {
-  // 主题颜色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @Param themePrimary: string = '#0A59F7'
   private provider: ModelProvider = new ModelProvider('', '', ProviderType.OPENAI, '', $r('app.color.primary'))
-  onAdd: () => void = () => {}
+  @Event onAdd: () => void = () => {}
 
   build() {
     Row() {

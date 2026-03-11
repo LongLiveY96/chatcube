@@ -1,12 +1,10 @@
 import { ChatMessage, MessageAttachment, ReasoningLevel } from '../../models/ChatModels'
-import { MessageDataSource } from '../../datasource/MessageDataSource'
 import { ChatViewModel } from '../../viewmodels/ChatViewModel'
 import { collectTailMessageIds, findMessageIndexById } from './ChatMessageActionHelper'
 
 export interface ChatInlineEditFlowDependencies {
   chatViewModel: ChatViewModel
-  messageDataSource: MessageDataSource
-  getMessages: () => ChatMessage[]
+  messages: ChatMessage[]
   onSyncMessages: () => void
   onResetEditState: () => void
   onApplySavedDraft: (
@@ -39,8 +37,7 @@ export class ChatInlineEditFlow {
       return
     }
 
-    const messages = this.deps.getMessages()
-    const messageIndex = findMessageIndexById(messages, editingMessageId)
+    const messageIndex = findMessageIndexById(this.deps.messages, editingMessageId)
     if (messageIndex < 0) {
       console.warn('ChatInlineEditFlow', '[saveAndSendInline] message not found:', editingMessageId)
       return
@@ -58,11 +55,10 @@ export class ChatInlineEditFlow {
       const savedContent = inputText.trim()
       const savedWebSearch = editingWebSearchEnabled
       const savedReasoningLevel = editingReasoningLevel
-      const messageIdsToDelete = collectTailMessageIds(messages, messageIndex)
+      const messageIdsToDelete = collectTailMessageIds(this.deps.messages, messageIndex)
 
       await this.deps.chatViewModel.deleteMessagesFromIndex(messageIdsToDelete)
-      const remainingMessages = messages.slice(0, messageIndex)
-      this.deps.messageDataSource.setAllMessages(remainingMessages)
+      this.deps.messages.splice(messageIndex)
       this.deps.onSyncMessages()
 
       this.deps.onResetEditState()

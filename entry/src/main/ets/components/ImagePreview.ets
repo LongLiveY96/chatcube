@@ -21,30 +21,30 @@ import { hilog } from '@kit.PerformanceAnalysisKit'
  *   TapGesture：单击关闭，双击缩放
  */
 
-@Component
+@ComponentV2
 export struct ImagePreview {
-  @Prop images: Array<string> = []
-  @Prop currentIndex: number = 0
-  onClose: () => void = () => {}
+  @Param images: Array<string> = []
+  @Param currentIndex: number = 0
+  @Event onClose: () => void = () => {}
 
   // 缩放状态
-  @State imageScale: number = 1
-  @State lastImageScale: number = 1
+  @Local imageScale: number = 1
+  @Local lastImageScale: number = 1
 
   // 位移状态
-  @State offsetX: number = 0
-  @State offsetY: number = 0
-  @State lastOffsetX: number = 0
-  @State lastOffsetY: number = 0
+  @Local offsetX: number = 0
+  @Local offsetY: number = 0
+  @Local lastOffsetX: number = 0
+  @Local lastOffsetY: number = 0
 
   // 当前显示图片索引
-  @State displayIndex: number = 0
+  @Local displayIndex: number = 0
 
   // 背景透明度（下拉退出时渐变）
-  @State backgroundOpacity: number = 1
+  @Local backgroundOpacity: number = 1
 
   // 保存状态
-  @State isSaving: boolean = false
+  @Local isSaving: boolean = false
 
   // 拖动方向锁定
   private panDirection: string = 'none'

@@ -26,37 +26,37 @@ interface ContentSegment {
   content: string
 }
 
-@Component
+@ComponentV2
 export struct MessageBubble {
-  @ObjectLink @Watch('onMessageStateChange') message: ChatMessage
-  @Prop showHeader: boolean = true  // 是否显示消息头部（模型信息）
-  @Prop currentModelId: string = ''  // 当前会话的模型 ID（用于图标匹配回退）
-  @Prop isMultiSelectMode: boolean = false  // 是否处于多选模式
-  @Prop isSelected: boolean = false  // 是否被选中
-  @Prop isEditing: boolean = false  // 是否处于编辑状态（被编辑的消息高亮显示）
-  @Prop previewContent: string = ''  // 编辑时的实时预览内容
-  @Prop previewAttachments: MessageAttachment[] = []  // 编辑时的实时预览附件
-  @State isReasoningExpanded: boolean = false  // 推理内容是否展开
-  @State translatedText: string = ''  // 翻译结果
-  @State isTranslating: boolean = false  // 是否正在翻译
-  @State showTranslation: boolean = false  // 是否显示翻译结果
-  @State isTranslationExpanded: boolean = true  // 翻译结果是否展开
-  @State currentTranslateLang: string = ''  // 当前翻译的目标语言
-  // 深色模式状态（用于主题适配），使用 @Watch 监听变化
-  @StorageProp('isDarkMode') @Watch('onDarkModeChange') isDarkMode: boolean = false
+  @Param message: ChatMessage = new ChatMessage('', MessageRole.USER, '')
+  @Param showHeader: boolean = true  // 是否显示消息头部（模型信息）
+  @Param currentModelId: string = ''  // 当前会话的模型 ID（用于图标匹配回退）
+  @Param isMultiSelectMode: boolean = false  // 是否处于多选模式
+  @Param isSelected: boolean = false  // 是否被选中
+  @Param isEditing: boolean = false  // 是否处于编辑状态（被编辑的消息高亮显示）
+  @Param previewContent: string = ''  // 编辑时的实时预览内容
+  @Param previewAttachments: MessageAttachment[] = []  // 编辑时的实时预览附件
+  @Local isReasoningExpanded: boolean = false  // 推理内容是否展开
+  @Local translatedText: string = ''  // 翻译结果
+  @Local isTranslating: boolean = false  // 是否正在翻译
+  @Local showTranslation: boolean = false  // 是否显示翻译结果
+  @Local isTranslationExpanded: boolean = true  // 翻译结果是否展开
+  @Local currentTranslateLang: string = ''  // 当前翻译的目标语言
+  // 深色模式状态（用于主题适配）
+  @Param isDarkMode: boolean = false
   // 主题颜色（从 ThemeService 同步）
-  @StorageProp('theme_user_bubble') @Watch('onThemeColorChange') themeUserBubble: string = '#0A59F7'
-  @StorageProp('theme_user_bubble_text') themeUserBubbleText: string = '#FFFFFF'
-  @StorageProp('theme_ai_bubble') @Watch('onThemeColorChange') themeAiBubble: string = '#FFFFFF'
-  @StorageProp('theme_primary') @Watch('onThemeColorChange') themePrimary: string = '#0A59F7'
+  @Param themeUserBubble: string = '#0A59F7'
+  @Param themeUserBubbleText: string = '#FFFFFF'
+  @Param themeAiBubble: string = '#FFFFFF'
+  @Param themePrimary: string = '#0A59F7'
 
   // 聊天字体大小
-  @StorageProp('chat_font_size') @Watch('onFontSizeChange') chatFontSize: number = 15
+  @Param chatFontSize: number = 15
 
   // Markdown 链接：统一用半模态 Web Sheet 打开
-  @State showWebSheet: boolean = false
-  @State webSheetUrl: string = ''
-  @State webSheetTitle: string = ''
+  @Local showWebSheet: boolean = false
+  @Local webSheetUrl: string = ''
+  @Local webSheetTitle: string = ''
   private sheetWebController: webview.WebviewController = new webview.WebviewController()
 
   // ========== Markdown 配置 ==========
@@ -68,31 +68,31 @@ export struct MessageBubble {
   // ========== 流式渲染优化 ==========
   // lv-markdown-in 自带流式渲染，无需手动节流
   // 跳动点动画状态
-  @State dot1Scale: number = 0.6
-  @State dot2Scale: number = 0.6
-  @State dot3Scale: number = 0.6
+  @Local dot1Scale: number = 0.6
+  @Local dot2Scale: number = 0.6
+  @Local dot3Scale: number = 0.6
   private dotAnimationTimer: number = -1
-  @StorageProp('speakingMessageId') speakingMessageId: string = ''  // 当前正在朗读的消息ID
+  @Param speakingMessageId: string = ''  // 当前正在朗读的消息ID
   // 聊天图片紧凑展示参数
   private compactImageMaxHeight: number = 120
   private compactImageContainerWidth: number = 180
   private compactImageGap: number = 6
 
-  onRegenerate: () => void = () => {}
-  onCopy: () => void = () => {}
-  onDelete: () => void = () => {}
-  onEdit: () => void = () => {}
-  onCancelEdit: () => void = () => {}  // 取消编辑回调
-  onShareMessage: () => void = () => {}
-  onTranslate: (content: string, targetLang: string, callback: (result: string, errorMessage: string) => void) => void = () => {}
+  @Event onRegenerate: () => void = () => {}
+  @Event onCopy: () => void = () => {}
+  @Event onDelete: () => void = () => {}
+  @Event onEdit: () => void = () => {}
+  @Event onCancelEdit: () => void = () => {}  // 取消编辑回调
+  @Event onShareMessage: () => void = () => {}
+  @Event onTranslate: (content: string, targetLang: string, callback: (result: string, errorMessage: string) => void) => void = () => {}
   // 图片点击预览回调
-  onImageClick: (images: Array<string>, index: number) => void = () => {}
+  @Event onImageClick: (images: Array<string>, index: number) => void = () => {}
   // TTS朗读回调
-  onTTS: (messageId: string, content: string) => void = () => {}
-  onTTSStop: () => void = () => {}
+  @Event onTTS: (messageId: string, content: string) => void = () => {}
+  @Event onTTSStop: () => void = () => {}
   // 多选模式回调
-  onSelect: (messageId: string) => void = () => {}
-  onEnterMultiSelect: (messageId: string) => void = () => {}
+  @Event onSelect: (messageId: string) => void = () => {}
+  @Event onEnterMultiSelect: (messageId: string) => void = () => {}
 
   // 支持的翻译语言列表
   private translateLanguages: TranslateLanguage[] = [
@@ -154,7 +154,8 @@ export struct MessageBubble {
   }
 
   // 消息状态变化回调（优化跳动点动画性能）
-  private onMessageStateChange(): void {
+  @Monitor('message')
+  onMessageStateChange(): void {
     if (this.shouldShowDotAnimation()) {
       this.startDotAnimation()
     } else {
@@ -291,6 +292,7 @@ export struct MessageBubble {
   }
 
   // 深色模式变化监听
+  @Monitor('isDarkMode')
   onDarkModeChange(): void {
     hilog.info(DOMAIN, TAG, '🎨 深色模式变化: %{public}s (消息ID: %{public}s)',
       this.isDarkMode ? '深色' : '浅色', this.message.id)
@@ -302,6 +304,7 @@ export struct MessageBubble {
   }
 
   // 主题颜色变化监听
+  @Monitor('themeUserBubble', 'themeAiBubble', 'themePrimary')
   onThemeColorChange(): void {
     hilog.info(DOMAIN, TAG, '🎨 主题颜色变化 (消息ID: %{public}s)', this.message.id)
     // 主题颜色变化时重新配置 Markdown 样式
@@ -309,6 +312,7 @@ export struct MessageBubble {
   }
 
   // 字体大小变化监听
+  @Monitor('chatFontSize')
   onFontSizeChange(): void {
     hilog.info(DOMAIN, TAG, '🔤 字体大小变化: %{public}d (消息ID: %{public}s)', this.chatFontSize, this.message.id)
     this.configureMarkdownStyles()

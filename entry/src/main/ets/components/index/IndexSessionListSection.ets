@@ -3,24 +3,24 @@ import { SessionGroupData } from '../../pages/index/IndexPageTypes'
 import { buildSessionRenderKeyForIndex } from '../../pages/index/IndexSessionGroupHelper'
 import { SessionCard } from '../SessionCard'
 
-@Component
+@ComponentV2
 export struct IndexSessionListSection {
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
-  @Prop sessionGroups: SessionGroupData[] = []
-  @Prop isMultiSelectMode: boolean = false
-  @Prop selectedSessionIds: Array<string> = []
-  @Prop activeSessionId: string = ''
-  @Prop unreadRenderVersion: number = 0
-  onGetUnreadCount: (sessionId: string) => number = (_sessionId: string): number => 0
-  onGetGroupTitle: (groupKey: string) => Resource = (_groupKey: string): Resource => $r('app.string.group_older')
-  onGetGroupRenderKey: (group: SessionGroupData) => string = (group: SessionGroupData): string => group.key
-  onToggleSelection: (sessionId: string) => void = (_sessionId: string): void => {}
-  onOpenSession: (sessionId: string) => void = (_sessionId: string): void => {}
-  onDeleteSession: (sessionId: string) => void = (_sessionId: string): void => {}
-  onEnterMultiSelect: (sessionId: string) => void = (_sessionId: string): void => {}
-  onShareSession: (session: ChatSession) => void = (_session: ChatSession): void => {}
-  onToggleFavorite: (session: ChatSession) => void = (_session: ChatSession): void => {}
+  @Param themePrimary: string = '#0A59F7'
+  @Param themePrimaryLight: string = '#E6F2FF'
+  @Param sessionGroups: SessionGroupData[] = []
+  @Param isMultiSelectMode: boolean = false
+  @Param selectedSessionIds: Array<string> = []
+  @Param activeSessionId: string = ''
+  @Param unreadRenderVersion: number = 0
+  @Event onGetUnreadCount: (sessionId: string) => number = (_sessionId: string): number => 0
+  @Event onGetGroupTitle: (groupKey: string) => Resource = (_groupKey: string): Resource => $r('app.string.group_older')
+  @Event onGetGroupRenderKey: (group: SessionGroupData) => string = (group: SessionGroupData): string => group.key
+  @Event onToggleSelection: (sessionId: string) => void = (_sessionId: string): void => {}
+  @Event onOpenSession: (sessionId: string) => void = (_sessionId: string): void => {}
+  @Event onDeleteSession: (sessionId: string) => void = (_sessionId: string): void => {}
+  @Event onEnterMultiSelect: (sessionId: string) => void = (_sessionId: string): void => {}
+  @Event onShareSession: (session: ChatSession) => void = (_session: ChatSession): void => {}
+  @Event onToggleFavorite: (session: ChatSession) => void = (_session: ChatSession): void => {}
 
   private sessionListScroller: ListScroller = new ListScroller()
 

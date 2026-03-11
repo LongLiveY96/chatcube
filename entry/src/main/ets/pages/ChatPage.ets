@@ -30,7 +30,6 @@ import { registerBuiltinTools } from '../config/BuiltinTools'
 import { AppStorageKeys } from '../config/AppStorageKeys'
 import { inputMethod } from '@kit.IMEKit'
 import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
-import { createMessageDataSource, MessageDataSource } from '../datasource/MessageDataSource'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { ChatModelSelectorSheetContent } from '../components/chat/ChatModelSelectorSheetContent'
 import { ChatInputAreaSection } from '../components/chat/ChatInputAreaSection'
@@ -61,99 +60,98 @@ import { getChatContentMaxWidth, LayoutSizeClass } from '../config/LayoutProfile
 const DOMAIN = 0x0003
 const TAG = 'ChatPage'
 
-@Component
+@ComponentV2
 export struct ChatPage {
-  navPathStack: NavPathStack = new NavPathStack()
-  routeParams: ChatPageRouteParams | null = null
-  // 消息数据源（替代 @State messages）
-  private messageDataSource: MessageDataSource = createMessageDataSource()
-  // 保留消息数组引用用于兼容性（例如计算消息数量）
-  @State messages: ChatMessage[] = []
-  @State @Watch('onDraftContentChanged') inputText: string = ''
-  @State currentModel: string = ''
-  @State currentModelId: string = ''
-  @State isModelSelectorVisible: boolean = false
-  @State modelSheetActivePanel: string = 'selector'
-  @State editingModel: ModelInfo | null = null
-  @State editingModelProvider: ModelProvider | null = null
-  @State isLoading: boolean = false
-  @State isSending: boolean = false
+  @Local navPathStack: NavPathStack = new NavPathStack()
+  @Local routeParams: ChatPageRouteParams | null = null
+  @Local messages: ChatMessage[] = []
+  @Local inputText: string = ''
+  @Local currentModel: string = ''
+  @Local currentModelId: string = ''
+  @Local isModelSelectorVisible: boolean = false
+  @Local modelSheetActivePanel: string = 'selector'
+  @Local editingModel: ModelInfo | null = null
+  @Local editingModelProvider: ModelProvider | null = null
+  @Local isLoading: boolean = false
+  @Local isSending: boolean = false
   // 应用是否退到后台（用于处理生成中返回桌面/关闭应用）
-  @StorageProp('appInBackground') @Watch('onAppInBackgroundChanged') appInBackground: boolean = false
-  @StorageProp('task_unread_by_session') @Watch('onTaskUnreadBySessionChanged') taskUnreadBySessionJson: string = '{}'
-  @StorageProp('in_app_task_alert_payload') @Watch('onInAppTaskAlertPayloadChanged') inAppTaskAlertPayload: string = ''
-  @StorageProp('openSessionPayload') @Watch('onOpenSessionPayloadChanged') openSessionPayload: string = ''
-  @State providers: ModelProvider[] = []
+  @Param appInBackground: boolean = false
+  @Param taskUnreadBySessionJson: string = '{}'
+  @Param inAppTaskAlertPayload: string = ''
+  @Param openSessionPayload: string = ''
+  @Local providers: ModelProvider[] = []
   // 附件相关状态
-  @State pendingAttachments: MessageAttachment[] = []
-  @State showAttachmentPicker: boolean = false
+  @Local pendingAttachments: MessageAttachment[] = []
+  @Local showAttachmentPicker: boolean = false
   // 是否在列表底部
-  @State isAtBottom: boolean = false
+  @Local isAtBottom: boolean = false
   // 是否在列表顶部
-  @State isAtTop: boolean = false
+  @Local isAtTop: boolean = false
   // 输入框显示状态（true=显示，false=隐藏）
-  @State isInputBarVisible: boolean = true
+  @Local isInputBarVisible: boolean = true
   // 输入框是否处于焦点状态（用于控制预览气泡显示）
-  @State isInputFocused: boolean = false
+  @Local isInputFocused: boolean = false
   // 计算滚动偏移
   private lastScrollOffset: number = 0
   private readonly inputBarShowThreshold: number = 6
   private readonly inputBarHideThreshold: number = 18
   // 会话标题相关状态
-  @State sessionTitle: string = '新对话'
-  @State isTitleGenerating: boolean = false
-  @State titleGenerateFailed: boolean = false
+  @Local sessionTitle: string = '新对话'
+  @Local isTitleGenerating: boolean = false
+  @Local titleGenerateFailed: boolean = false
   // 更多菜单显示状态
-  @State showMoreMenu: boolean = false
+  @Local showMoreMenu: boolean = false
   // 标题内联编辑状态（已迁移到 ChatNavigationBar，保留用于回调）
   // 图片预览状态
-  @State showImagePreview: boolean = false
-  @State previewImages: Array<string> = []
-  @State previewImageIndex: number = 0
+  @Local showImagePreview: boolean = false
+  @Local previewImages: Array<string> = []
+  @Local previewImageIndex: number = 0
   // 当前正在朗读的消息ID
-  @StorageLink('speakingMessageId') speakingMessageId: string = ''
+  @Param speakingMessageId: string = ''
+  @Event $speakingMessageId: (value: string) => void = (_value: string) => {
+  }
   // 是否为通过"新建对话"创建的空会话（返回时需要删除）
   private isNewEmptySession: boolean = false
   // 搜索取消标志（用于取消正在进行的联网查询）
   private isSearchCancelled: boolean = false
   // 联网查询全局可用状态（工具中心控制）
-  @State webSearchAvailable: boolean = false
+  @Local webSearchAvailable: boolean = false
   // 联网查询本会话开关状态（聊天页控制）
-  @State webSearchEnabled: boolean = false
+  @Local webSearchEnabled: boolean = false
   // 天气查询状态
-  @State weatherQueryEnabled: boolean = false
+  @Local weatherQueryEnabled: boolean = false
   // 推理级别状态
-  @State reasoningLevel: ReasoningLevel = ReasoningLevel.OFF
+  @Local reasoningLevel: ReasoningLevel = ReasoningLevel.OFF
   // 最近截图检测状态（由 ChatInputBar 回调设置，ScreenshotBanner 独立渲染）
-  @State hasRecentScreenshot: boolean = false
+  @Local hasRecentScreenshot: boolean = false
   // 是否为新建对话（用于加载和自动发送策略）
-  @State isNewChatTransition: boolean = false
+  @Local isNewChatTransition: boolean = false
   // 是否自动聚焦输入框
-  @State autoFocusInput: boolean = false
+  @Local autoFocusInput: boolean = false
   // 避让区域高度
-  @StorageProp('topAvoidHeight') topAvoidHeight: number = 0
-  @StorageProp('bottomAvoidHeight') bottomAvoidHeight: number = 0
-  @StorageProp('layout_size_class') layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @StorageProp('window_width_vp') windowWidthVp: number = 0
+  @Param topAvoidHeight: number = 0
+  @Param bottomAvoidHeight: number = 0
+  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @Param windowWidthVp: number = 0
   // 主题颜色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_user_bubble') themeUserBubble: string = '#0A59F7'
-  @StorageProp('theme_user_bubble_text') themeUserBubbleText: string = '#FFFFFF'
+  @Param themePrimary: string = '#0A59F7'
+  @Param themeUserBubble: string = '#0A59F7'
+  @Param themeUserBubbleText: string = '#FFFFFF'
   // 多选模式状态
-  @State isMultiSelectMode: boolean = false
-  @State selectedMessageIds: Array<string> = []
+  @Local isMultiSelectMode: boolean = false
+  @Local selectedMessageIds: Array<string> = []
   // 分享预览弹窗状态
-  @State showSharePreview: boolean = false
-  @State shareMessages: ChatMessage[] = []
+  @Local showSharePreview: boolean = false
+  @Local shareMessages: ChatMessage[] = []
   // 编辑消息相关状态（内联编辑模式）
-  @State isEditingMessage: boolean = false // 是否处于消息编辑模式
-  @State editingMessageId: string = '' // 正在编辑的消息ID
-  @State editingOriginalContent: string = '' // 原始内容（用于取消编辑）
-  @State editingOriginalAttachments: MessageAttachment[] = [] // 原始附件
-  @State editingMessageIsUser: boolean = true // 是否为用户消息（决定是否显示"保存并发送"）
-  @State editingWebSearchEnabled: boolean = false
-  @State editingReasoningLevel: ReasoningLevel = ReasoningLevel.OFF
-  @State otherSessionUnreadCount: number = 0
+  @Local isEditingMessage: boolean = false // 是否处于消息编辑模式
+  @Local editingMessageId: string = '' // 正在编辑的消息ID
+  @Local editingOriginalContent: string = '' // 原始内容（用于取消编辑）
+  @Local editingOriginalAttachments: MessageAttachment[] = [] // 原始附件
+  @Local editingMessageIsUser: boolean = true // 是否为用户消息（决定是否显示"保存并发送"）
+  @Local editingWebSearchEnabled: boolean = false
+  @Local editingReasoningLevel: ReasoningLevel = ReasoningLevel.OFF
+  @Local otherSessionUnreadCount: number = 0
   private scroller: Scroller = new Scroller()
   private chatViewModel: ChatViewModel = ServiceRegistry.chat()
   private providerViewModel: ProviderViewModel = ServiceRegistry.provider()
@@ -254,24 +252,18 @@ export struct ChatPage {
     }
 
     // 检查最后一条消息的 isGenerating 和 isSearching 状态
-    if (this.messageDataSource.totalCount() > 0) {
-      const lastMessage = this.messageDataSource.getData(this.messageDataSource.totalCount() - 1)
+    if (this.messages.length > 0) {
+      const lastMessage = this.messages[this.messages.length - 1]
       if (lastMessage.role === MessageRole.ASSISTANT) {
-        let needUpdate = false
         // 如果没有活跃请求，重置生成状态
         if (lastMessage.isGenerating && !this.chatViewModel.hasActiveRequest()) {
           lastMessage.isGenerating = false
-          needUpdate = true
           console.info('ChatPage', '[fixInconsistentState] 重置最后一条消息的 isGenerating 状态')
         }
         // 如果没有活跃请求，重置搜索状态
         if (lastMessage.isSearching && !this.chatViewModel.hasActiveRequest()) {
           lastMessage.isSearching = false
-          needUpdate = true
           console.info('ChatPage', '[fixInconsistentState] 重置最后一条消息的 isSearching 状态')
-        }
-        if (needUpdate) {
-          this.messageDataSource.notifyLastMessageChanged()
         }
       }
     }
@@ -360,13 +352,11 @@ export struct ChatPage {
     this.isNewEmptySession = loadResult.isNewEmptySession
 
     if (!this.isNewChatTransition) {
-      this.messageDataSource.setAllMessages(loadResult.messages)
       this.messages = [...loadResult.messages]
       hilog.info(DOMAIN, TAG, '📨 加载会话消息: %{public}d 条', this.messages.length)
       return
     }
 
-    this.messageDataSource.clear()
     this.messages = []
   }
 
@@ -384,14 +374,17 @@ export struct ChatPage {
     }
   }
 
+  @Monitor('taskUnreadBySessionJson')
   onTaskUnreadBySessionChanged(): void {
     this.getTaskAlertFlow().refreshOtherSessionUnreadCount()
   }
 
+  @Monitor('inAppTaskAlertPayload')
   onInAppTaskAlertPayloadChanged(): void {
     this.getTaskAlertFlow().handleInAppTaskAlertPayload(this.inAppTaskAlertPayload)
   }
 
+  @Monitor('openSessionPayload')
   onOpenSessionPayloadChanged(): void {
     this.getTaskAlertFlow().handleOpenSessionPayload(this.openSessionPayload)
   }
@@ -458,11 +451,11 @@ export struct ChatPage {
   }
 
   private hasStreamingAssistantMessage(): boolean {
-    const total = this.messageDataSource.totalCount()
+    const total = this.messages.length
     if (total <= 0) {
       return false
     }
-    const lastMessage = this.messageDataSource.getData(total - 1)
+    const lastMessage = this.messages[total - 1]
     if (lastMessage.role !== MessageRole.ASSISTANT) {
       return false
     }
@@ -470,18 +463,7 @@ export struct ChatPage {
   }
 
   private notifyStreamingMessageChanged(forceNotify: boolean): void {
-    const total = this.messageDataSource.totalCount()
-    if (total <= 0) {
-      return
-    }
-    const lastMessage = this.messageDataSource.getData(total - 1)
-    if (lastMessage.role !== MessageRole.ASSISTANT) {
-      return
-    }
-    if (forceNotify || lastMessage.isGenerating || lastMessage.isSearching) {
-      this.messageDataSource.notifyLastMessageChanged()
-      this.syncMessagesFromDataSource()
-    }
+    // V2 + @ObservedV2/@Trace: @Trace 属性变化自动触发 Repeat 刷新，无需手动通知
   }
 
   private updateStreamSyncTimer(): void {
@@ -519,7 +501,7 @@ export struct ChatPage {
     }
     const deps: ChatSendFlowDependencies = {
       chatViewModel: this.chatViewModel,
-      messageDataSource: this.messageDataSource,
+      messages: this.messages,
       chatTaskOrchestrator: this.chatTaskOrchestrator,
       toolRegistry: this.toolRegistry,
       getSessionId: (): string => this.sessionId,
@@ -545,7 +527,6 @@ export struct ChatPage {
         this.currentTaskId = taskId
       },
       onSyncMessages: (): void => {
-        this.syncMessagesFromDataSource()
       },
       onScrollBottom: (): void => {
         if (this.isAtBottom) {
@@ -584,7 +565,7 @@ export struct ChatPage {
     const deps: ChatStopFlowDependencies = {
       chatViewModel: this.chatViewModel,
       chatTaskOrchestrator: this.chatTaskOrchestrator,
-      messageDataSource: this.messageDataSource,
+      messages: this.messages,
       getCurrentTaskId: (): string => this.currentTaskId,
       onSetCurrentTaskId: (taskId: string): void => {
         this.currentTaskId = taskId
@@ -600,7 +581,6 @@ export struct ChatPage {
         this.webSearchService.cancelAllRequests()
       },
       onSyncMessages: (): void => {
-        this.syncMessagesFromDataSource()
       },
       onSetSending: (value: boolean): void => {
         this.isSending = value
@@ -630,14 +610,15 @@ export struct ChatPage {
       defaultModelService: this.defaultModelService,
       preferencesService: this.preferencesService,
       appStateManager: this.appStateManager,
-      messageDataSource: this.messageDataSource,
+      messages: this.messages,
       getCurrentProvider: (): ModelProvider | null => this.currentProvider,
       getCurrentModelId: (): string => this.currentModelId,
       getCurrentModelName: (): string => this.currentModel,
       getMessages: (): ChatMessage[] => this.messages,
       getReasoningLevel: (): ReasoningLevel => this.reasoningLevel,
       isSearchCancelled: (): boolean => this.isSearchCancelled,
-      onSyncMessages: (): void => this.syncMessagesFromDataSource(),
+      onSyncMessages: (): void => {
+      },
       onScrollBottom: (): void => {
         if (this.isAtBottom) {
           this.scroller.scrollEdge(Edge.Bottom)
@@ -689,10 +670,8 @@ export struct ChatPage {
     }
     const deps: ChatInlineEditFlowDependencies = {
       chatViewModel: this.chatViewModel,
-      messageDataSource: this.messageDataSource,
-      getMessages: (): ChatMessage[] => this.messages,
+      messages: this.messages,
       onSyncMessages: (): void => {
-        this.syncMessagesFromDataSource()
       },
       onResetEditState: (): void => {
         this.isEditingMessage = false
@@ -733,13 +712,8 @@ export struct ChatPage {
     }
     const deps: ChatSelectionFlowDependencies = {
       chatViewModel: this.chatViewModel,
-      messageDataSource: this.messageDataSource,
-      getMessages: (): ChatMessage[] => this.messages,
-      onSetMessages: (messages: ChatMessage[]): void => {
-        this.messages = messages
-      },
+      messages: this.messages,
       onSyncMessages: (): void => {
-        this.syncMessagesFromDataSource()
       },
       onSetMultiSelectMode: (value: boolean): void => {
         this.isMultiSelectMode = value
@@ -820,7 +794,7 @@ export struct ChatPage {
     }
     const deps: ChatScrollUiFlowDependencies = {
       scroller: this.scroller,
-      messageDataSource: this.messageDataSource,
+      messages: this.messages,
       getLastScrollOffset: (): number => this.lastScrollOffset,
       setLastScrollOffset: (value: number): void => {
         this.lastScrollOffset = value
@@ -994,13 +968,13 @@ export struct ChatPage {
 
   build() {
     NavDestination() {
-        Stack() {
+      Stack() {
         // 消息列表 - 占满全屏
         ChatMessageListSection({
           isLoading: this.isLoading,
           loadingColor: this.themePrimary,
           scroller: this.scroller,
-          messageDataSource: this.messageDataSource,
+          messages: this.messages,
           isEditingMessage: this.isEditingMessage,
           editingMessageId: this.editingMessageId,
           selectedMessageIds: this.selectedMessageIds,
@@ -1061,9 +1035,9 @@ export struct ChatPage {
             this.handleMessageListDidScroll(scrollOffset, scrollState)
           }
         })
-        .width('100%')
-        .height('100%')
-        .backgroundColor($r('app.color.background'))
+          .width('100%')
+          .height('100%')
+          .backgroundColor($r('app.color.background'))
 
         // 编辑模式点击层 - 点击空白处取消编辑
         if (this.isEditingMessage) {
@@ -1121,18 +1095,18 @@ export struct ChatPage {
         })
           .position({ x: 0, y: 0 })
           .bindSheet($$this.isModelSelectorVisible, this.ModelSelectorSheetBuilder(), {
-              height: this.modelSheetActivePanel === 'selector' ? SheetSize.MEDIUM : SheetSize.LARGE,
-              dragBar: true,
-              showClose: false,
-              blurStyle: BlurStyle.Thick,
-              preferType: SheetType.BOTTOM,
-              onDisappear: () => {
-                this.isModelSelectorVisible = false
-                this.modelSheetActivePanel = 'selector'
-                this.editingModel = null
-                this.editingModelProvider = null
-              }
-            })
+            height: this.modelSheetActivePanel === 'selector' ? SheetSize.MEDIUM : SheetSize.LARGE,
+            dragBar: true,
+            showClose: false,
+            blurStyle: BlurStyle.Thick,
+            preferType: SheetType.BOTTOM,
+            onDisappear: () => {
+              this.isModelSelectorVisible = false
+              this.modelSheetActivePanel = 'selector'
+              this.editingModel = null
+              this.editingModelProvider = null
+            }
+          })
 
         // 快速到顶部按钮
         ScrollToBottomButton({
@@ -1170,8 +1144,8 @@ export struct ChatPage {
         // 底部输入栏容器（非多选模式时显示）
         if (!this.isMultiSelectMode) {
           ChatInputAreaSection({
-            inputText: $inputText,
-            attachments: $pendingAttachments,
+            inputText: this.inputText!!,
+            attachments: this.pendingAttachments!!,
             isSending: this.isSending,
             isAwaitingResponse: this.calcIsAwaitingAiOutput(),
             currentModelId: this.currentModelId,
@@ -1186,8 +1160,8 @@ export struct ChatPage {
             autoFocus: this.autoFocusInput,
             isEditing: this.isEditingMessage,
             webSearchAvailable: this.webSearchAvailable,
-            webSearchEnabled: $webSearchEnabled,
-            reasoningLevel: $reasoningLevel,
+            webSearchEnabled: this.webSearchEnabled!!,
+            reasoningLevel: this.reasoningLevel!!,
             hasRecentScreenshot: this.hasRecentScreenshot,
             bottomAvoidHeight: this.px2vp(this.bottomAvoidHeight),
             contentMaxWidth: this.getChatContentMaxWidth(),
@@ -1231,24 +1205,24 @@ export struct ChatPage {
               this.hasRecentScreenshot = detected
             }
           })
-          .position({ x: 0, y: '100%' })
-          .translate({
-            y: this.isInputBarVisible ? '-100%' : '0%',
-            x: 0
-          })
-          .opacity(this.isInputBarVisible ? 1 : 0)
-          .animation({
-            duration: 220,
-            curve: Curve.EaseOut
-          })
-          .bindSheet($$this.showAttachmentPicker, this.AttachmentPickerBuilder(), {
-            height: 160,
-            dragBar: false,
-            showClose: false,
-            backgroundColor: $r('app.color.surface'),
-            blurStyle: BlurStyle.Thick,
-            preferType: SheetType.BOTTOM
-          })
+            .position({ x: 0, y: '100%' })
+            .translate({
+              y: this.isInputBarVisible ? '-100%' : '0%',
+              x: 0
+            })
+            .opacity(this.isInputBarVisible ? 1 : 0)
+            .animation({
+              duration: 220,
+              curve: Curve.EaseOut
+            })
+            .bindSheet($$this.showAttachmentPicker, this.AttachmentPickerBuilder(), {
+              height: 160,
+              dragBar: false,
+              showClose: false,
+              backgroundColor: $r('app.color.surface'),
+              blurStyle: BlurStyle.Thick,
+              preferType: SheetType.BOTTOM
+            })
         }
 
         // 分享预览 Sheet 宿主（bindContentCover 和 bindSheet 不能在同一组件上，否则会冲突）
@@ -1390,7 +1364,7 @@ export struct ChatPage {
       providers: this.providers,
       currentModelId: this.currentModelId,
       activePanel: this.modelSheetActivePanel,
-      editingModel: $editingModel,
+      editingModel: this.editingModel!!,
       onSelectModel: (providerId: string, modelId: string, modelName: string): void => {
         this.handleModelSelect(providerId, modelId, modelName)
         this.isModelSelectorVisible = false
@@ -1472,7 +1446,8 @@ export struct ChatPage {
 
   }
 
-  private onAppInBackgroundChanged(): void {
+  @Monitor('appInBackground')
+  onAppInBackgroundChanged(): void {
     // 后台切换由任务调度器与后台守护服务处理，这里只保留日志
     console.info('ChatPage', `[onAppInBackgroundChanged] appInBackground=${this.appInBackground}`)
   }
@@ -1482,14 +1457,14 @@ export struct ChatPage {
       return false
     }
 
-    const total = this.messageDataSource.totalCount()
+    const total = this.messages.length
     if (total <= 0) {
       return true
     }
 
     // 从尾部向前找最近一条 AI 消息；若 AI 还没开始输出（内容为空），则认为处于等待态
     for (let i = total - 1; i >= 0; i--) {
-      const msg = this.messageDataSource.getData(i)
+      const msg = this.messages[i]
       if (msg.role === MessageRole.ASSISTANT) {
         return msg.isGenerating && msg.content.length === 0 && msg.reasoningContent.length === 0
       }
@@ -1542,7 +1517,7 @@ export struct ChatPage {
   }
 
   private shouldShowScrollToTopButton(): boolean {
-    return shouldShowScrollToTopButtonForChat(this.isMultiSelectMode, this.messageDataSource.totalCount(), this.isAtTop)
+    return shouldShowScrollToTopButtonForChat(this.isMultiSelectMode, this.messages.length, this.isAtTop)
   }
 
   private handleMessageListDidScroll(scrollOffset: number, scrollState: ScrollState): void {
@@ -1565,7 +1540,8 @@ export struct ChatPage {
   }
 
   // 输入内容变化时，自动滚动到底部显示预览气泡
-  private onDraftContentChanged(): void {
+  @Monitor('inputText')
+  onDraftContentChanged(): void {
     this.getScrollUiFlow().onDraftContentChanged()
   }
 
@@ -1748,8 +1724,6 @@ export struct ChatPage {
     const messageIdsToDelete = collectTailMessageIds(this.messages, userMsgIndex)
     await this.chatViewModel.deleteMessagesFromIndex(messageIdsToDelete)
     this.messages.splice(userMsgIndex)
-    this.messageDataSource.setAllMessages(this.messages)
-    this.syncMessagesFromDataSource()
     if (isFirstRound) {
       this.titleGenerateFailed = false
     }
@@ -1762,15 +1736,6 @@ export struct ChatPage {
     this.showChatSnack(message, 3000, SnackBarTone.ERROR)
   }
 
-  // 从 messageDataSource 同步数据到 messages 数组（创建副本，避免共享引用）
-  private syncMessagesFromDataSource(): void {
-    const allMessages = this.messageDataSource.getAllMessages()
-    this.messages = []
-    for (let i = 0; i < allMessages.length; i++) {
-      this.messages.push(allMessages[i])
-    }
-  }
-
   // 处理删除消息
   async handleDeleteMessage(message: ChatMessage): Promise<void> {
     const index = findMessageIndexById(this.messages, message.id)
@@ -1778,8 +1743,6 @@ export struct ChatPage {
       return
     }
     this.messages.splice(index, 1)
-    this.messageDataSource.setAllMessages(this.messages)
-    this.syncMessagesFromDataSource()
     await this.chatViewModel.deleteMessage(message.id)
     this.showChatSnack($r('app.string.message_deleted'), 2000, SnackBarTone.SUCCESS)
   }
@@ -1804,7 +1767,7 @@ export struct ChatPage {
       this.ttsService.stop()
     }
 
-    this.speakingMessageId = messageId
+    this.$speakingMessageId(messageId)
 
     this.ttsService.speak(content, {
       onStart: () => {
@@ -1812,10 +1775,10 @@ export struct ChatPage {
       },
       onComplete: () => {
         // 朗读完成
-        this.speakingMessageId = ''
+        this.$speakingMessageId('')
       },
       onError: (error: string) => {
-        this.speakingMessageId = ''
+        this.$speakingMessageId('')
         this.showChatSnack(error, 3000, SnackBarTone.ERROR)
       }
     })
@@ -1824,7 +1787,7 @@ export struct ChatPage {
   // 处理停止TTS朗读
   private handleTTSStop(): void {
     this.ttsService.stop()
-    this.speakingMessageId = ''
+    this.$speakingMessageId('')
   }
 
   // 处理新建对话
@@ -1837,7 +1800,6 @@ export struct ChatPage {
     this.pendingAttachments = []
     // 清空当前消息
     this.messages = []
-    this.messageDataSource.clear()
     // 更新会话ID和标题
     this.sessionId = session.id
     this.sessionTitle = session.title
@@ -2022,5 +1984,5 @@ export struct ChatPage {
 
 @Builder
 export function ChatPageBuilder(name: string, param: Object) {
-  ChatPage({ routeParams: param as ChatPageRouteParams })
+  ChatPage()
 }

@@ -2,18 +2,19 @@ import { ModelProvider, ModelInfo } from '../../models/ChatModels'
 import { ModelSelectorContent } from '../ModelSelector'
 import { ModelEditSheet } from '../ModelEditSheet'
 
-@Component
+@ComponentV2
 export struct ChatModelSelectorSheetContent {
-  @Prop providers: ModelProvider[] = []
-  @Prop currentModelId: string = ''
-  @Prop activePanel: string = 'selector'
-  @Link editingModel: ModelInfo | null
-  onSelectModel: (providerId: string, modelId: string, modelName: string) => void =
+  @Param providers: ModelProvider[] = []
+  @Param currentModelId: string = ''
+  @Param activePanel: string = 'selector'
+  @Param editingModel: ModelInfo | null = null
+  @Event $editingModel: (value: ModelInfo | null) => void = (_value: ModelInfo | null) => {}
+  @Event onSelectModel: (providerId: string, modelId: string, modelName: string) => void =
     (_providerId: string, _modelId: string, _modelName: string): void => {}
-  onStartEdit: (model: ModelInfo, provider: ModelProvider) => void =
+  @Event onStartEdit: (model: ModelInfo, provider: ModelProvider) => void =
     (_model: ModelInfo, _provider: ModelProvider): void => {}
-  onSaveEdit: () => Promise<void> = async (): Promise<void> => {}
-  onCancelEdit: () => void = (): void => {}
+  @Event onSaveEdit: () => Promise<void> = async (): Promise<void> => {}
+  @Event onCancelEdit: () => void = (): void => {}
 
   @Builder
   private ModelEditSheetBuilder() {

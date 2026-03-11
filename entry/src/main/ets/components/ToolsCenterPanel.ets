@@ -6,20 +6,20 @@ import { getPreferencesService, PreferencesService, PreferenceKeys } from '../se
 import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
 import { HdsListItemCard, SuffixCustomBuilder } from '@kit.UIDesignKit'
 
-@Component
+@ComponentV2
 export struct ToolsCenterPanel {
-  @Prop showHeader: boolean = true
-  @State builtinTools: ToolConfig[] = []
-  @State searchEngine: SearchEngine = SearchEngine.BING
-  @State searchEngineSelectedIndex: number = 0
-  @State searchEngineDisplayValue: string = 'Bing(local)'
-  @State searchExaApiKey: string = ''
-  @State searchExaBaseUrl: string = 'https://api.exa.ai'
-  @State searchQueryOptimizationEnabled: boolean = false
-  @State isLoading: boolean = false
-  @State showSearchConfigSheet: boolean = false
+  @Param showHeader: boolean = true
+  @Local builtinTools: ToolConfig[] = []
+  @Local searchEngine: SearchEngine = SearchEngine.BING
+  @Local searchEngineSelectedIndex: number = 0
+  @Local searchEngineDisplayValue: string = 'Bing(local)'
+  @Local searchExaApiKey: string = ''
+  @Local searchExaBaseUrl: string = 'https://api.exa.ai'
+  @Local searchQueryOptimizationEnabled: boolean = false
+  @Local isLoading: boolean = false
+  @Local showSearchConfigSheet: boolean = false
 
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @Param themePrimary: string = '#0A59F7'
 
   private toolRegistry: ToolRegistry = ServiceRegistry.toolRegistry()
   private preferencesService: PreferencesService = getPreferencesService()
@@ -508,14 +508,14 @@ export struct ToolsCenterPanel {
   }
 }
 
-@Component
+@ComponentV2
 struct BuiltinToolCardItem {
-  @ObjectLink tool: ToolConfig
-  @Prop isSearchTool: boolean = false
-  @Prop isToggleSupported: boolean = false
-  @Prop searchEngineDisplayValue: string = ''
-  onToggle: (enabled: boolean) => void = (enabled: boolean) => {}
-  onOpenConfig: () => void = () => {}
+  @Param tool: ToolConfig = new ToolConfig()
+  @Param isSearchTool: boolean = false
+  @Param isToggleSupported: boolean = false
+  @Param searchEngineDisplayValue: string = ''
+  @Event onToggle: (enabled: boolean) => void = (enabled: boolean) => {}
+  @Event onOpenConfig: () => void = () => {}
 
   @Builder
   ToolCardText() {

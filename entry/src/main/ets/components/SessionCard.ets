@@ -9,29 +9,30 @@ import {
   SESSION_DRAFT_TAG_TEXT
 } from '../utils/ChatSessionDisplayHelper'
 
-@Component
+@ComponentV2
 export struct SessionCard {
-  @Prop session: ChatSession = new ChatSession('', '', '')
-  @Prop unreadCount: number = 0
-  @Prop enableAnimation: boolean = true
-  @Prop enableContextMenu: boolean = true
-  @State scaleValue: number = 1
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
-  @StorageProp('ui_visual_enhanced') uiVisualEnhanced: boolean = false
-  @StorageProp('isDarkMode') @Watch('onCardDarkModeChange') isDarkMode: boolean = false
+  @Param session: ChatSession = new ChatSession('', '', '')
+  @Param unreadCount: number = 0
+  @Param enableAnimation: boolean = true
+  @Param enableContextMenu: boolean = true
+  @Local scaleValue: number = 1
+  @Param themePrimary: string = '#0A59F7'
+  @Param themePrimaryLight: string = '#E6F2FF'
+  @Param uiVisualEnhanced: boolean = false
+  @Param isDarkMode: boolean = false
   private titleMarkdownController: MarkdownController = new MarkdownController()
-  onTap: () => void = () => {}
-  onDelete: () => void = () => {}
-  onMultiSelect: () => void = () => {}
-  onShare: () => void = () => {}
-  onToggleFavorite: () => void = () => {}
+  @Event onTap: () => void = () => {}
+  @Event onDelete: () => void = () => {}
+  @Event onMultiSelect: () => void = () => {}
+  @Event onShare: () => void = () => {}
+  @Event onToggleFavorite: () => void = () => {}
 
   aboutToAppear(): void {
     this.configureTitleMarkdownStyles()
   }
 
-  private onCardDarkModeChange(): void {
+  @Monitor('isDarkMode')
+  onCardDarkModeChange(): void {
     this.configureTitleMarkdownStyles()
   }
 

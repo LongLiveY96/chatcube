@@ -7,22 +7,20 @@
 import { buildIconResourcePath } from '../utils/ProviderIconUtils'
 import { TRANSPARENT_BG_COLOR } from '../utils/IconGeneratorUtils'
 
-@Component
+@ComponentV2
 export struct ProviderIcon {
-  @Prop iconPath: string = ''
-  @Prop iconSize: number = 40
-  @Prop bgColor: ResourceColor = Color.Transparent
-  @Prop radius: number = 12
-  @Prop fallbackSymbol: Resource = $r('sys.symbol.message')
-  @Prop fallbackColor: ResourceColor = Color.White
-  // 新增：图标类型相关参数
-  @Prop iconType: string = 'svg'
-  @Prop textIcon: string = ''
-  @Prop textIconBgColor: string = ''
-  @Prop customImagePath: string = ''
-  // 新增：品牌色参数（用于 SVG 图标的边框）
-  @Prop brandColor: ResourceColor = ''
-  @StorageProp('isDarkMode') isDarkMode: boolean = false
+  @Param iconPath: string = ''
+  @Param iconSize: number = 40
+  @Param bgColor: ResourceColor = Color.Transparent
+  @Param radius: number = 12
+  @Param fallbackSymbol: Resource = $r('sys.symbol.message')
+  @Param fallbackColor: ResourceColor = Color.White
+  @Param iconType: string = 'svg'
+  @Param textIcon: string = ''
+  @Param textIconBgColor: string = ''
+  @Param customImagePath: string = ''
+  @Param brandColor: ResourceColor = ''
+  @Param isDarkMode: boolean = false
 
   // 判断是否显示品牌色边框
   private shouldShowBrandBorder(): boolean {
@@ -99,18 +97,16 @@ export struct ProviderIcon {
   }
 }
 
-@Component
+@ComponentV2
 export struct ProviderIconSmall {
-  @Prop iconPath: string = ''
-  @Prop iconSize: number = 24
-  // 新增：图标类型相关参数
-  @Prop iconType: string = 'svg'
-  @Prop textIcon: string = ''
-  @Prop textIconBgColor: string = ''
-  @Prop customImagePath: string = ''
-  // 新增：品牌色参数（用于 SVG 图标的边框）
-  @Prop brandColor: ResourceColor = ''
-  @StorageProp('isDarkMode') isDarkMode: boolean = false
+  @Param iconPath: string = ''
+  @Param iconSize: number = 24
+  @Param iconType: string = 'svg'
+  @Param textIcon: string = ''
+  @Param textIconBgColor: string = ''
+  @Param customImagePath: string = ''
+  @Param brandColor: ResourceColor = ''
+  @Param isDarkMode: boolean = false
 
   // 判断是否显示品牌色边框
   private shouldShowBrandBorder(): boolean {

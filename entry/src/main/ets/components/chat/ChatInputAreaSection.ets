@@ -3,38 +3,42 @@ import { ChatToolbar } from '../ChatToolbar'
 import { ChatInputBar } from '../ChatInputBar'
 import { ScreenshotBanner } from '../ScreenshotBanner'
 
-@Component
+@ComponentV2
 export struct ChatInputAreaSection {
-  @Link inputText: string
-  @Link attachments: MessageAttachment[]
-  @Prop isSending: boolean = false
-  @Prop isAwaitingResponse: boolean = false
-  @Prop currentModelId: string = ''
-  @Prop currentProviderId: string = ''
-  @Prop currentModelName: string = ''
-  @Prop currentProviderIconType: string = ''
-  @Prop currentProviderIconPath: string = ''
-  @Prop currentProviderTextIcon: string = ''
-  @Prop currentProviderTextIconBgColor: string = ''
-  @Prop currentProviderCustomImagePath: string = ''
-  @Prop currentProviderBrandColor: ResourceColor = ''
-  @Prop autoFocus: boolean = false
-  @Prop isEditing: boolean = false
-  @Prop webSearchAvailable: boolean = false
-  @Link webSearchEnabled: boolean
-  @Link reasoningLevel: ReasoningLevel
-  @Prop hasRecentScreenshot: boolean = false
-  @Prop bottomAvoidHeight: number = 0
-  @Prop contentMaxWidth: number = 99999
-  onCancelEdit: () => void = () => {}
-  onSend: () => void = () => {}
-  onStop: () => void = () => {}
-  onModelIconClick: () => void = () => {}
-  onAttachmentClick: () => void = () => {}
-  onInputFocus: () => void = () => {}
-  onInputBlur: () => void = () => {}
-  onComposerContentChanged: () => void = () => {}
-  onRecentPhotoDetected: (detected: boolean) => void = (_detected: boolean): void => {}
+  @Param inputText: string = ''
+  @Event $inputText: (value: string) => void = () => {}
+  @Param attachments: MessageAttachment[] = []
+  @Event $attachments: (value: MessageAttachment[]) => void = () => {}
+  @Param isSending: boolean = false
+  @Param isAwaitingResponse: boolean = false
+  @Param currentModelId: string = ''
+  @Param currentProviderId: string = ''
+  @Param currentModelName: string = ''
+  @Param currentProviderIconType: string = ''
+  @Param currentProviderIconPath: string = ''
+  @Param currentProviderTextIcon: string = ''
+  @Param currentProviderTextIconBgColor: string = ''
+  @Param currentProviderCustomImagePath: string = ''
+  @Param currentProviderBrandColor: ResourceColor = ''
+  @Param autoFocus: boolean = false
+  @Param isEditing: boolean = false
+  @Param webSearchAvailable: boolean = false
+  @Param webSearchEnabled: boolean = false
+  @Event $webSearchEnabled: (value: boolean) => void = () => {}
+  @Param reasoningLevel: ReasoningLevel = ReasoningLevel.OFF
+  @Event $reasoningLevel: (value: ReasoningLevel) => void = () => {}
+  @Param hasRecentScreenshot: boolean = false
+  @Param bottomAvoidHeight: number = 0
+  @Param contentMaxWidth: number = 99999
+  @Event onCancelEdit: () => void = () => {}
+  @Event onSend: () => void = () => {}
+  @Event onStop: () => void = () => {}
+  @Event onModelIconClick: () => void = () => {}
+  @Event onAttachmentClick: () => void = () => {}
+  @Event onInputFocus: () => void = () => {}
+  @Event onInputBlur: () => void = () => {}
+  @Event onComposerContentChanged: () => void = () => {}
+  @Event onRecentPhotoDetected: (detected: boolean) => void = (_detected: boolean): void => {}
 
   private getEffectiveContentMaxWidth(): number {
     return this.contentMaxWidth > 0 ? this.contentMaxWidth : 99999
@@ -45,7 +49,7 @@ export struct ChatInputAreaSection {
       Column() {
         Row() {
           ScreenshotBanner({
-            attachments: $attachments,
+            attachments: this.attachments!!,
             hasRecentPhoto: this.hasRecentScreenshot
           })
         }
@@ -55,13 +59,13 @@ export struct ChatInputAreaSection {
 
         ChatToolbar({
           webSearchAvailable: this.webSearchAvailable,
-          webSearchEnabled: $webSearchEnabled,
-          reasoningLevel: $reasoningLevel
+          webSearchEnabled: this.webSearchEnabled!!,
+          reasoningLevel: this.reasoningLevel!!
         })
 
         ChatInputBar({
-          inputText: $inputText,
-          attachments: $attachments,
+          inputText: this.inputText!!,
+          attachments: this.attachments!!,
           isSending: this.isSending,
           isAwaitingResponse: this.isAwaitingResponse,
           currentModelId: this.currentModelId,

@@ -11,17 +11,16 @@ import { image } from '@kit.ImageKit'
 import { fileIo as fs } from '@kit.CoreFileKit'
 import { fileUri } from '@kit.CoreFileKit'
 
-@Component
+@ComponentV2
 export struct SharePreviewSheet {
-  messages: ChatMessage[] = []
-  currentModelId: string = ''
-  @State selectedMode: ShareMode = ShareMode.IMAGE
-  @State isSharing: boolean = false
-  @State previewText: string = ''
-  // 主题颜色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
-  onClose: () => void = () => {}
+  @Param messages: ChatMessage[] = []
+  @Param currentModelId: string = ''
+  @Local selectedMode: ShareMode = ShareMode.IMAGE
+  @Local isSharing: boolean = false
+  @Local previewText: string = ''
+  @Param themePrimary: string = '#0A59F7'
+  @Param themePrimaryLight: string = '#E6F2FF'
+  @Event onClose: () => void = () => {}
 
   private shareService: ShareService = getShareService()
 

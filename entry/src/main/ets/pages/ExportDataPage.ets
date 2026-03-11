@@ -11,26 +11,25 @@ import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentati
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 
 @Entry
-@Component
+@ComponentV2
 struct ExportDataPage {
-  @StorageProp('bottomAvoidHeight') bottomAvoidHeight: number = 0
+  @Param bottomAvoidHeight: number = 0
   // 主题颜色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('layout_size_class') layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @StorageProp('window_width_vp') windowWidthVp: number = 0
-  @StorageProp('window_height_vp') windowHeightVp: number = 0
-  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE)
-  settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
+  @Param themePrimary: string = '#0A59F7'
+  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @Param windowWidthVp: number = 0
+  @Param windowHeightVp: number = 0
+  @Param settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
 
-  @State sessions: ChatSession[] = []
-  @State selectedSessionIds: string[] = []
-  @State selectAll: boolean = true
-  @State includeAttachments: boolean = true
-  @State includeProviders: boolean = true
-  @State includeApiKeys: boolean = false
-  @State includePreferences: boolean = true
-  @State isExporting: boolean = false
-  @State exportProgress: number = 0
+  @Local sessions: ChatSession[] = []
+  @Local selectedSessionIds: string[] = []
+  @Local selectAll: boolean = true
+  @Local includeAttachments: boolean = true
+  @Local includeProviders: boolean = true
+  @Local includeApiKeys: boolean = false
+  @Local includePreferences: boolean = true
+  @Local isExporting: boolean = false
+  @Local exportProgress: number = 0
   private chatViewModel: ChatViewModel = ServiceRegistry.chat()
 
   private px2vp(px: number): number {

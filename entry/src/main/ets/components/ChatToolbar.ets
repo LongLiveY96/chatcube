@@ -6,17 +6,19 @@
 import { ReasoningLevel } from '../models/ChatModels'
 import { getPreferencesService, PreferenceKeys } from '../services/PreferencesService'
 
-@Component
+@ComponentV2
 export struct ChatToolbar {
   // 联网查询全局可用状态（工具中心控制）
-  @Prop webSearchAvailable: boolean = false
+  @Param webSearchAvailable: boolean = false
   // 联网查询本会话开关状态（聊天页面控制）
-  @Link webSearchEnabled: boolean
+  @Param webSearchEnabled: boolean = false
+  @Event $webSearchEnabled: (value: boolean) => void = () => {}
   // 推理级别状态
-  @Link reasoningLevel: ReasoningLevel
+  @Param reasoningLevel: ReasoningLevel = ReasoningLevel.OFF
+  @Event $reasoningLevel: (value: ReasoningLevel) => void = () => {}
 
   // 主题颜色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @Param themePrimary: string = '#0A59F7'
 
   build() {
     Row() {
@@ -44,9 +46,10 @@ export struct ChatToolbar {
         // 背景色过渡动画
         .animation({ duration: 200, curve: Curve.EaseOut })
         .onClick(() => {
-          this.webSearchEnabled = !this.webSearchEnabled
+          const newValue = !this.webSearchEnabled
+          this.$webSearchEnabled(newValue)
           const prefsService = getPreferencesService()
-          prefsService.setBoolean(PreferenceKeys.SEARCH_CONVERSATION_ENABLED, this.webSearchEnabled)
+          prefsService.setBoolean(PreferenceKeys.SEARCH_CONVERSATION_ENABLED, newValue)
         })
       }
 
@@ -141,7 +144,7 @@ export struct ChatToolbar {
     .height(44)
     .padding({ left: 16, right: 16 })
     .onClick(() => {
-      this.reasoningLevel = level
+      this.$reasoningLevel(level)
     })
   }
 }

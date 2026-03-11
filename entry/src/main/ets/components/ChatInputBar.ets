@@ -11,61 +11,63 @@ import { fileIo } from '@kit.CoreFileKit'
 import { util } from '@kit.ArkTS'
 import { getAttachmentStorageService } from '../services/AttachmentStorageService'
 
-@Component
+@ComponentV2
 export struct ChatInputBar {
   // 图标动画触发器
-  @State iconTrigger: number = 0
+  @Local iconTrigger: number = 0
   // pause 呼吸动效透明度
-  @State breathOpacity: number = 1
+  @Local breathOpacity: number = 1
   // 按钮按下状态
-  @State sendBtnPressed: boolean = false
-  @State sendBtnScale: number = 1
-  @State sendBtnRotation: number = 0
-  @State modelBtnPressed: boolean = false
-  @State attachBtnPressed: boolean = false
-  @Link @Watch('onInputOrAttachmentsChanged') inputText: string
-  @Link @Watch('onInputOrAttachmentsChanged') attachments: MessageAttachment[]
-  @Prop @Watch('onSendingChanged') isSending: boolean = false
+  @Local sendBtnPressed: boolean = false
+  @Local sendBtnScale: number = 1
+  @Local sendBtnRotation: number = 0
+  @Local modelBtnPressed: boolean = false
+  @Local attachBtnPressed: boolean = false
+  @Param inputText: string = ''
+  @Event $inputText: (value: string) => void = () => {}
+  @Param attachments: MessageAttachment[] = []
+  @Event $attachments: (value: MessageAttachment[]) => void = () => {}
+  @Param isSending: boolean = false
   // isSending 为 true 且 AI 尚未开始输出时，pause 显示轻微呼吸感
-  @Prop @Watch('onAwaitingChanged') isAwaitingResponse: boolean = false
-  @Prop currentModelId: string = ''
-  @Prop currentProviderId: string = ''
-  @Prop currentModelName: string = ''
-  @Prop currentProviderIconType: string = 'svg'
-  @Prop currentProviderIconPath: string = ''
-  @Prop currentProviderTextIcon: string = ''
-  @Prop currentProviderTextIconBgColor: string = ''
-  @Prop currentProviderCustomImagePath: string = ''
-  @Prop currentProviderBrandColor: ResourceColor = ''
+  @Param isAwaitingResponse: boolean = false
+  @Param currentModelId: string = ''
+  @Param currentProviderId: string = ''
+  @Param currentModelName: string = ''
+  @Param currentProviderIconType: string = 'svg'
+  @Param currentProviderIconPath: string = ''
+  @Param currentProviderTextIcon: string = ''
+  @Param currentProviderTextIconBgColor: string = ''
+  @Param currentProviderCustomImagePath: string = ''
+  @Param currentProviderBrandColor: ResourceColor = ''
   // 是否自动聚焦输入框
-  @Prop @Watch('onAutoFocusChanged') autoFocus: boolean = false
+  @Param autoFocus: boolean = false
   // 主题颜色（从 ThemeService 同步）
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_user_bubble') themeUserBubble: string = '#0A59F7'
-  @StorageProp('isDarkMode') isDarkMode: boolean = false
+  @Param themePrimary: string = '#0A59F7'
+  @Param themeUserBubble: string = '#0A59F7'
+  @Param isDarkMode: boolean = false
   // ========== 最近截图相关 ==========
   private recentPhotoOptions: RecentPhotoOptions = new RecentPhotoOptions()
-  @State hasRecentPhoto: boolean = false // 当前是否存在符合时间条件的截图
+  @Local hasRecentPhoto: boolean = false // 当前是否存在符合时间条件的截图
   // ========== 编辑模式相关属性 ==========
-  @Prop isEditing: boolean = false // 是否编辑模式
-  onCancelEdit: () => void = () => {
+  @Param isEditing: boolean = false // 是否编辑模式
+  @Event onCancelEdit: () => void = () => {
   } // 取消编辑回调
-  onSend: () => void = () => {
+  @Event onSend: () => void = () => {
   }
-  onStop: () => void = () => {
+  @Event onStop: () => void = () => {
   }
-  onModelIconClick: () => void = () => {
+  @Event onModelIconClick: () => void = () => {
   }
-  onAttachmentClick: () => void = () => {
+  @Event onAttachmentClick: () => void = () => {
   }
-  onInputFocus: () => void = () => {
+  @Event onInputFocus: () => void = () => {
   } // 输入框获得焦点回调
-  onInputBlur: () => void = () => {
+  @Event onInputBlur: () => void = () => {
   } // 输入框失去焦点回调
-  onComposerContentChanged: () => void = () => {
+  @Event onComposerContentChanged: () => void = () => {
   }
   // 最近截图检测回调（通知父组件渲染 banner）
-  onRecentPhotoDetected: (detected: boolean) => void = () => {
+  @Event onRecentPhotoDetected: (detected: boolean) => void = () => {
   }
   private lastHasContent: boolean = false
   private breatheTimerId: number = -1
@@ -102,6 +104,7 @@ export struct ChatInputBar {
   }
 
   // 监听 autoFocus 变化
+  @Monitor('autoFocus')
   onAutoFocusChanged(): void {
     if (this.autoFocus) {
       // 延迟聚焦，确保组件已渲染
@@ -209,7 +212,7 @@ export struct ChatInputBar {
             bottom: 10
           })
           .onChange((value: string) => {
-            this.inputText = value
+            this.$inputText(value)
           })
           .onFocus(() => {
             this.onInputFocus()
@@ -410,9 +413,9 @@ export struct ChatInputBar {
   }
 
   private removeAttachment(index: number): void {
-    this.attachments.splice(index, 1)
-    // 触发数组更新
-    this.attachments = [...this.attachments]
+    const newAttachments = [...this.attachments]
+    newAttachments.splice(index, 1)
+    this.$attachments([...newAttachments])
   }
 
   // ========== 最近截图相关方法 ==========
@@ -452,7 +455,8 @@ export struct ChatInputBar {
     return $r('sys.symbol.paperplane')
   }
 
-  private onInputOrAttachmentsChanged(): void {
+  @Monitor('inputText', 'attachments')
+  onInputOrAttachmentsChanged(): void {
     if (!this.isSending) {
       this.onComposerContentChanged()
     }
@@ -469,7 +473,8 @@ export struct ChatInputBar {
     this.iconTrigger++
   }
 
-  private onSendingChanged(): void {
+  @Monitor('isSending')
+  onSendingChanged(): void {
     this.iconTrigger++
     this.lastHasContent = this.computeHasContent()
     this.updateBreathing()
@@ -488,7 +493,8 @@ export struct ChatInputBar {
     })
   }
 
-  private onAwaitingChanged(): void {
+  @Monitor('isAwaitingResponse')
+  onAwaitingChanged(): void {
     this.updateBreathing()
   }
 

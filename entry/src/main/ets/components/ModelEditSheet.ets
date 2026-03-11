@@ -5,29 +5,29 @@
 import { ModelInfo, InputMode, OutputMode } from '../models/ChatModels'
 import { LengthMetrics } from '@kit.ArkUI'
 
-@Component
+@ComponentV2
 export struct ModelEditSheet {
-  @ObjectLink model: ModelInfo
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @State tempName: string = ''
+  @Param model: ModelInfo = new ModelInfo('', '')
+  @Param themePrimary: string = '#0A59F7'
+  @Local tempName: string = ''
   // 能力开关状态（用于触发 UI 刷新）
-  @State capSupportsTools: boolean = false
-  @State capSupportsReasoning: boolean = false
-  @State capSupportsWebSearch: boolean = false
-  @State capSupportsVision: boolean = false
-  @State capSupportsStreaming: boolean = false
-  @State capOutputImage: boolean = false
+  @Local capSupportsTools: boolean = false
+  @Local capSupportsReasoning: boolean = false
+  @Local capSupportsWebSearch: boolean = false
+  @Local capSupportsVision: boolean = false
+  @Local capSupportsStreaming: boolean = false
+  @Local capOutputImage: boolean = false
   // 高级参数折叠状态
-  @State isAdvancedExpanded: boolean = false
+  @Local isAdvancedExpanded: boolean = false
   // 高级参数本地状态（驱动 Slider 实时刷新）
-  @State paramTemperature: number = 0.7
-  @State paramTopP: number = 1.0
-  @State paramPresencePenalty: number = 0
-  @State paramFrequencyPenalty: number = 0
+  @Local paramTemperature: number = 0.7
+  @Local paramTopP: number = 1.0
+  @Local paramPresencePenalty: number = 0
+  @Local paramFrequencyPenalty: number = 0
   // 回调函数
-  onSave: () => Promise<void> = async (): Promise<void> => {
+  @Event onSave: () => Promise<void> = async (): Promise<void> => {
   }
-  onCancel: () => void = () => {
+  @Event onCancel: () => void = () => {
   }
 
   aboutToAppear(): void {

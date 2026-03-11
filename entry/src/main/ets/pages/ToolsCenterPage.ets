@@ -6,13 +6,12 @@ import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentati
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 
 @Entry
-@Component
+@ComponentV2
 struct ToolsCenterPage {
-  @StorageProp('layout_size_class') layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @StorageProp('window_width_vp') windowWidthVp: number = 0
-  @StorageProp('window_height_vp') windowHeightVp: number = 0
-  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE)
-  settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
+  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @Param windowWidthVp: number = 0
+  @Param windowHeightVp: number = 0
+  @Param settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
 
   private getContentMaxWidth(): number {
     return getSettingsPageContentMaxWidth(this.layoutSizeClass, this.windowWidthVp, this.settingsDetailPresentationMode,

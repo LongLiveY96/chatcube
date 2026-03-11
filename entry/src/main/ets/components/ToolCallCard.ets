@@ -19,18 +19,18 @@ function getToolDisplayName(toolId: string): string | Resource {
 }
 
 // 工具调用卡片组件
-@Component
+@ComponentV2
 export struct ToolCallCard {
-  @ObjectLink toolCall: ToolCall
-  @Prop toolResult: ToolResult | null = null
-  @Prop isExecuting: boolean = false
-  @State isExpanded: boolean = false
+  @Param toolCall: ToolCall = new ToolCall()
+  @Param toolResult: ToolResult | null = null
+  @Param isExecuting: boolean = false
+  @Local isExpanded: boolean = false
   // 跳动点动画状态
-  @State dot1Scale: number = 0.6
-  @State dot2Scale: number = 0.6
-  @State dot3Scale: number = 0.6
+  @Local dot1Scale: number = 0.6
+  @Local dot2Scale: number = 0.6
+  @Local dot3Scale: number = 0.6
   // 主题颜色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @Param themePrimary: string = '#0A59F7'
   private dotAnimationTimer: number = -1
 
   aboutToAppear(): void {

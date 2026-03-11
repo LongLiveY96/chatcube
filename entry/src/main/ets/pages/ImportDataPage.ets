@@ -8,25 +8,24 @@ import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentati
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 
 @Entry
-@Component
+@ComponentV2
 struct ImportDataPage {
-  @StorageProp('bottomAvoidHeight') bottomAvoidHeight: number = 0
+  @Param bottomAvoidHeight: number = 0
   // 主题颜色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('layout_size_class') layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @StorageProp('window_width_vp') windowWidthVp: number = 0
-  @StorageProp('window_height_vp') windowHeightVp: number = 0
-  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE)
-  settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
+  @Param themePrimary: string = '#0A59F7'
+  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @Param windowWidthVp: number = 0
+  @Param windowHeightVp: number = 0
+  @Param settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
 
-  @State selectedFilePath: string = ''
-  @State preview: ImportPreview | null = null
-  @State conflictStrategy: 'skip' | 'overwrite' | 'ask' = 'skip'
-  @State importProviders: boolean = true
-  @State importPreferences: boolean = true
-  @State isImporting: boolean = false
-  @State importProgress: number = 0
-  @State showPreview: boolean = false
+  @Local selectedFilePath: string = ''
+  @Local preview: ImportPreview | null = null
+  @Local conflictStrategy: 'skip' | 'overwrite' | 'ask' = 'skip'
+  @Local importProviders: boolean = true
+  @Local importPreferences: boolean = true
+  @Local isImporting: boolean = false
+  @Local importProgress: number = 0
+  @Local showPreview: boolean = false
 
   private px2vp(px: number): number {
     return px / (this.getUIContext().getHostContext()?.resourceManager.getDeviceCapabilitySync().screenDensity ?? 3) * 160

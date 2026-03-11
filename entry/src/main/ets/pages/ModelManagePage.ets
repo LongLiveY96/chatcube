@@ -1,5 +1,5 @@
 import { SymbolGlyphModifier } from '@kit.ArkUI'
-import { ModelProvider, ModelInfo } from '../models/ChatModels'
+import { ModelProvider, ModelInfo, ProviderType } from '../models/ChatModels'
 import { ProviderViewModel } from '../viewmodels/ProviderViewModel'
 import { showToast } from '../utils/ToastUtil'
 import { ProviderDetailPanel, ProviderDetailPresentationMode, ProviderDetailSheet } from '../components/ProviderDetailSheet'
@@ -14,23 +14,22 @@ import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentati
 import { isSettingsPageExpandedLayout } from '../utils/SettingsPageLayoutHelper'
 
 @Entry
-@Component
+@ComponentV2
 struct ModelManagePage {
-  @State allProviders: ModelProvider[] = []
-  @State isLoading: boolean = false
-  @State searchKeywords: string = ''
+  @Local allProviders: ModelProvider[] = []
+  @Local isLoading: boolean = false
+  @Local searchKeywords: string = ''
   // 半模态弹窗相关状态
-  @State showProviderSheet: boolean = false
-  @State selectedProviderId: string = ''
-  @State detailCreateMode: boolean = false
-  @State isMatchingIcons: boolean = false
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
-  @StorageProp('layout_size_class') @Watch('onLayoutSizeClassChanged') layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @StorageProp('window_width_vp') windowWidthVp: number = 0
-  @StorageProp('window_height_vp') windowHeightVp: number = 0
-  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE)
-  settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
+  @Local showProviderSheet: boolean = false
+  @Local selectedProviderId: string = ''
+  @Local detailCreateMode: boolean = false
+  @Local isMatchingIcons: boolean = false
+  @Param themePrimary: string = '#0A59F7'
+  @Param themePrimaryLight: string = '#E6F2FF'
+  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @Param windowWidthVp: number = 0
+  @Param windowHeightVp: number = 0
+  @Param settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
   private hasLoaded: boolean = false
   private providerViewModel: ProviderViewModel = ServiceRegistry.provider()
 
@@ -38,7 +37,8 @@ struct ModelManagePage {
     showToast(this.getUIContext(), message, duration)
   }
 
-  private onLayoutSizeClassChanged(): void {
+  @Monitor('layoutSizeClass')
+  onLayoutSizeClassChanged(): void {
     this.ensureExpandedDetailSelection()
   }
 
@@ -655,15 +655,15 @@ struct ModelManagePage {
   }
 }
 
-@Component
+@ComponentV2
 struct ProviderCardItem {
-  @ObjectLink provider: ModelProvider
-  @Prop searchKeywords: string = ''
-  @Prop active: boolean = false
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
-  onCardClick: () => void = () => {}
-  onToggleEnabled: () => void = () => {}
+  @Param provider: ModelProvider = new ModelProvider('', '', ProviderType.CUSTOM, '', $r('app.color.primary'))
+  @Param searchKeywords: string = ''
+  @Param active: boolean = false
+  @Param themePrimary: string = '#0A59F7'
+  @Param themePrimaryLight: string = '#E6F2FF'
+  @Event onCardClick: () => void = () => {}
+  @Event onToggleEnabled: () => void = () => {}
 
   private getEnabledCount(): string {
     const enabled = this.provider.models.filter(m => m.isEnabled).length

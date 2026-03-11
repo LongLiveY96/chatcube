@@ -2,17 +2,19 @@ import { ModelProvider } from '../models/ChatModels'
 import { ProviderIcon } from './ProviderIcon'
 import { generateSoftColor, getAllSoftColors, TRANSPARENT_BG_COLOR } from '../utils/IconGeneratorUtils'
 
-@Component
+@ComponentV2
 export struct ProviderIconEditSheet {
-  @Link showColorPicker: boolean
-  @Link tempTextIcon: string
-  @Link tempTextIconBgColor: string
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @Local showColorPicker: boolean = false
+  @Param tempTextIcon: string = ''
+  @Event $tempTextIcon: (value: string) => void = (_value: string) => {}
+  @Param tempTextIconBgColor: string = ''
+  @Event $tempTextIconBgColor: (value: string) => void = (_value: string) => {}
+  @Param themePrimary: string = '#0A59F7'
 
-  @Prop provider: ModelProvider | null = null
-  onSave: () => void = () => {}
-  onResetToPreset: () => void = () => {}
-  onClose: () => void = () => {}
+  @Param provider: ModelProvider | null = null
+  @Event onSave: () => void = () => {}
+  @Event onResetToPreset: () => void = () => {}
+  @Event onClose: () => void = () => {}
 
   build() {
     Column({ space: 16 }) {
@@ -86,7 +88,7 @@ export struct ProviderIconEditSheet {
           .maxLength(2)
           .fontSize(16)
           .onChange((value: string) => {
-            this.tempTextIcon = value
+            this.$tempTextIcon(value)
           })
       }
       .alignItems(HorizontalAlign.Start)
@@ -106,7 +108,7 @@ export struct ProviderIconEditSheet {
             .fontColor($r('app.color.text_primary'))
             .padding({ left: 12, right: 12, top: 6, bottom: 6 })
             .onClick(() => {
-              this.tempTextIconBgColor = generateSoftColor()
+              this.$tempTextIconBgColor(generateSoftColor())
             })
         }
         .width('100%')
@@ -196,7 +198,7 @@ export struct ProviderIconEditSheet {
         })
         .justifyContent(FlexAlign.Center)
         .onClick(() => {
-          this.tempTextIconBgColor = TRANSPARENT_BG_COLOR
+          this.$tempTextIconBgColor(TRANSPARENT_BG_COLOR)
           this.showColorPicker = false
         })
 
@@ -224,7 +226,7 @@ export struct ProviderIconEditSheet {
                   color: this.tempTextIconBgColor === color ? $r('app.color.primary') : $r('app.color.divider')
                 })
                 .onClick(() => {
-                  this.tempTextIconBgColor = color
+                  this.$tempTextIconBgColor(color)
                   this.showColorPicker = false
                 })
             }

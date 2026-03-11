@@ -9,26 +9,26 @@ import {
   getButtonAnimation
 } from '../utils/ButtonAnimationUtils'
 
-@Component
+@ComponentV2
 export struct ScrollToBottomButton {
   // 是否显示按钮
-  @Prop isVisible: boolean = false
+  @Param isVisible: boolean = false
   // 输入栏是否可见（用于计算按钮位置）
-  @Prop isInputBarVisible: boolean = true
+  @Param isInputBarVisible: boolean = true
   // 底部安全区域高度（vp）
-  @Prop bottomAvoidHeight: number = 0
+  @Param bottomAvoidHeight: number = 0
   // 按钮方向：0=向下（到底部）, 1=向上（到顶部）
-  @Prop buttonDirection: number = 0
+  @Param buttonDirection: number = 0
   // 额外纵向偏移（用于多按钮错位摆放）
-  @Prop extraOffsetY: number = 0
+  @Param extraOffsetY: number = 0
   // 点击回调
-  onScrollToBottom: () => void = () => {}
-  onScrollToTop: () => void = () => {}
+  @Event onScrollToBottom: () => void = () => {}
+  @Event onScrollToTop: () => void = () => {}
 
   // 按钮按下状态
-  @State private scrollBtnPressed: boolean = false
+  @Local private scrollBtnPressed: boolean = false
   // 主题颜色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @Param themePrimary: string = '#0A59F7'
 
   build() {
     if (this.isVisible) {

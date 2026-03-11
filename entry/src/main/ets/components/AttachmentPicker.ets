@@ -19,12 +19,12 @@ interface AttachmentOption {
   action: () => void
 }
 
-@Component
+@ComponentV2
 export struct AttachmentPicker {
-  @State isLoading: boolean = false
-  onSelectAttachments: (attachments: MessageAttachment[]) => void = () => {
+  @Local isLoading: boolean = false
+  @Event onSelectAttachments: (attachments: MessageAttachment[]) => void = () => {
   }
-  onClose: () => void = () => {
+  @Event onClose: () => void = () => {
   }
 
   build() {

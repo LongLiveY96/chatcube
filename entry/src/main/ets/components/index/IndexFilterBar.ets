@@ -1,12 +1,12 @@
 import { SessionFilterType } from '../../pages/index/IndexPageTypes'
 
-@Component
+@ComponentV2
 export struct IndexFilterBar {
-  @Prop currentFilter: SessionFilterType = SessionFilterType.ALL
-  @Prop countText: string = '0'
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
-  onFilterChange: (filterType: SessionFilterType) => void = (_filterType: SessionFilterType): void => {}
+  @Param currentFilter: SessionFilterType = SessionFilterType.ALL
+  @Param countText: string = '0'
+  @Param themePrimary: string = '#0A59F7'
+  @Param themePrimaryLight: string = '#E6F2FF'
+  @Event onFilterChange: (filterType: SessionFilterType) => void = (_filterType: SessionFilterType): void => {}
 
   @Builder
   private FilterChip(filterType: SessionFilterType, title: Resource) {

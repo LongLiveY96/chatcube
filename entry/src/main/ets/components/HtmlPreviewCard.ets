@@ -5,19 +5,19 @@ import { hilog } from '@kit.PerformanceAnalysisKit'
 const DOMAIN = 0x0002
 const TAG = 'HtmlPreviewCard'
 
-@Component
+@ComponentV2
 export struct HtmlPreviewCard {
-  @Prop @Watch('onHtmlCodeChange') htmlCode: string = ''
-  @StorageProp('isDarkMode') @Watch('onDarkModeChange') isDarkMode: boolean = false
-  @State activeTab: number = 1 // 0=代码, 1=预览
-  @State showFullScreen: boolean = false
-  @State copyBtnPressed: boolean = false
-  @State fullScreenBtnPressed: boolean = false
+  @Param htmlCode: string = ''
+  @Param isDarkMode: boolean = false
+  @Local activeTab: number = 1
+  @Local showFullScreen: boolean = false
+  @Local copyBtnPressed: boolean = false
+  @Local fullScreenBtnPressed: boolean = false
   // Web 组件需要始终保持实例，避免被 if/else 销毁重建
   private previewWebController: webview.WebviewController = new webview.WebviewController()
   private fullScreenWebController: webview.WebviewController = new webview.WebviewController()
   private isPreviewWebReady: boolean = false
-  onCopyCode: (code: string) => void = () => {
+  @Event onCopyCode: (code: string) => void = () => {
   }
 
   private getWrappedHtml(): string {
@@ -57,10 +57,12 @@ export struct HtmlPreviewCard {
     }
   }
 
+  @Monitor('htmlCode')
   onHtmlCodeChange(): void {
     this.reloadPreview()
   }
 
+  @Monitor('isDarkMode')
   onDarkModeChange(): void {
     this.reloadPreview()
   }

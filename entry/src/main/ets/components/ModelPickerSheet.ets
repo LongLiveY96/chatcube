@@ -9,24 +9,23 @@ import {
   ModelPickerRowType,
   buildModelPickerRows
 } from '../config/ModelListProjection'
-import { ArrayDataSource } from '../datasource/ArrayDataSource'
 import { buildModelIconRenderData, ModelIconRenderData } from '../utils/ModelIconRenderUtils'
 
-@Component
+@ComponentV2
 export struct ModelPickerSheet {
-  @Prop availableModels: string[] = []
-  @Prop existingModels: ModelInfo[] = []
-  @Prop providerId: string = ''
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('isDarkMode') isDarkMode: boolean = false
+  @Param availableModels: string[] = []
+  @Param existingModels: ModelInfo[] = []
+  @Param providerId: string = ''
+  @Param themePrimary: string = '#0A59F7'
+  @Param isDarkMode: boolean = false
 
-  @State searchKeywords: string = ''
-  @State selectedIds: Set<string> = new Set<string>()
+  @Local searchKeywords: string = ''
+  @Local selectedIds: Set<string> = new Set<string>()
 
-  onConfirm: (selectedIds: string[]) => void = () => {}
-  onCancel: () => void = () => {}
+  @Event onConfirm: (selectedIds: string[]) => void = () => {}
+  @Event onCancel: () => void = () => {}
 
-  private rowDataSource: ArrayDataSource<ModelPickerRow> = new ArrayDataSource<ModelPickerRow>()
+  @Local private rows: ModelPickerRow[] = []
   private existingModelIdSet: Set<string> = new Set<string>()
   private filteredModelIds: string[] = []
   private groupExpansionState: Map<string, boolean> = new Map<string, boolean>()
@@ -61,7 +60,7 @@ export struct ModelPickerSheet {
       this.groupExpansionState
     )
     this.filteredModelIds = result.filteredModelIds
-    this.rowDataSource.setData(result.rows)
+    this.rows = result.rows
     console.info(
       'ModelPickerSheet',
       `[rebuildRows] available=${this.availableModels.length}, rows=${result.rows.length}, filtered=${this.filteredModelIds.length}, cost=${Date.now() - startAt}ms`
@@ -316,15 +315,18 @@ export struct ModelPickerSheet {
   @Builder
   ModelList() {
     List() {
-      LazyForEach(this.rowDataSource, (row: ModelPickerRow, _index: number) => {
-        ListItem() {
-          if (row.type === ModelPickerRowType.GROUP_HEADER) {
-            this.GroupHeader(row as ModelPickerGroupHeaderRow)
-          } else {
-            this.ModelRow(row as ModelPickerModelRow)
+      Repeat<ModelPickerRow>(this.rows)
+        .each((ri: RepeatItem<ModelPickerRow>) => {
+          ListItem() {
+            if (ri.item.type === ModelPickerRowType.GROUP_HEADER) {
+              this.GroupHeader(ri.item as ModelPickerGroupHeaderRow)
+            } else {
+              this.ModelRow(ri.item as ModelPickerModelRow)
+            }
           }
-        }
-      }, (row: ModelPickerRow) => row.key)
+        })
+        .key((row: ModelPickerRow) => row.key)
+        .virtualScroll({ totalCount: this.rows.length })
     }
     .width('100%')
     .layoutWeight(1)

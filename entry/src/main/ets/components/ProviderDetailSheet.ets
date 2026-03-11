@@ -34,46 +34,46 @@ export enum ProviderDetailPresentationMode {
   PAGE = 'page'
 }
 
-@Component
+@ComponentV2
 export struct ProviderDetailPanel {
-  @Prop @Watch('onProviderInputChanged') providerId: string = ''
-  @Prop @Watch('onProviderInputChanged') isCreateMode: boolean = false
-  @Prop closeOnSave: boolean = true
-  @Prop closeOnModelsSelected: boolean = true
-  @Prop presentationMode: ProviderDetailPresentationMode = ProviderDetailPresentationMode.SHEET
-  onClose: () => void = () => {}
-  onProviderChanged: (providerId: string, isCreateMode: boolean) => void = (_providerId: string, _isCreateMode: boolean) => {}
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('isDarkMode') isDarkMode: boolean = false
+  @Param providerId: string = ''
+  @Param isCreateMode: boolean = false
+  @Param closeOnSave: boolean = true
+  @Param closeOnModelsSelected: boolean = true
+  @Param presentationMode: ProviderDetailPresentationMode = ProviderDetailPresentationMode.SHEET
+  @Event onClose: () => void = () => {}
+  @Event onProviderChanged: (providerId: string, isCreateMode: boolean) => void = (_providerId: string, _isCreateMode: boolean) => {}
+  @Param themePrimary: string = '#0A59F7'
+  @Param isDarkMode: boolean = false
 
-  @State provider: ModelProvider | null = null
-  @State isLoading: boolean = true
-  @State isTesting: boolean = false
-  @State isFetchingModels: boolean = false
-  @State isSaving: boolean = false
-  @State showApiKey: boolean = false
-  @State searchKeywords: string = ''
-  @State modelGroups: ProviderModelGroup[] = []
+  @Local provider: ModelProvider | null = null
+  @Local isLoading: boolean = true
+  @Local isTesting: boolean = false
+  @Local isFetchingModels: boolean = false
+  @Local isSaving: boolean = false
+  @Local showApiKey: boolean = false
+  @Local searchKeywords: string = ''
+  @Local modelGroups: ProviderModelGroup[] = []
   // 模型编辑相关状态
-  @State showEditSheet: boolean = false
-  @State editingModel: ModelInfo | null = null
+  @Local showEditSheet: boolean = false
+  @Local editingModel: ModelInfo | null = null
   // 模型选择器相关状态
-  @State fetchedModels: string[] = []
+  @Local fetchedModels: string[] = []
   // 统一的弹窗控制：'none' | 'edit' | 'picker' | 'icon'
-  @State activeSheet: string = 'none'
-  @State showSheet: boolean = false
+  @Local activeSheet: string = 'none'
+  @Local showSheet: boolean = false
   // 动效触发器
-  @State toggleAllEffectTrigger: number = 0
+  @Local toggleAllEffectTrigger: number = 0
   // Tab 切换索引
-  @State currentTabIndex: number = 0
+  @Local currentTabIndex: number = 0
   // Tab 图标动效触发器
-  @State configTabEffectTrigger: number = 0
-  @State modelsTabEffectTrigger: number = 0
+  @Local configTabEffectTrigger: number = 0
+  @Local modelsTabEffectTrigger: number = 0
   // 图标编辑相关状态
-  @State showTextIconEditor: boolean = false
-  @State showColorPicker: boolean = false
-  @State tempTextIcon: string = ''
-  @State tempTextIconBgColor: string = ''
+  @Local showTextIconEditor: boolean = false
+  @Local showColorPicker: boolean = false
+  @Local tempTextIcon: string = ''
+  @Local tempTextIconBgColor: string = ''
 
   private providerViewModel: ProviderViewModel = ServiceRegistry.provider()
 
@@ -87,7 +87,8 @@ export struct ProviderDetailPanel {
     this.loadProviderData()
   }
 
-  private onProviderInputChanged(): void {
+  @Monitor('providerId', 'isCreateMode')
+  onProviderInputChanged(): void {
     this.searchKeywords = ''
     this.modelGroups = []
     this.provider = null
@@ -1318,9 +1319,8 @@ export struct ProviderDetailPanel {
   @Builder
   IconEditSheetBuilder() {
     ProviderIconEditSheet({
-      showColorPicker: $showColorPicker,
-      tempTextIcon: $tempTextIcon,
-      tempTextIconBgColor: $tempTextIconBgColor,
+      tempTextIcon: this.tempTextIcon!!,
+      tempTextIconBgColor: this.tempTextIconBgColor!!,
       provider: this.provider,
       onSave: () => {
         this.saveIconConfig()
@@ -1391,14 +1391,14 @@ export struct ProviderDetailPanel {
   }
 }
 
-@Component
+@ComponentV2
 export struct ProviderDetailSheet {
-  @Prop providerId: string = ''
-  @Prop isCreateMode: boolean = false
-  @Prop closeOnSave: boolean = true
-  @Prop closeOnModelsSelected: boolean = true
-  onClose: () => void = () => {}
-  onProviderChanged: (providerId: string, isCreateMode: boolean) => void = (_providerId: string, _isCreateMode: boolean) => {}
+  @Param providerId: string = ''
+  @Param isCreateMode: boolean = false
+  @Param closeOnSave: boolean = true
+  @Param closeOnModelsSelected: boolean = true
+  @Event onClose: () => void = () => {}
+  @Event onProviderChanged: (providerId: string, isCreateMode: boolean) => void = (_providerId: string, _isCreateMode: boolean) => {}
 
   build() {
     Column() {
@@ -1421,13 +1421,13 @@ export struct ProviderDetailSheet {
   }
 }
 
-@Component
+@ComponentV2
 export struct ModelItemCard {
-  @ObjectLink model: ModelInfo
-  @Prop showDivider: boolean = false
-  @Prop providerId: string = ''
-  onToggle: () => void = () => {}
-  onEdit: () => void = () => {}
+  @Param model: ModelInfo = new ModelInfo('', '')
+  @Param showDivider: boolean = false
+  @Param providerId: string = ''
+  @Event onToggle: () => void = () => {}
+  @Event onEdit: () => void = () => {}
 
   private getModelIconRenderData(): ModelIconRenderData {
     return buildModelIconRenderData(this.model.id, this.providerId, this.model.name)

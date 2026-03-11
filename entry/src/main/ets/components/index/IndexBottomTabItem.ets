@@ -1,11 +1,11 @@
-@Component
+@ComponentV2
 export struct IndexBottomTabItem {
-  @Prop active: boolean = false
-  @Prop activeIcon: Resource = $r('sys.symbol.circle')
-  @Prop inactiveIcon: Resource = $r('sys.symbol.circle')
-  @Prop label: Resource = $r('app.string.tab_chat')
-  @Prop badgeCount: number = 0
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @Param active: boolean = false
+  @Param activeIcon: Resource = $r('sys.symbol.circle')
+  @Param inactiveIcon: Resource = $r('sys.symbol.circle')
+  @Param label: Resource = $r('app.string.tab_chat')
+  @Param badgeCount: number = 0
+  @Param themePrimary: string = '#0A59F7'
 
   build() {
     Column() {

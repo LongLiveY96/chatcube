@@ -5,34 +5,32 @@
 
 import { ReasoningLevel, MessageAttachment, AttachmentType } from '../models/ChatModels'
 
-@Component
+@ComponentV2
 export struct EditMessageSheet {
-  // 输入内容
-  @Link editText: string
-  // 附件列表
-  @Link attachments: MessageAttachment[]
-  // 联网查询启用状态
-  @Link webSearchEnabled: boolean
-  // 推理级别
-  @Link reasoningLevel: ReasoningLevel
-  // 是否为用户消息（控制显示"保存并发送"）
-  @Prop isUserMessage: boolean = true
+  @Param editText: string = ''
+  @Event $editText: (value: string) => void = () => {}
+  @Param attachments: MessageAttachment[] = []
+  @Event $attachments: (value: MessageAttachment[]) => void = () => {}
+  @Param webSearchEnabled: boolean = false
+  @Event $webSearchEnabled: (value: boolean) => void = () => {}
+  @Param reasoningLevel: ReasoningLevel = ReasoningLevel.OFF
+  @Event $reasoningLevel: (value: ReasoningLevel) => void = () => {}
+  @Param isUserMessage: boolean = true
   // 原始内容（用于判断是否有修改）
   originalContent: string = ''
   originalAttachments: MessageAttachment[] = []
 
   // 回调
-  onSaveAndSend: () => void = () => {}
-  onSave: () => void = () => {}
-  onClose: () => void = () => {}
-  onAttachmentClick: () => void = () => {}
-  onDeleteAttachment: (index: number) => void = () => {}
+  @Event onSaveAndSend: () => void = () => {}
+  @Event onSave: () => void = () => {}
+  @Event onClose: () => void = () => {}
+  @Event onAttachmentClick: () => void = () => {}
+  @Event onDeleteAttachment: (index: number) => void = () => {}
 
   // 内部状态
-  @State private iconTrigger: number = 0
-  @State private sendBtnPressed: boolean = false
-  // 主题颜色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @Local private iconTrigger: number = 0
+  @Local private sendBtnPressed: boolean = false
+  @Param themePrimary: string = '#0A59F7'
 
   build() {
     Column() {
@@ -40,12 +38,15 @@ export struct EditMessageSheet {
       this.Toolbar()
 
       // 编辑区域
-      TextArea({ text: $$this.editText, placeholder: $r('app.string.edit_message_placeholder') })
+      TextArea({ text: this.editText, placeholder: $r('app.string.edit_message_placeholder') })
         .width('100%')
         .layoutWeight(1)
         .padding(12)
         .backgroundColor(Color.Transparent)
         .fontSize(16)
+        .onChange((value: string) => {
+          this.$editText(value)
+        })
 
       // 附件预览区域
       if (this.attachments.length > 0) {
@@ -178,7 +179,7 @@ export struct EditMessageSheet {
     .height(44)
     .padding({ left: 16, right: 16 })
     .onClick(() => {
-      this.reasoningLevel = level
+      this.$reasoningLevel(level)
     })
   }
 

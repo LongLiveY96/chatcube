@@ -12,16 +12,16 @@ import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelpe
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 
 @Entry
-@Component
+@ComponentV2
 struct HandAdaptiveSettingsPage {
-  @StorageProp(AppStorageKeys.LAYOUT_SIZE_CLASS) layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @StorageProp(AppStorageKeys.WINDOW_WIDTH_VP) windowWidthVp: number = 0
-  @StorageProp(AppStorageKeys.WINDOW_HEIGHT_VP) windowHeightVp: number = 0
-  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE) settingsDetailPresentationMode: string = 'page'
+  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @Param windowWidthVp: number = 0
+  @Param windowHeightVp: number = 0
+  @Param settingsDetailPresentationMode: string = 'page'
 
-  @State handAdaptiveEnabled: boolean = false
-  @State handAdaptiveNewChat: boolean = false
-  @State handAdaptiveUnsupported: boolean = false
+  @Local handAdaptiveEnabled: boolean = false
+  @Local handAdaptiveNewChat: boolean = false
+  @Local handAdaptiveUnsupported: boolean = false
 
   private preferencesService = ServiceRegistry.preferences()
   private readonly probeHoldingHandCallback = (_status: motion.HoldingHandStatus): void => {}

@@ -13,10 +13,10 @@ export enum SessionFilterType {
   FAVORITE = 1
 }
 
-@Observed
+@ObservedV2
 export class SessionGroupData {
-  key: string
-  sessions: ChatSession[]
+  @Trace key: string
+  @Trace sessions: ChatSession[]
 
   constructor(key: string, sessions: ChatSession[]) {
     this.key = key

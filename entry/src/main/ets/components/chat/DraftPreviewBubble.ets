@@ -1,13 +1,13 @@
 import { AttachmentType, MessageAttachment } from '../../models/ChatModels'
 
-@Component
+@ComponentV2
 export struct DraftPreviewBubble {
-  @Prop inputText: string = ''
-  @Prop pendingAttachments: MessageAttachment[] = []
-  @StorageProp('theme_user_bubble') themeUserBubble: string = '#0A59F7'
-  @StorageProp('theme_user_bubble_text') themeUserBubbleText: string = '#FFFFFF'
-  @StorageProp('chat_font_size') chatFontSize: number = 15
-  @Prop previewTimeText: string = ''
+  @Param inputText: string = ''
+  @Param pendingAttachments: MessageAttachment[] = []
+  @Param themeUserBubble: string = '#0A59F7'
+  @Param themeUserBubbleText: string = '#FFFFFF'
+  @Param chatFontSize: number = 15
+  @Param previewTimeText: string = ''
   draftPreviewImageMaxHeight: number = 120
   draftPreviewImageContainerWidth: number = 180
   draftPreviewImageGap: number = 6

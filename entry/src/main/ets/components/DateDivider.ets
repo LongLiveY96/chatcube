@@ -5,10 +5,10 @@
 
 import { formatDateDivider } from '../utils/DateFormatUtils'
 
-@Component
+@ComponentV2
 export struct DateDivider {
   // 时间戳
-  timestamp: number = 0
+  @Param timestamp: number = 0
 
   build() {
     Row() {

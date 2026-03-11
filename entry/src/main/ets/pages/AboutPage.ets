@@ -15,18 +15,17 @@ const TAG = 'AboutPage'
 const GITHUB_URL = 'https://github.com/LongLiveY96/chatcube'
 
 @Entry
-@Component
+@ComponentV2
 struct AboutPage {
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
-  @StorageProp('layout_size_class') layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @StorageProp('window_width_vp') windowWidthVp: number = 0
-  @StorageProp('window_height_vp') windowHeightVp: number = 0
-  @StorageProp(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE)
-  settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
-  @State showQrSheet: boolean = false
-  @State isSaving: boolean = false
-  @State versionName: string = ''
+  @Param themePrimary: string = '#0A59F7'
+  @Param themePrimaryLight: string = '#E6F2FF'
+  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @Param windowWidthVp: number = 0
+  @Param windowHeightVp: number = 0
+  @Param settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
+  @Local showQrSheet: boolean = false
+  @Local isSaving: boolean = false
+  @Local versionName: string = ''
 
   aboutToAppear(): void {
     try {

@@ -1,13 +1,13 @@
 import { ModelInfo } from '../models/ChatModels'
 import { ModelPickerSheet } from './ModelPickerSheet'
 
-@Component
+@ComponentV2
 export struct ModelPickerSheetHost {
-  @Prop availableModels: string[] = []
-  @Prop existingModels: ModelInfo[] = []
-  @Prop providerId: string = ''
-  onConfirm: (selectedIds: string[]) => void = (_selectedIds: string[]): void => {}
-  onCancel: () => void = (): void => {}
+  @Param availableModels: string[] = []
+  @Param existingModels: ModelInfo[] = []
+  @Param providerId: string = ''
+  @Event onConfirm: (selectedIds: string[]) => void = (_selectedIds: string[]): void => {}
+  @Event onCancel: () => void = (): void => {}
 
   build() {
     if (this.availableModels.length > 0) {

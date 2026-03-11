@@ -2,20 +2,20 @@ import { ThemeMode, AppLanguage } from '../../services/PreferencesService'
 import { SettingsSheetType } from '../../pages/index/IndexPageTypes'
 import { IndexSettingsSheetActionCallbacks } from '../../pages/index/IndexSettingsSheetCoordinator'
 
-@Component
+@ComponentV2
 export struct IndexSettingsSheetContent {
-  @Prop settingsSheetType: SettingsSheetType = SettingsSheetType.NONE
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
-  @Prop currentThemeMode: ThemeMode = ThemeMode.SYSTEM
-  @Prop currentLanguage: AppLanguage = AppLanguage.SYSTEM
-  @Prop notifyEnabled: boolean = true
-  @Prop notifyOnComplete: boolean = true
-  @Prop notifyOnFailed: boolean = true
-  @Prop handAdaptiveEnabled: boolean = false
-  @Prop handAdaptiveNewChat: boolean = false
-  @Prop handAdaptiveUnsupported: boolean = false
-  callbacks: IndexSettingsSheetActionCallbacks = new IndexSettingsSheetActionCallbacks()
+  @Param settingsSheetType: SettingsSheetType = SettingsSheetType.NONE
+  @Param themePrimary: string = '#0A59F7'
+  @Param themePrimaryLight: string = '#E6F2FF'
+  @Param currentThemeMode: ThemeMode = ThemeMode.SYSTEM
+  @Param currentLanguage: AppLanguage = AppLanguage.SYSTEM
+  @Param notifyEnabled: boolean = true
+  @Param notifyOnComplete: boolean = true
+  @Param notifyOnFailed: boolean = true
+  @Param handAdaptiveEnabled: boolean = false
+  @Param handAdaptiveNewChat: boolean = false
+  @Param handAdaptiveUnsupported: boolean = false
+  @Param callbacks: IndexSettingsSheetActionCallbacks = new IndexSettingsSheetActionCallbacks()
 
   @Builder
   private ThemeOptionItem(mode: ThemeMode, label: Resource) {

@@ -4,14 +4,14 @@ import { HdsActionBar, ActionBarButton } from '@kit.UIDesignKit'
  * 多选工具栏组件
  * 用于消息/会话多选模式下的批量操作
  */
-@Component
+@ComponentV2
 export struct MultiSelectToolbar {
-  @Prop selectedCount: number = 0
-  @Prop totalCount: number = 0
-  onSelectAll: () => void = () => {}
-  onDelete: () => void = () => {}
-  onShare: () => void = () => {}
-  onCancel: () => void = () => {}
+  @Param selectedCount: number = 0
+  @Param totalCount: number = 0
+  @Event onSelectAll: () => void = () => {}
+  @Event onDelete: () => void = () => {}
+  @Event onShare: () => void = () => {}
+  @Event onCancel: () => void = () => {}
 
   private isAllSelected(): boolean {
     return this.totalCount > 0 && this.selectedCount === this.totalCount

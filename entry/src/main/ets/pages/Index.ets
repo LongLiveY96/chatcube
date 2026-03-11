@@ -64,58 +64,57 @@ import {
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 
 @Entry
-@Component
+@ComponentV2
 struct Index {
-  @State currentTabIndex: number = 1
-  @State sessions: ChatSession[] = []
-  @State isLoading: boolean = false
-  @State @Watch('onSettingsSummaryStateChanged') currentThemeMode: ThemeMode = ThemeMode.SYSTEM
-  @State @Watch('onSettingsSummaryStateChanged') currentLanguage: AppLanguage = AppLanguage.SYSTEM
-  @State @Watch('onSettingsSummaryStateChanged') notifyEnabled: boolean = true
-  @State @Watch('onSettingsSummaryStateChanged') notifyOnComplete: boolean = true
-  @State @Watch('onSettingsSummaryStateChanged') notifyOnFailed: boolean = true
-  @State @Watch('onSettingsSummaryStateChanged') handAdaptiveEnabled: boolean = false
-  @State @Watch('onSettingsSummaryStateChanged') handAdaptiveNewChat: boolean = false
-  @State @Watch('onSettingsSummaryStateChanged') handAdaptiveUnsupported: boolean = false
-  @StorageProp(AppStorageKeys.SETTINGS_HAND_ADAPTIVE_CHANGED_AT)
-  @Watch('onHandAdaptiveSettingsTickChanged') handAdaptiveSettingsChangedAt: number = 0
-  @State currentHoldingHand: motion.HoldingHandStatus = motion.HoldingHandStatus.UNKNOWN_STATUS
-  @State fabPressed: boolean = false
-  @State @Watch('onSettingsSummaryStateChanged') currentColorTheme: ColorTheme = ColorTheme.DEFAULT
-  @State showSettingsSheet: boolean = false
-  @State activeSettingsSheetType: SettingsSheetType = SettingsSheetType.NONE
-  @State showSystemPromptSheet: boolean = false
-  @State customSystemPrompt: string = ''
-  @State searchText: string = ''
-  @State isSearchExpanded: boolean = false
-  @State currentSessionFilter: SessionFilterType = SessionFilterType.ALL
-  @State tabletDetailSessionId: string = ''
-  @StorageProp(AppStorageKeys.ACTIVE_CHAT_SESSION_ID) activeChatSessionId: string = ''
+  @Local currentTabIndex: number = 1
+  @Local sessions: ChatSession[] = []
+  @Local isLoading: boolean = false
+  @Local currentThemeMode: ThemeMode = ThemeMode.SYSTEM
+  @Local currentLanguage: AppLanguage = AppLanguage.SYSTEM
+  @Local notifyEnabled: boolean = true
+  @Local notifyOnComplete: boolean = true
+  @Local notifyOnFailed: boolean = true
+  @Local handAdaptiveEnabled: boolean = false
+  @Local handAdaptiveNewChat: boolean = false
+  @Local handAdaptiveUnsupported: boolean = false
+  @Param handAdaptiveSettingsChangedAt: number = 0
+  @Local currentHoldingHand: motion.HoldingHandStatus = motion.HoldingHandStatus.UNKNOWN_STATUS
+  @Local fabPressed: boolean = false
+  @Local currentColorTheme: ColorTheme = ColorTheme.DEFAULT
+  @Local showSettingsSheet: boolean = false
+  @Local activeSettingsSheetType: SettingsSheetType = SettingsSheetType.NONE
+  @Local showSystemPromptSheet: boolean = false
+  @Local customSystemPrompt: string = ''
+  @Local searchText: string = ''
+  @Local isSearchExpanded: boolean = false
+  @Local currentSessionFilter: SessionFilterType = SessionFilterType.ALL
+  @Local tabletDetailSessionId: string = ''
+  @Param activeChatSessionId: string = ''
   // 避让区域高度
-  @StorageProp('topAvoidHeight') topAvoidHeight: number = 0
-  @StorageProp('bottomAvoidHeight') bottomAvoidHeight: number = 0
-  @StorageProp('layout_size_class') @Watch('onLayoutSizeClassChanged') layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @StorageProp('window_width_vp') @Watch('onWindowMetricsChanged') windowWidthVp: number = 0
-  @StorageProp('window_height_vp') @Watch('onWindowMetricsChanged') windowHeightVp: number = 0
+  @Param topAvoidHeight: number = 0
+  @Param bottomAvoidHeight: number = 0
+  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @Param windowWidthVp: number = 0
+  @Param windowHeightVp: number = 0
   // 主题颜色
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
-  @StorageProp('chat_font_size') chatFontSize: number = 15
+  @Param themePrimary: string = '#0A59F7'
+  @Param themePrimaryLight: string = '#E6F2FF'
+  @Local chatFontSize: number = 15
   // 监听从服务卡片打开新聊天的事件
-  @StorageProp('openNewChat') @Watch('onOpenNewChat') openNewChatTimestamp: number = 0
-  @StorageProp('openSessionPayload') @Watch('onOpenSessionPayloadChanged') openSessionPayload: string = ''
-  @StorageProp('task_unread_by_session') @Watch('onTaskUnreadBySessionChanged') taskUnreadBySessionJson: string = '{}'
-  @StorageProp('task_event_tick') @Watch('onTaskEventTickChanged') taskEventTick: number = 0
-  @StorageProp('in_app_task_alert_payload') @Watch('onInAppTaskAlertPayloadChanged') inAppTaskAlertPayload: string = ''
-  @State unreadRenderTick: number = 0
+  @Param openNewChatTimestamp: number = 0
+  @Param openSessionPayload: string = ''
+  @Param taskUnreadBySessionJson: string = '{}'
+  @Param taskEventTick: number = 0
+  @Param inAppTaskAlertPayload: string = ''
+  @Local unreadRenderTick: number = 0
   // 监听会话列表刷新信号（标题更新、创建、删除等）
-  @StorageProp('session_list_refresh_at') @Watch('onSessionListRefresh') sessionListRefreshAt: number = 0
+  @Param sessionListRefreshAt: number = 0
   // 多选模式状态
-  @State isMultiSelectMode: boolean = false
-  @State selectedSessionIds: Array<string> = []
+  @Local isMultiSelectMode: boolean = false
+  @Local selectedSessionIds: Array<string> = []
   // 分享预览弹窗状态
-  @State showSharePreview: boolean = false
-  @State shareMessages: ChatMessage[] = []
+  @Local showSharePreview: boolean = false
+  @Local shareMessages: ChatMessage[] = []
   // Settings Sheet 关闭动画期间的状态机（避免“关闭回调晚到”误关新弹窗）
   private settingsSheetClosing: boolean = false
   private pendingSettingsSheetType: SettingsSheetType = SettingsSheetType.NONE
@@ -123,7 +122,7 @@ struct Index {
   private tabletChatDetailPathStack: NavPathStack = new NavPathStack()
   private settingsNavPathStack: NavPathStack = new NavPathStack()
   private currentTabletDetailParams: ChatPageRouteParams | null = null
-  @State currentSettingsRouteName: string = ''
+  @Local currentSettingsRouteName: string = ''
   // 返回键退出控制
   private lastBackPressTime: number = 0
   private chatViewModel: ChatViewModel = ServiceRegistry.chat()
@@ -147,13 +146,15 @@ struct Index {
     showSnackBar(this.getUIContext(), options)
   }
 
-  private onSettingsSummaryStateChanged(): void {
+  @Monitor('currentThemeMode', 'currentLanguage', 'notifyEnabled', 'notifyOnComplete', 'notifyOnFailed', 'handAdaptiveEnabled', 'handAdaptiveNewChat', 'handAdaptiveUnsupported', 'currentColorTheme')
+  onSettingsSummaryStateChanged(): void {
     console.info('Index', `Settings summary state changed: theme=${this.currentThemeMode}, language=${this.currentLanguage},` +
       ` colorTheme=${this.currentColorTheme}, hand=${this.handAdaptiveEnabled}/${this.handAdaptiveNewChat}/` +
       `${this.handAdaptiveUnsupported}, notify=${this.notifyEnabled}/${this.notifyOnComplete}/${this.notifyOnFailed}`)
   }
 
-  private onLayoutSizeClassChanged(): void {
+  @Monitor('layoutSizeClass')
+  onLayoutSizeClassChanged(): void {
     if (this.currentTabIndex === 2 && this.settingsNavPathStack.size() > 0) {
       this.syncSettingsDetailPresentationMode()
     }
@@ -176,7 +177,8 @@ struct Index {
     return this.layoutSizeClass === LayoutSizeClass.EXPANDED
   }
 
-  private onWindowMetricsChanged(): void {
+  @Monitor('windowWidthVp', 'windowHeightVp')
+  onWindowMetricsChanged(): void {
     if (this.currentTabIndex !== 2) {
       return
     }
@@ -322,20 +324,24 @@ struct Index {
     AppStorage.setOrCreate(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE, SettingsPagePresentationMode.PAGE)
   }
 
+  @Monitor('openNewChatTimestamp')
   onOpenNewChat(): void {
     if (this.openNewChatTimestamp > 0) {
       this.openChatRoute({} as ChatPageRouteParams)
     }
   }
 
+  @Monitor('openSessionPayload')
   onOpenSessionPayloadChanged(): void {
     this.handleOpenSessionPayload(this.openSessionPayload)
   }
 
+  @Monitor('taskUnreadBySessionJson')
   onTaskUnreadBySessionChanged(): void {
     this.parseUnreadBySessionJson(this.taskUnreadBySessionJson)
   }
 
+  @Monitor('taskEventTick')
   onTaskEventTickChanged(): void {
     if (this.taskEventTick > 0) {
       this.loadSessions()
@@ -343,17 +349,20 @@ struct Index {
     }
   }
 
+  @Monitor('inAppTaskAlertPayload')
   onInAppTaskAlertPayloadChanged(): void {
     this.handleInAppTaskAlertPayload(this.inAppTaskAlertPayload)
   }
 
+  @Monitor('sessionListRefreshAt')
   onSessionListRefresh(): void {
     if (this.sessionListRefreshAt > 0) {
       this.loadSessions()
     }
   }
 
-  private onHandAdaptiveSettingsTickChanged(): void {
+  @Monitor('handAdaptiveSettingsChangedAt')
+  onHandAdaptiveSettingsTickChanged(): void {
     if (this.handAdaptiveSettingsChangedAt > 0) {
       this.loadHandAdaptiveSettings()
     }
@@ -1571,15 +1580,15 @@ struct Index {
   @Builder
   SettingsNavigationContent() {
     IndexSettingsPanel({
-      currentThemeMode: $currentThemeMode,
-      currentLanguage: $currentLanguage,
-      currentColorTheme: $currentColorTheme,
-      handAdaptiveEnabled: $handAdaptiveEnabled,
-      handAdaptiveNewChat: $handAdaptiveNewChat,
-      handAdaptiveUnsupported: $handAdaptiveUnsupported,
-      notifyEnabled: $notifyEnabled,
-      notifyOnComplete: $notifyOnComplete,
-      notifyOnFailed: $notifyOnFailed,
+      currentThemeMode: this.currentThemeMode!!,
+      currentLanguage: this.currentLanguage!!,
+      currentColorTheme: this.currentColorTheme!!,
+      handAdaptiveEnabled: this.handAdaptiveEnabled!!,
+      handAdaptiveNewChat: this.handAdaptiveNewChat!!,
+      handAdaptiveUnsupported: this.handAdaptiveUnsupported!!,
+      notifyEnabled: this.notifyEnabled!!,
+      notifyOnComplete: this.notifyOnComplete!!,
+      notifyOnFailed: this.notifyOnFailed!!,
       sidebarMode: this.isSettingsSplitMode(),
       selectedRouteName: this.currentSettingsRouteName,
       highlightSelection: this.isSettingsSplitMode(),

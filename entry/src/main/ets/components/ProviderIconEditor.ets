@@ -7,22 +7,26 @@ import { ProviderIcon } from './ProviderIcon'
 import { generateSoftColor, getAllSoftColors, TRANSPARENT_BG_COLOR } from '../utils/IconGeneratorUtils'
 import { showToast } from '../utils/ToastUtil'
 
-@Component
+@ComponentV2
 export struct ProviderIconEditor {
   // 双向绑定的图标配置
-  @Link iconType: string
-  @Link iconPath: string
-  @Link textIcon: string
-  @Link textIconBgColor: string
+  @Param iconType: string = ''
+  @Event $iconType: (value: string) => void = () => {}
+  @Param iconPath: string = ''
+  @Event $iconPath: (value: string) => void = () => {}
+  @Param textIcon: string = ''
+  @Event $textIcon: (value: string) => void = () => {}
+  @Param textIconBgColor: string = ''
+  @Event $textIconBgColor: (value: string) => void = () => {}
   // 供应商信息
-  @Prop providerName: string = ''
-  @Prop isPreset: boolean = false
+  @Param providerName: string = ''
+  @Param isPreset: boolean = false
   // 内部状态
-  @State showTextIconEditor: boolean = false
-  @State showColorPicker: boolean = false
-  @State tempTextIcon: string = ''
-  @State tempTextIconBgColor: string = ''
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
+  @Local showTextIconEditor: boolean = false
+  @Local showColorPicker: boolean = false
+  @Local tempTextIcon: string = ''
+  @Local tempTextIconBgColor: string = ''
+  @Param themePrimary: string = '#0A59F7'
 
   private showIconToast(message: string | Resource, duration: number = 2000): void {
     showToast(this.getUIContext(), message, duration)
@@ -127,14 +131,14 @@ export struct ProviderIconEditor {
     // 检查之前是否就是文字图标类型
     const wasTextIcon = this.iconType === 'text'
 
-    this.iconType = 'text'
+    this.$iconType('text')
 
     if (!wasTextIcon || this.textIcon === '') {
       // 从其他类型切换过来，或者文字图标为空时，自动生成首字母
-      this.textIcon = this.extractInitials(this.providerName)
+      this.$textIcon(this.extractInitials(this.providerName))
     }
     if (this.textIconBgColor === '') {
-      this.textIconBgColor = generateSoftColor()
+      this.$textIconBgColor(generateSoftColor())
     }
     this.tempTextIcon = this.textIcon
     this.tempTextIconBgColor = this.textIconBgColor
@@ -143,9 +147,9 @@ export struct ProviderIconEditor {
 
   // 重置为预设图标
   private resetToPresetIcon(): void {
-    this.iconType = 'svg'
-    this.textIcon = ''
-    this.textIconBgColor = ''
+    this.$iconType('svg')
+    this.$textIcon('')
+    this.$textIconBgColor('')
     this.showIconToast($r('app.string.provider_default_icon_reset'))
   }
 
@@ -204,8 +208,8 @@ export struct ProviderIconEditor {
         .height(32)
         .backgroundColor(this.themePrimary)
         .onClick(() => {
-          this.textIcon = this.tempTextIcon
-          this.textIconBgColor = this.tempTextIconBgColor
+          this.$textIcon(this.tempTextIcon)
+          this.$textIconBgColor(this.tempTextIconBgColor)
           this.showTextIconEditor = false
         })
       }

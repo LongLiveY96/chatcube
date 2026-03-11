@@ -19,7 +19,6 @@ import {
 import { DefaultModelService } from '../../services/DefaultModelService'
 import { PreferenceKeys, PreferencesService } from '../../services/PreferencesService'
 import { AppStateManager } from '../../viewmodels/AppStateManager'
-import { MessageDataSource } from '../../datasource/MessageDataSource'
 import { getEffectiveApiKey } from '../../config/PresetProviders'
 import {
   cleanSearchQuery,
@@ -38,7 +37,7 @@ export interface ChatManualSearchFlowDependencies {
   defaultModelService: DefaultModelService
   preferencesService: PreferencesService
   appStateManager: AppStateManager
-  messageDataSource: MessageDataSource
+  messages: ChatMessage[]
   getCurrentProvider: () => ModelProvider | null
   getCurrentModelId: () => string
   getCurrentModelName: () => string
@@ -133,7 +132,7 @@ export class ChatManualSearchFlow {
     for (let i = 0; i < attachments.length; i++) {
       userMessage.attachments.push(attachments[i])
     }
-    this.deps.messageDataSource.addMessage(userMessage)
+    this.deps.messages.push(userMessage)
     this.deps.onSyncMessages()
     this.deps.onSetNewEmptySession(false)
     this.deps.onDraftCommitted()
@@ -149,14 +148,17 @@ export class ChatManualSearchFlow {
       this.deps.getCurrentModelName()
     )
     aiMessage.isSearching = true
-    this.deps.messageDataSource.addMessage(aiMessage)
+    this.deps.messages.push(aiMessage)
     this.deps.onSyncMessages()
     this.deps.onScrollBottom()
     return aiMessage
   }
 
   private removeSearchingAIMessage(aiMessage: ChatMessage): void {
-    this.deps.messageDataSource.removeMessageById(aiMessage.id)
+    const idx = this.deps.messages.findIndex((m: ChatMessage) => m.id === aiMessage.id)
+    if (idx >= 0) {
+      this.deps.messages.splice(idx, 1)
+    }
     this.deps.onSyncMessages()
   }
 
@@ -170,9 +172,9 @@ export class ChatManualSearchFlow {
       const preferredEngineName = await this.deps.webSearchService.getPreferredEngineName(runtimeConfig)
       searchingAIMessage.searchQuery = query
       searchingAIMessage.searchEngine = preferredEngineName
-      const searchingIndex = this.deps.messageDataSource.findMessageIndex(searchingAIMessage.id)
+      const searchingIndex = this.deps.messages.findIndex((m: ChatMessage) => m.id === searchingAIMessage.id)
       if (searchingIndex >= 0) {
-        this.deps.messageDataSource.updateMessage(searchingIndex, searchingAIMessage)
+        this.deps.messages[searchingIndex] = searchingAIMessage
         this.deps.onSyncMessages()
       }
 
@@ -259,9 +261,9 @@ export class ChatManualSearchFlow {
 
       if (optimizedQuery !== searchingAIMessage.searchQuery) {
         searchingAIMessage.searchQuery = optimizedQuery
-        const optimizedIndex = this.deps.messageDataSource.findMessageIndex(searchingAIMessage.id)
+        const optimizedIndex = this.deps.messages.findIndex((m: ChatMessage) => m.id === searchingAIMessage.id)
         if (optimizedIndex >= 0) {
-          this.deps.messageDataSource.updateMessage(optimizedIndex, searchingAIMessage)
+          this.deps.messages[optimizedIndex] = searchingAIMessage
           this.deps.onSyncMessages()
         }
       }
@@ -407,7 +409,7 @@ export class ChatManualSearchFlow {
       attachmentsToSend,
       0,
       (userMessage: ChatMessage): void => {
-        const allMessages = this.deps.messageDataSource.getAllMessages()
+        const allMessages = this.deps.messages
         let found = false
         for (let i = allMessages.length - 1; i >= 0; i--) {
           if (allMessages[i].role === MessageRole.USER) {
@@ -419,17 +421,16 @@ export class ChatManualSearchFlow {
         if (!found) {
           allMessages.push(userMessage)
         }
-        this.deps.messageDataSource.setAllMessages(allMessages)
         this.deps.onSyncMessages()
       },
       (aiMessage: ChatMessage): void => {
-        this.deps.messageDataSource.addMessage(aiMessage)
+        this.deps.messages.push(aiMessage)
         this.deps.onSyncMessages()
         this.deps.onScrollBottom()
       },
       (aiMessage: ChatMessage): void => {
-        if (this.deps.messageDataSource.totalCount() > 0) {
-          this.deps.messageDataSource.updateLastMessage(aiMessage)
+        if (this.deps.messages.length > 0) {
+          this.deps.messages[this.deps.messages.length - 1] = aiMessage
           this.deps.onSyncMessages()
           this.deps.onScrollBottom()
         }

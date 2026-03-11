@@ -10,37 +10,36 @@ import {
 } from '../config/ModelListProjection'
 import { FavoriteModelsService, getFavoriteModelsService } from '../services/FavoriteModelsService'
 import { ProviderIcon } from './ProviderIcon'
-import { ArrayDataSource } from '../datasource/ArrayDataSource'
 import { buildModelIconRenderData, ModelIconRenderData } from '../utils/ModelIconRenderUtils'
 
-@Component
+@ComponentV2
 export struct ModelSelectorContent {
-  @Prop currentModelId: string = ''
-  @Prop @Watch('onProvidersChanged') providers: ModelProvider[] = []
-  @Prop showEditEntry: boolean = true
-  @Prop showFavoriteActions: boolean = true
-  @Prop showFavoriteFilter: boolean = true
-  @Prop showClearSelectionOption: boolean = false
-  @Prop clearSelectionText: string | Resource = $r('app.string.default_model_clear_selection')
-  @Prop searchPlaceholder: string | Resource = $r('app.string.filter_models_placeholder')
-  @Prop includeModelIdInSearch: boolean = false
-  @Prop emptyStateMode: string = 'chat'
-  @State searchKeywords: string = ''
-  @State showFavoritesOnly: boolean = false
-  @State hasEnabledModels: boolean = false
-  @State hasFavoriteModels: boolean = false
-  @State hasFilteredModels: boolean = false
-  @StorageProp('theme_primary') themePrimary: string = '#0A59F7'
-  @StorageProp('theme_primary_light') themePrimaryLight: string = '#E6F2FF'
-  @StorageProp('isDarkMode') isDarkMode: boolean = false
-  onSelectModel: (providerId: string, modelId: string, modelName: string) => void =
+  @Param currentModelId: string = ''
+  @Param providers: ModelProvider[] = []
+  @Param showEditEntry: boolean = true
+  @Param showFavoriteActions: boolean = true
+  @Param showFavoriteFilter: boolean = true
+  @Param showClearSelectionOption: boolean = false
+  @Param clearSelectionText: string | Resource = $r('app.string.default_model_clear_selection')
+  @Param searchPlaceholder: string | Resource = $r('app.string.filter_models_placeholder')
+  @Param includeModelIdInSearch: boolean = false
+  @Param emptyStateMode: string = 'chat'
+  @Local searchKeywords: string = ''
+  @Local showFavoritesOnly: boolean = false
+  @Local hasEnabledModels: boolean = false
+  @Local hasFavoriteModels: boolean = false
+  @Local hasFilteredModels: boolean = false
+  @Param themePrimary: string = '#0A59F7'
+  @Param themePrimaryLight: string = '#E6F2FF'
+  @Param isDarkMode: boolean = false
+  @Event onSelectModel: (providerId: string, modelId: string, modelName: string) => void =
     (_providerId: string, _modelId: string, _modelName: string): void => {}
-  onLongPressModel: (model: ModelInfo, provider: ModelProvider) => void =
+  @Event onLongPressModel: (model: ModelInfo, provider: ModelProvider) => void =
     (_model: ModelInfo, _provider: ModelProvider): void => {}
-  onClearSelection: () => void = (): void => {}
+  @Event onClearSelection: () => void = (): void => {}
 
   private favoriteService: FavoriteModelsService = getFavoriteModelsService()
-  private rowDataSource: ArrayDataSource<ModelSelectorRow> = new ArrayDataSource<ModelSelectorRow>()
+  @Local private rows: ModelSelectorRow[] = []
   private favoriteKeySet: Set<string> = new Set<string>()
   private iconRenderCache: Map<string, ModelIconRenderData> = new Map<string, ModelIconRenderData>()
 
@@ -54,7 +53,8 @@ export struct ModelSelectorContent {
     }
   }
 
-  private onProvidersChanged(): void {
+  @Monitor('providers')
+  onProvidersChanged(): void {
     this.iconRenderCache.clear()
     this.rebuildRows()
   }
@@ -95,7 +95,7 @@ export struct ModelSelectorContent {
     this.hasEnabledModels = result.hasEnabledModels
     this.hasFavoriteModels = result.hasFavoriteModels
     this.hasFilteredModels = result.hasFilteredModels
-    this.rowDataSource.setData(result.rows)
+    this.rows = result.rows
     console.info(
       'ModelSelectorContent',
       `[rebuildRows] providers=${this.providers.length}, rows=${result.rows.length}, enabled=${result.enabledModelCount}, matched=${result.matchedModelCount}, cost=${Date.now() - startAt}ms`
@@ -224,15 +224,18 @@ export struct ModelSelectorContent {
           .padding({ left: 16, right: 16, top: 6, bottom: 6 })
         }
 
-        LazyForEach(this.rowDataSource, (row: ModelSelectorRow, _index: number) => {
-          ListItem() {
-            if (row.type === ModelSelectorRowType.PROVIDER_HEADER) {
-              this.ProviderHeader(row.provider)
-            } else {
-              this.ModelRow(row as ModelSelectorModelRow)
+        Repeat<ModelSelectorRow>(this.rows)
+          .each((ri: RepeatItem<ModelSelectorRow>) => {
+            ListItem() {
+              if (ri.item.type === ModelSelectorRowType.PROVIDER_HEADER) {
+                this.ProviderHeader(ri.item.provider)
+              } else {
+                this.ModelRow(ri.item as ModelSelectorModelRow)
+              }
             }
-          }
-        }, (row: ModelSelectorRow) => row.key)
+          })
+          .key((row: ModelSelectorRow) => row.key)
+          .virtualScroll({ totalCount: this.rows.length })
 
         ListItem() {
           Column().height(20)

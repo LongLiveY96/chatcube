@@ -1,18 +1,18 @@
 import { SearchReference } from '../models/ChatModels'
 import { webview } from '@kit.ArkWeb'
 
-@Component
+@ComponentV2
 export struct SearchReferenceCard {
-  @Prop query: string
-  @Prop searchEngine: string
-  @Prop references: SearchReference[]
-  @Prop sourceLabel: string = ''  // 手动搜索 / 工具调用
-  @State isExpanded: boolean = false  // 默认折叠
-  @State showWebSheet: boolean = false
-  @State sheetUrl: string = ''
-  @State sheetTitle: string = ''
+  @Param query: string = ''
+  @Param searchEngine: string = ''
+  @Param references: SearchReference[] = []
+  @Param sourceLabel: string = ''
+  @Local isExpanded: boolean = false
+  @Local showWebSheet: boolean = false
+  @Local sheetUrl: string = ''
+  @Local sheetTitle: string = ''
   private sheetWebController: webview.WebviewController = new webview.WebviewController()
-  @StorageProp('isDarkMode') isDarkMode: boolean = false
+  @Param isDarkMode: boolean = false
 
   // 获取引用数量文本
   private getReferenceCountText(): string {

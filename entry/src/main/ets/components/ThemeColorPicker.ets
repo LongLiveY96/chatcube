@@ -1,11 +1,11 @@
 import { ColorTheme, ThemeInfo, ALL_THEMES } from '../models/ThemeColors'
 import { getThemeService } from '../services/ThemeService'
 
-@Component
+@ComponentV2
 export struct ThemeColorPicker {
-  @State currentTheme: ColorTheme = ColorTheme.DEFAULT
-  @StorageProp('isDarkMode') isDarkMode: boolean = false
-  onThemeSelected: (theme: ColorTheme) => void = () => {}
+  @Local currentTheme: ColorTheme = ColorTheme.DEFAULT
+  @Param isDarkMode: boolean = false
+  @Event onThemeSelected: (theme: ColorTheme) => void = () => {}
 
   aboutToAppear(): void {
     this.currentTheme = getThemeService().getColorTheme()

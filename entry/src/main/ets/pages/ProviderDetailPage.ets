@@ -2,13 +2,13 @@ import { ProviderDetailPanel, ProviderDetailPresentationMode } from '../componen
 import { getCenteredPageMaxWidth, LayoutSizeClass } from '../config/LayoutProfile'
 
 @Entry
-@Component
+@ComponentV2
 struct ProviderDetailPage {
-  @StorageProp('layout_size_class') layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @StorageProp('window_width_vp') windowWidthVp: number = 0
+  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
+  @Param windowWidthVp: number = 0
 
-  @State providerId: string = ''
-  @State routeReady: boolean = false
+  @Local providerId: string = ''
+  @Local routeReady: boolean = false
 
   private isExpandedLayout(): boolean {
     return this.layoutSizeClass === LayoutSizeClass.EXPANDED
