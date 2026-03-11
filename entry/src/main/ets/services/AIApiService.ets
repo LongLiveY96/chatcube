@@ -1145,14 +1145,14 @@ export class AIApiService {
       max_tokens: maxTokens
     }
 
-    // 添加模型参数（如果配置中提供）
-    if (config.topP !== undefined) {
+    // 添加模型参数（仅在非默认值时发送，避免不支持这些参数的 API 返回 400）
+    if (config.topP !== undefined && config.topP !== 1.0) {
       requestBody.top_p = config.topP
     }
-    if (config.presencePenalty !== undefined) {
+    if (config.presencePenalty !== undefined && config.presencePenalty !== 0) {
       requestBody.presence_penalty = config.presencePenalty
     }
-    if (config.frequencyPenalty !== undefined) {
+    if (config.frequencyPenalty !== undefined && config.frequencyPenalty !== 0) {
       requestBody.frequency_penalty = config.frequencyPenalty
     }
 

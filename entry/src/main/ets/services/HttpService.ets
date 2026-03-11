@@ -1,4 +1,5 @@
 import { http } from '@kit.NetworkKit'
+import { util } from '@kit.ArkTS'
 
 // HTTP 请求方法枚举
 export enum HttpMethod {
@@ -301,7 +302,40 @@ export class HttpService {
   ): http.HttpRequest {
     const httpRequest = http.createHttp()
 
-    let responseCode: number = 0
+    let dataEnded = false
+    let resolvedCode: number = -1
+    // 仅保留最后一个 data chunk 的引用（零拷贝），用于错误响应时提取错误信息
+    let lastDataChunk: ArrayBuffer | null = null
+
+    // 当 dataEnd 和 requestInStream 都完成后，再触发 onComplete
+    const tryFinish = (): void => {
+      if (!dataEnded || resolvedCode < 0) {
+        return
+      }
+      const isSuccess = resolvedCode >= 200 && resolvedCode < 300
+      const result: HttpResponse = {
+        success: isSuccess,
+        statusCode: resolvedCode,
+        data: '',
+        errorMessage: ''
+      }
+      if (!result.success) {
+        let errorBody = ''
+        if (lastDataChunk !== null) {
+          errorBody = new util.TextDecoder('utf-8').decodeToString(new Uint8Array(lastDataChunk))
+        }
+        if (errorBody !== '') {
+          result.errorMessage = `HTTP ${resolvedCode}: ${errorBody}`
+          console.error('HttpService', `[streamPost] Error response body: ${errorBody}`)
+        } else {
+          result.errorMessage = `HTTP Error: ${resolvedCode}`
+        }
+      }
+      lastDataChunk = null
+      if (onComplete) {
+        onComplete(result)
+      }
+    }
 
     // 监听响应头事件
     httpRequest.on('headersReceive', (header: Object) => {
@@ -312,6 +346,7 @@ export class HttpService {
     httpRequest.on('dataReceive', (data: ArrayBuffer) => {
       console.info('HttpService', `[streamPost] Data chunk received: ${data.byteLength} bytes`)
       onData(data)
+      lastDataChunk = data
     })
 
     // 监听数据接收进度事件
@@ -321,23 +356,9 @@ export class HttpService {
 
     // 监听数据结束事件
     httpRequest.on('dataEnd', () => {
-      console.info('HttpService', `[streamPost] Data end, responseCode: ${responseCode}`)
-      // responseCode 为 0 时，表示流式请求正常完成（数据已通过 dataReceive 事件接收）
-      const isSuccess = responseCode === 0 || (responseCode >= 200 && responseCode < 300)
-      const result: HttpResponse = {
-        success: isSuccess,
-        statusCode: responseCode,
-        data: '',
-        errorMessage: ''
-      }
-
-      if (!result.success) {
-        result.errorMessage = `HTTP Error: ${responseCode}`
-      }
-
-      if (onComplete) {
-        onComplete(result)
-      }
+      console.info('HttpService', `[streamPost] Data end`)
+      dataEnded = true
+      tryFinish()
     })
 
     const config: HttpRequestConfig = {
@@ -360,7 +381,8 @@ export class HttpService {
     // 使用 requestInStream 进行流式请求
     httpRequest.requestInStream(config.url, options).then((code: number) => {
       console.info('HttpService', `[streamPost] requestInStream completed with code: ${code}`)
-      responseCode = code
+      resolvedCode = code
+      tryFinish()
     }).catch((error: Error) => {
       console.error('HttpService', `[streamPost] Error: ${JSON.stringify(error)}`)
       if (onError) {

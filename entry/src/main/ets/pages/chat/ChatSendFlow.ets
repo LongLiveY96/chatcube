@@ -26,8 +26,7 @@ export class ChatSendPrepareResult {
 export enum ChatSendDispatchResult {
   NOT_HANDLED,
   SENT_WITH_TOOLS,
-  MANUAL_FALLBACK,
-  UNSUPPORTED_TOOLS
+  MANUAL_FALLBACK
 }
 
 export interface ChatSendFlowDependencies {
@@ -116,8 +115,7 @@ export class ChatSendFlow {
     webSearchEnabled: boolean,
     weatherQueryEnabled: boolean,
     currentModelId: string,
-    onManualFallbackStart: (content: string, attachments: MessageAttachment[]) => void,
-    onUnsupportedTools: () => void
+    onManualFallbackStart: (content: string, attachments: MessageAttachment[]) => void
   ): Promise<ChatSendDispatchResult> {
     const enabledToolIds = this.buildEnabledToolIds(webSearchEnabled, weatherQueryEnabled, forcedToolIds)
     if (enabledToolIds.length <= 0) {
@@ -148,8 +146,9 @@ export class ChatSendFlow {
       return ChatSendDispatchResult.MANUAL_FALLBACK
     }
 
-    onUnsupportedTools()
-    return ChatSendDispatchResult.UNSUPPORTED_TOOLS
+    // 模型不支持 Function Calling，但只有非搜索类工具（如天气查询）开启
+    // 静默忽略这些工具，fallthrough 到纯文本发送
+    return ChatSendDispatchResult.NOT_HANDLED
   }
 
   isCurrentModelSupportsTools(currentProvider: ModelProvider | null, currentModelId: string): boolean {

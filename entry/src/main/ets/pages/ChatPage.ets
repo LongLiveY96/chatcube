@@ -1716,9 +1716,6 @@ export struct ChatPage {
       (content: string, attachments: MessageAttachment[]): void => {
         console.info('ChatPage', '[联网查询] 当前模型未启用/不支持 tools，使用手动搜索链路')
         this.getManualSearchFlow().startManualSearchFallback(content, attachments)
-      },
-      (): void => {
-        this.showError($r('app.string.function_calling_not_supported'))
       }
     )
     if (dispatchResult !== ChatSendDispatchResult.NOT_HANDLED) {
