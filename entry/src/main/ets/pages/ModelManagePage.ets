@@ -402,17 +402,31 @@ struct ModelManagePage {
   ProviderListPane(isExpandedPane: boolean) {
     Column() {
       Row() {
-        Search({ value: this.searchKeywords, placeholder: $r('app.string.filter_models_placeholder') })
-          .width('100%')
-          .height(40)
-          .backgroundColor($r('app.color.background'))
-          .border({
-            width: 1,
-            color: $r('app.color.divider')
-          })
-          .onChange((value: string) => {
-            this.searchKeywords = value
-          })
+        Row({ space: 8 }) {
+          SymbolGlyph($r('sys.symbol.magnifyingglass'))
+            .fontSize(16)
+            .fontColor([$r('app.color.text_tertiary')])
+
+          TextInput({ text: this.searchKeywords, placeholder: $r('app.string.filter_models_placeholder') })
+            .layoutWeight(1)
+            .fontSize(14)
+            .fontColor($r('app.color.text_primary'))
+            .placeholderColor($r('app.color.text_tertiary'))
+            .backgroundColor(Color.Transparent)
+            .onChange((value: string) => {
+              this.searchKeywords = value
+            })
+        }
+        .width('100%')
+        .height(40)
+        .padding({ left: 12, right: 12 })
+        .backgroundColor($r('app.color.background'))
+        .borderRadius(20)
+        .border({
+          width: 1,
+          color: $r('app.color.divider')
+        })
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
       .padding({
