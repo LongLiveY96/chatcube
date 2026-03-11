@@ -10,14 +10,19 @@ import {
   buildModelPickerRows
 } from '../config/ModelListProjection'
 import { buildModelIconRenderData, ModelIconRenderData } from '../utils/ModelIconRenderUtils'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct ModelPickerSheet {
   @Param availableModels: string[] = []
   @Param existingModels: ModelInfo[] = []
   @Param providerId: string = ''
-  @Param themePrimary: string = '#0A59F7'
-  @Param isDarkMode: boolean = false
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get isDarkMode(): boolean {
+    return getAppUiState().isDarkMode
+  }
 
   @Local searchKeywords: string = ''
   @Local selectedIds: Set<string> = new Set<string>()
@@ -250,7 +255,7 @@ export struct ModelPickerSheet {
     Row() {
       Checkbox()
         .select(this.isAllSelected())
-        .selectedColor($r('app.color.primary'))
+        .selectedColor(this.themePrimary)
         .hitTestBehavior(HitTestMode.None)
 
       Text(this.isAllSelected() ? $r('app.string.model_picker_deselect_all') : $r('app.string.model_picker_select_all'))
@@ -299,7 +304,7 @@ export struct ModelPickerSheet {
 
       Checkbox()
         .select(this.isGroupAllSelected(row.modelIds))
-        .selectedColor($r('app.color.primary'))
+        .selectedColor(this.themePrimary)
         .width(20)
         .height(20)
         .margin({ right: 8 })
@@ -342,7 +347,7 @@ export struct ModelPickerSheet {
       Row() {
         Checkbox()
           .select(this.isSelected(row.modelId))
-          .selectedColor($r('app.color.primary'))
+          .selectedColor(this.themePrimary)
           .hitTestBehavior(HitTestMode.None)
 
         Column() {
@@ -382,7 +387,7 @@ export struct ModelPickerSheet {
           if (row.isExisting) {
             Text($r('app.string.model_picker_added'))
               .fontSize(11)
-              .fontColor($r('app.color.primary'))
+              .fontColor(this.themePrimary)
               .margin({ top: 2 })
           }
         }
@@ -424,3 +429,4 @@ export struct ModelPickerSheet {
     return groupPosition === ModelRowGroupPosition.FIRST || groupPosition === ModelRowGroupPosition.MIDDLE
   }
 }
+

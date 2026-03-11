@@ -1,11 +1,16 @@
 import { AttachmentType, MessageAttachment } from '../../models/ChatModels'
+import { getAppUiState } from '../../state/AppUiState'
 
 @ComponentV2
 export struct DraftPreviewBubble {
   @Param inputText: string = ''
   @Param pendingAttachments: MessageAttachment[] = []
-  @Param themeUserBubble: string = '#0A59F7'
-  @Param themeUserBubbleText: string = '#FFFFFF'
+  private get themeUserBubble(): string {
+    return getAppUiState().themeUserBubble
+  }
+  private get themeUserBubbleText(): string {
+    return getAppUiState().themeUserBubbleText
+  }
   @Param chatFontSize: number = 15
   @Param previewTimeText: string = ''
   draftPreviewImageMaxHeight: number = 120
@@ -154,3 +159,4 @@ export struct DraftPreviewBubble {
     .alignItems(HorizontalAlign.End)
   }
 }
+

@@ -9,17 +9,30 @@ import { AppStorageKeys } from '../config/AppStorageKeys'
 import { LayoutSizeClass } from '../config/LayoutProfile'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
+import { getAppUiState } from '../state/AppUiState'
 
 @Entry
 @ComponentV2
 struct ExportDataPage {
-  @Param bottomAvoidHeight: number = 0
+  private get bottomAvoidHeight(): number {
+    return getAppUiState().bottomAvoidHeight
+  }
   // 主题颜色
-  @Param themePrimary: string = '#0A59F7'
-  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @Param windowWidthVp: number = 0
-  @Param windowHeightVp: number = 0
-  @Param settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get layoutSizeClass(): string {
+    return getAppUiState().layoutSizeClass
+  }
+  private get windowWidthVp(): number {
+    return getAppUiState().windowWidthVp
+  }
+  private get windowHeightVp(): number {
+    return getAppUiState().windowHeightVp
+  }
+  private get settingsDetailPresentationMode(): string {
+    return getAppUiState().settingsDetailPresentationMode
+  }
 
   @Local sessions: ChatSession[] = []
   @Local selectedSessionIds: string[] = []
@@ -412,3 +425,4 @@ export function ExportDataPageBuilder(name: string, param: Object) {
   .hideTitleBar(true)
   .hideBackButton(true)
 }
+

@@ -1,6 +1,7 @@
 import { notificationManager } from '@kit.NotificationKit'
 import { wantAgent, WantAgent } from '@kit.AbilityKit'
 import { AppStorageKeys } from '../config/AppStorageKeys'
+import { setAppUiStateValue } from '../state/AppUiState'
 import { ChatTaskInfo, ChatTaskStatus, OpenSessionPayload } from '../models/ChatTaskModels'
 
 const DEFAULT_BUNDLE_NAME = 'com.longlive.chatcube'
@@ -133,7 +134,7 @@ export class ChatNotificationService {
     if (payloadText === '') {
       return
     }
-    AppStorage.setOrCreate(AppStorageKeys.OPEN_SESSION_PAYLOAD, payloadText)
+    setAppUiStateValue(AppStorageKeys.OPEN_SESSION_PAYLOAD, payloadText)
   }
 }
 

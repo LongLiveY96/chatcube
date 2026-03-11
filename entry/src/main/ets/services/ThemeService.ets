@@ -1,6 +1,8 @@
 import { ColorTheme, ThemeColorConfig, getThemeColors, getThemeById, ThemeInfo, ALL_THEMES } from '../models/ThemeColors'
 import { getPreferencesService } from './PreferencesService'
 import { AppStorageKeys } from '../config/AppStorageKeys'
+import { applyThemeToAppUiState } from '../state/AppUiState'
+import { refreshAllThemeAwareForms } from '../utils/FormThemeSyncUtils'
 
 // 主题变化回调接口
 export interface ThemeColorChangeCallback {
@@ -119,6 +121,7 @@ export class ThemeService {
 
     // 应用主题到 AppStorage
     this.applyThemeToStorage()
+    await this.refreshDesktopForms()
 
     // 通知回调
     this.notifyCallbacks()
@@ -141,6 +144,7 @@ export class ThemeService {
 
     // 强制刷新 AppStorage 和通知回调
     this.applyThemeToStorage()
+    await this.refreshDesktopForms()
     this.notifyCallbacks()
 
     console.info('ThemeService', `Theme reloaded: ${this.currentTheme}`)
@@ -156,6 +160,7 @@ export class ThemeService {
 
     // 重新应用主题到 AppStorage
     this.applyThemeToStorage()
+    void this.refreshDesktopForms()
 
     // 通知回调
     this.notifyCallbacks()
@@ -179,30 +184,12 @@ export class ThemeService {
   // 应用主题颜色到 AppStorage
   private applyThemeToStorage(): void {
     const colors = this.getCurrentColors()
+    applyThemeToAppUiState(this.currentTheme, colors)
+  }
 
-    AppStorage.setOrCreate(ThemeStorageKeys.COLOR_THEME, this.currentTheme)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_PRIMARY, colors.primary)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_PRIMARY_LIGHT, colors.primaryLight)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_BACKGROUND, colors.background)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_SURFACE, colors.surface)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_DIVIDER, colors.divider)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_USER_BUBBLE, colors.userBubble)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_USER_BUBBLE_TEXT, colors.userBubbleText)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_AI_BUBBLE, colors.aiBubble)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_TEXT_PRIMARY, colors.textPrimary)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_TEXT_SECONDARY, colors.textSecondary)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_TEXT_TERTIARY, colors.textTertiary)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_MARKDOWN_TITLE, colors.markdownTitle)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_MARKDOWN_TEXT, colors.markdownText)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_MARKDOWN_LINK, colors.markdownLink)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_MARKDOWN_LINK_BG, colors.markdownLinkBg)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_MARKDOWN_CODE_BG, colors.markdownCodeBg)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_MARKDOWN_CODE_TEXT, colors.markdownCodeText)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_MARKDOWN_QUOTE_BG, colors.markdownQuoteBg)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_MARKDOWN_TABLE_BG, colors.markdownTableBg)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_MARKDOWN_TABLE_HEADER_BG, colors.markdownTableHeaderBg)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_MARKDOWN_TABLE_ALT_BG, colors.markdownTableAltBg)
-    AppStorage.setOrCreate(ThemeStorageKeys.THEME_MARKDOWN_TABLE_BORDER, colors.markdownTableBorder)
+  private async refreshDesktopForms(): Promise<void> {
+    const colors = this.getCurrentColors()
+    await refreshAllThemeAwareForms(colors)
   }
 
   // 通知所有回调

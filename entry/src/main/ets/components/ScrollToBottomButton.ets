@@ -8,6 +8,7 @@ import {
   getButtonScale,
   getButtonAnimation
 } from '../utils/ButtonAnimationUtils'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct ScrollToBottomButton {
@@ -28,7 +29,9 @@ export struct ScrollToBottomButton {
   // 按钮按下状态
   @Local private scrollBtnPressed: boolean = false
   // 主题颜色
-  @Param themePrimary: string = '#0A59F7'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
 
   build() {
     if (this.isVisible) {
@@ -73,3 +76,4 @@ export struct ScrollToBottomButton {
     }
   }
 }
+

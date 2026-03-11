@@ -5,6 +5,7 @@
 
 import { ReasoningLevel } from '../models/ChatModels'
 import { getPreferencesService, PreferenceKeys } from '../services/PreferencesService'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct ChatToolbar {
@@ -18,7 +19,9 @@ export struct ChatToolbar {
   @Event $reasoningLevel: (value: ReasoningLevel) => void = () => {}
 
   // 主题颜色
-  @Param themePrimary: string = '#0A59F7'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
 
   build() {
     Row() {
@@ -148,3 +151,4 @@ export struct ChatToolbar {
     })
   }
 }
+

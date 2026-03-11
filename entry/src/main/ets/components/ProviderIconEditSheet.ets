@@ -1,6 +1,7 @@
 import { ModelProvider } from '../models/ChatModels'
 import { ProviderIcon } from './ProviderIcon'
 import { generateSoftColor, getAllSoftColors, TRANSPARENT_BG_COLOR } from '../utils/IconGeneratorUtils'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct ProviderIconEditSheet {
@@ -9,7 +10,9 @@ export struct ProviderIconEditSheet {
   @Event $tempTextIcon: (value: string) => void = (_value: string) => {}
   @Param tempTextIconBgColor: string = ''
   @Event $tempTextIconBgColor: (value: string) => void = (_value: string) => {}
-  @Param themePrimary: string = '#0A59F7'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
 
   @Param provider: ModelProvider | null = null
   @Event onSave: () => void = () => {}
@@ -194,7 +197,7 @@ export struct ProviderIconEditSheet {
         .borderRadius(8)
         .border({
           width: this.tempTextIconBgColor === TRANSPARENT_BG_COLOR ? 3 : 1,
-          color: this.tempTextIconBgColor === TRANSPARENT_BG_COLOR ? $r('app.color.primary') : $r('app.color.divider')
+          color: this.tempTextIconBgColor === TRANSPARENT_BG_COLOR ? this.themePrimary : $r('app.color.divider')
         })
         .justifyContent(FlexAlign.Center)
         .onClick(() => {
@@ -223,7 +226,7 @@ export struct ProviderIconEditSheet {
                 .borderRadius(8)
                 .border({
                   width: this.tempTextIconBgColor === color ? 3 : 1,
-                  color: this.tempTextIconBgColor === color ? $r('app.color.primary') : $r('app.color.divider')
+                  color: this.tempTextIconBgColor === color ? this.themePrimary : $r('app.color.divider')
                 })
                 .onClick(() => {
                   this.$tempTextIconBgColor(color)
@@ -246,3 +249,4 @@ export struct ProviderIconEditSheet {
     .backgroundColor($r('app.color.background'))
   }
 }
+

@@ -10,6 +10,7 @@ import { AppStorageKeys } from '../config/AppStorageKeys'
 import { LayoutSizeClass } from '../config/LayoutProfile'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
+import { getAppUiState } from '../state/AppUiState'
 
 const TAG = 'AboutPage'
 const GITHUB_URL = 'https://github.com/LongLiveY96/chatcube'
@@ -17,12 +18,24 @@ const GITHUB_URL = 'https://github.com/LongLiveY96/chatcube'
 @Entry
 @ComponentV2
 struct AboutPage {
-  @Param themePrimary: string = '#0A59F7'
-  @Param themePrimaryLight: string = '#E6F2FF'
-  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @Param windowWidthVp: number = 0
-  @Param windowHeightVp: number = 0
-  @Param settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
+  private get layoutSizeClass(): string {
+    return getAppUiState().layoutSizeClass
+  }
+  private get windowWidthVp(): number {
+    return getAppUiState().windowWidthVp
+  }
+  private get windowHeightVp(): number {
+    return getAppUiState().windowHeightVp
+  }
+  private get settingsDetailPresentationMode(): string {
+    return getAppUiState().settingsDetailPresentationMode
+  }
   @Local showQrSheet: boolean = false
   @Local isSaving: boolean = false
   @Local versionName: string = ''
@@ -368,3 +381,4 @@ export function AboutPageBuilder(name: string, param: Object) {
   .hideTitleBar(true)
   .hideBackButton(true)
 }
+

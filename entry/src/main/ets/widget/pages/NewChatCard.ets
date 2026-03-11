@@ -1,9 +1,13 @@
-@Entry
+let storage = new LocalStorage();
+
+@Entry(storage)
 @Component
 struct NewChatCard {
   @LocalStorageProp('title') title: string = '新对话';
   @LocalStorageProp('subtitle') subtitle: string = '点击开始聊天';
   @LocalStorageProp('themePrimary') themePrimary: string = '#0A59F7';
+  @LocalStorageProp('surfaceColor') surfaceColor: string = '#FFFFFF';
+  @LocalStorageProp('textPrimary') textPrimary: string = '#191919';
 
   build() {
     Column() {
@@ -12,7 +16,7 @@ struct NewChatCard {
         Text('开始对话')
           .fontSize(14)
           .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
+          .fontColor(this.textPrimary)
           .layoutWeight(1)
           .textAlign(TextAlign.Start)
 
@@ -36,7 +40,7 @@ struct NewChatCard {
     .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Center)
-    .backgroundColor($r('app.color.surface'))
+    .backgroundColor(this.surfaceColor)
     .clip(true)
     .onClick(() => {
       postCardAction(this, {

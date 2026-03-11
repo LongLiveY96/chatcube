@@ -6,6 +6,7 @@
 import { ProviderIcon } from './ProviderIcon'
 import { generateSoftColor, getAllSoftColors, TRANSPARENT_BG_COLOR } from '../utils/IconGeneratorUtils'
 import { showToast } from '../utils/ToastUtil'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct ProviderIconEditor {
@@ -26,7 +27,9 @@ export struct ProviderIconEditor {
   @Local showColorPicker: boolean = false
   @Local tempTextIcon: string = ''
   @Local tempTextIconBgColor: string = ''
-  @Param themePrimary: string = '#0A59F7'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
 
   private showIconToast(message: string | Resource, duration: number = 2000): void {
     showToast(this.getUIContext(), message, duration)
@@ -82,7 +85,7 @@ export struct ProviderIconEditor {
           .fontSize(14)
           .type(ButtonType.Normal)
           .borderRadius(8)
-          .backgroundColor(this.iconType === 'text' ? $r('app.color.primary') : $r('app.color.surface'))
+          .backgroundColor(this.iconType === 'text' ? this.themePrimary : $r('app.color.surface'))
           .fontColor(this.iconType === 'text' ? Color.White : $r('app.color.text_primary'))
           .layoutWeight(1)
           .onClick(() => {
@@ -346,7 +349,7 @@ export struct ProviderIconEditor {
         .borderRadius(8)
         .border({
           width: this.tempTextIconBgColor === TRANSPARENT_BG_COLOR ? 3 : 1,
-          color: this.tempTextIconBgColor === TRANSPARENT_BG_COLOR ? $r('app.color.primary') : $r('app.color.divider')
+          color: this.tempTextIconBgColor === TRANSPARENT_BG_COLOR ? this.themePrimary : $r('app.color.divider')
         })
         .justifyContent(FlexAlign.Center)
         .onClick(() => {
@@ -376,7 +379,7 @@ export struct ProviderIconEditor {
                 .borderRadius(8)
                 .border({
                   width: this.tempTextIconBgColor === color ? 3 : 1,
-                  color: this.tempTextIconBgColor === color ? $r('app.color.primary') : $r('app.color.divider')
+                  color: this.tempTextIconBgColor === color ? this.themePrimary : $r('app.color.divider')
                 })
                 .onClick(() => {
                   this.tempTextIconBgColor = color
@@ -399,3 +402,4 @@ export struct ProviderIconEditor {
     .backgroundColor($r('app.color.background'))
   }
 }
+

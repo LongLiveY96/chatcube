@@ -9,6 +9,8 @@ import { HtmlPreviewCard } from './HtmlPreviewCard'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { webview } from '@kit.ArkWeb'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
+import { AppStorageKeys } from '../config/AppStorageKeys'
+import { getAppUiState, observeAppUiState } from '../state/AppUiState'
 
 const DOMAIN = 0x0002
 const TAG = 'MessageBubble'
@@ -43,12 +45,22 @@ export struct MessageBubble {
   @Local isTranslationExpanded: boolean = true  // 翻译结果是否展开
   @Local currentTranslateLang: string = ''  // 当前翻译的目标语言
   // 深色模式状态（用于主题适配）
-  @Param isDarkMode: boolean = false
+  private get isDarkMode(): boolean {
+    return getAppUiState().isDarkMode
+  }
   // 主题颜色（从 ThemeService 同步）
-  @Param themeUserBubble: string = '#0A59F7'
-  @Param themeUserBubbleText: string = '#FFFFFF'
-  @Param themeAiBubble: string = '#FFFFFF'
-  @Param themePrimary: string = '#0A59F7'
+  private get themeUserBubble(): string {
+    return getAppUiState().themeUserBubble
+  }
+  private get themeUserBubbleText(): string {
+    return getAppUiState().themeUserBubbleText
+  }
+  private get themeAiBubble(): string {
+    return getAppUiState().themeAiBubble
+  }
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
 
   // 聊天字体大小
   @Param chatFontSize: number = 15
@@ -72,7 +84,10 @@ export struct MessageBubble {
   @Local dot2Scale: number = 0.6
   @Local dot3Scale: number = 0.6
   private dotAnimationTimer: number = -1
-  @Param speakingMessageId: string = ''  // 当前正在朗读的消息ID
+  private themeObserverDisposer: (() => void) | null = null
+  private get speakingMessageId(): string {
+    return getAppUiState().speakingMessageId
+  }
   // 聊天图片紧凑展示参数
   private compactImageMaxHeight: number = 120
   private compactImageContainerWidth: number = 180
@@ -141,6 +156,12 @@ export struct MessageBubble {
 
     // 配置 Markdown 样式
     this.configureMarkdownStyles()
+    if (this.themeObserverDisposer === null) {
+      this.themeObserverDisposer = observeAppUiState([AppStorageKeys.COLOR_THEME, AppStorageKeys.IS_DARK_MODE],
+        (): void => {
+          this.onThemeColorChange()
+        })
+    }
 
     // 只在需要时启动跳动点动画（优化性能）
     if (this.shouldShowDotAnimation()) {
@@ -175,19 +196,19 @@ export struct MessageBubble {
 
   // 配置 Markdown 样式
   private configureMarkdownStyles(): void {
-    // 所有颜色使用资源引用，自动跟随系统深浅色
-    const titleColor = $r('app.color.markdown_title')
-    const textColor = $r('app.color.markdown_text')
-    const reasoningTextColor = $r('app.color.text_secondary')
-    const quoteBgColor = $r('app.color.markdown_quote_bg')
-    const linkColor = $r('app.color.markdown_link')
-    const linkBgColor = $r('app.color.markdown_link_bg')
-    const inlineCodeBgColor = $r('app.color.markdown_code_bg')
-    const inlineCodeTextColor = $r('app.color.markdown_code_text')
-    const tableBgColor = $r('app.color.markdown_table_bg')
-    const tableHeaderBgColor = $r('app.color.markdown_table_header_bg')
-    const tableAltBgColor = $r('app.color.markdown_table_alt_bg')
-    const tableBorderColor = $r('app.color.markdown_table_border')
+    const uiState = getAppUiState()
+    const titleColor = uiState.themeMarkdownTitle
+    const textColor = uiState.themeMarkdownText
+    const reasoningTextColor = uiState.themeTextSecondary
+    const quoteBgColor = uiState.themeMarkdownQuoteBg
+    const linkColor = uiState.themeMarkdownLink
+    const linkBgColor = uiState.themeMarkdownLinkBg
+    const inlineCodeBgColor = uiState.themeMarkdownCodeBg
+    const inlineCodeTextColor = uiState.themeMarkdownCodeText
+    const tableBgColor = uiState.themeMarkdownTableBg
+    const tableHeaderBgColor = uiState.themeMarkdownTableHeaderBg
+    const tableAltBgColor = uiState.themeMarkdownTableAltBg
+    const tableBorderColor = uiState.themeMarkdownTableBorder
     const codeTheme = this.isDarkMode ? 'dark' : 'light'
 
     // 数学公式颜色接口需要 number（ARGB），不能直接传 ResourceColor
@@ -292,7 +313,6 @@ export struct MessageBubble {
   }
 
   // 深色模式变化监听
-  @Monitor('isDarkMode')
   onDarkModeChange(): void {
     hilog.info(DOMAIN, TAG, '🎨 深色模式变化: %{public}s (消息ID: %{public}s)',
       this.isDarkMode ? '深色' : '浅色', this.message.id)
@@ -304,7 +324,6 @@ export struct MessageBubble {
   }
 
   // 主题颜色变化监听
-  @Monitor('themeUserBubble', 'themeAiBubble', 'themePrimary')
   onThemeColorChange(): void {
     hilog.info(DOMAIN, TAG, '🎨 主题颜色变化 (消息ID: %{public}s)', this.message.id)
     // 主题颜色变化时重新配置 Markdown 样式
@@ -324,6 +343,10 @@ export struct MessageBubble {
   }
 
   aboutToDisappear(): void {
+    if (this.themeObserverDisposer !== null) {
+      this.themeObserverDisposer()
+      this.themeObserverDisposer = null
+    }
     // 清理动画定时器
     this.stopDotAnimation()
   }
@@ -380,7 +403,7 @@ export struct MessageBubble {
             .margin({ left: 4 })
         }
         .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-        .backgroundColor($r('app.color.chat_ai_bubble'))
+        .backgroundColor(this.themeAiBubble)
         .borderRadius(10)
         .margin({ bottom: 4 })
         .alignSelf(ItemAlign.End)
@@ -1044,7 +1067,7 @@ export struct MessageBubble {
               } else {
                 SymbolGlyph($r('sys.symbol.ai_edit'))
                   .fontSize(16)
-                  .fontColor([$r('app.color.primary')])
+                  .fontColor([this.themePrimary])
               }
             }
             .width(30)
@@ -1171,7 +1194,7 @@ export struct MessageBubble {
                 // 朗读
                 SymbolGlyph((this.speakingMessageId === this.message.id) ? $r('sys.symbol.pause') : $r('sys.symbol.speaker_wave_2'))
                   .fontSize(14)
-                  .fontColor([(this.speakingMessageId === this.message.id) ? $r('app.color.primary') : $r('app.color.text_tertiary')])
+                  .fontColor([(this.speakingMessageId === this.message.id) ? this.themePrimary : $r('app.color.text_tertiary')])
                   .margin({ left: 16 })
                   .onClick(() => {
                     if ((this.speakingMessageId === this.message.id)) { this.onTTSStop() } else { this.onTTS(this.message.id, this.message.content) }
@@ -1373,7 +1396,7 @@ export struct MessageBubble {
               LoadingProgress()
                 .width(14)
                 .height(14)
-                .color($r('app.color.primary'))
+                .color(this.themePrimary)
               Text($r('app.string.translation_loading'))
                 .fontSize(13)
                 .fontColor($r('app.color.text_secondary'))
@@ -1652,3 +1675,4 @@ export struct MessageBubble {
     }
   }
 }
+

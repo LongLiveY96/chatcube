@@ -5,6 +5,7 @@
 import { ChatMessage, MessageRole, MessageAttachment, AttachmentType } from '../models/ChatModels'
 import { getModelIconPath, buildIconResourcePath } from '../utils/ProviderIconUtils'
 import { Markdown, MarkdownController } from '@luvi/lv-markdown-in'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct ShareMessageCard {
@@ -12,11 +13,21 @@ export struct ShareMessageCard {
   @Param appName: string = 'ChatCube'
   @Param currentModelId: string = ''
   private markdownControllers: Map<string, MarkdownController> = new Map()
-  @Param isDarkMode: boolean = false
-  @Param themePrimary: string = '#0A59F7'
-  @Param themeUserBubble: string = '#0A59F7'
-  @Param themeUserBubbleText: string = '#FFFFFF'
-  @Param themeAiBubble: string = '#FFFFFF'
+  private get isDarkMode(): boolean {
+    return getAppUiState().isDarkMode
+  }
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themeUserBubble(): string {
+    return getAppUiState().themeUserBubble
+  }
+  private get themeUserBubbleText(): string {
+    return getAppUiState().themeUserBubbleText
+  }
+  private get themeAiBubble(): string {
+    return getAppUiState().themeAiBubble
+  }
 
   // 配置 Markdown 样式（与聊天页面保持一致，避免深色模式下不可读）
   private configureMarkdownController(controller: MarkdownController): void {
@@ -93,12 +104,12 @@ export struct ShareMessageCard {
 
   // 获取AI头像背景色
   private getAiAvatarBgColor(): ResourceColor {
-    return $r('app.color.chat_ai_bubble')
+    return this.themeAiBubble
   }
 
   // 获取 AI 内容容器背景色
   private getAiContentBgColor(): ResourceColor {
-    return $r('app.color.chat_ai_bubble')
+    return this.themeAiBubble
   }
 
   // 获取用户消息气泡背景色（使用主题色）
@@ -364,3 +375,4 @@ export function ShareMessageCardBuilder(messages: ChatMessage[], appName: string
     appName: appName
   })
 }
+

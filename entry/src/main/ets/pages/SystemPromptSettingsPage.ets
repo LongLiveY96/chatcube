@@ -7,15 +7,26 @@ import { normalizeSystemPromptTemplate, SystemPromptTemplateDefaults } from '../
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
+import { getAppUiState } from '../state/AppUiState'
 
 @Entry
 @ComponentV2
 struct SystemPromptSettingsPage {
-  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @Param windowWidthVp: number = 0
-  @Param windowHeightVp: number = 0
-  @Param settingsDetailPresentationMode: string = 'page'
-  @Param themePrimary: string = '#0A59F7'
+  private get layoutSizeClass(): string {
+    return getAppUiState().layoutSizeClass
+  }
+  private get windowWidthVp(): number {
+    return getAppUiState().windowWidthVp
+  }
+  private get windowHeightVp(): number {
+    return getAppUiState().windowHeightVp
+  }
+  private get settingsDetailPresentationMode(): string {
+    return getAppUiState().settingsDetailPresentationMode
+  }
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
 
   @Local customSystemPrompt: string = ''
 
@@ -189,3 +200,4 @@ export function SystemPromptSettingsPageBuilder(name: string, param: Object) {
   .hideTitleBar(true)
   .hideBackButton(true)
 }
+

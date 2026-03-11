@@ -1,4 +1,5 @@
 import { AppStorageKeys } from '../config/AppStorageKeys'
+import { setAppUiStateValue } from '../state/AppUiState'
 import { ChatTaskInfo, ChatTaskStatus } from '../models/ChatTaskModels'
 import { ChatViewModel } from '../viewmodels/ChatViewModel'
 import { getSettingsManager, SettingsManager } from '../viewmodels/SettingsManager'
@@ -186,7 +187,7 @@ export class ChatTaskOrchestratorService {
       data[key] = value
       total = total + value
     })
-    AppStorage.setOrCreate(AppStorageKeys.TASK_UNREAD_BY_SESSION, JSON.stringify(data))
+    setAppUiStateValue(AppStorageKeys.TASK_UNREAD_BY_SESSION, JSON.stringify(data))
     AppStorage.setOrCreate(AppStorageKeys.TASK_UNREAD_TOTAL, total)
   }
 
@@ -199,7 +200,7 @@ export class ChatTaskOrchestratorService {
     try {
       const payload = JSON.parse(payloadText) as Record<string, string>
       if (payload.sessionId === sessionId) {
-        AppStorage.setOrCreate(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, '')
+        setAppUiStateValue(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, '')
       }
     } catch (error) {
       console.error('ChatTaskOrchestratorService', `Failed to parse in-app alert payload: ${JSON.stringify(error)}`)
@@ -207,7 +208,7 @@ export class ChatTaskOrchestratorService {
   }
 
   private bumpTaskEventTick(): void {
-    AppStorage.setOrCreate(AppStorageKeys.TASK_EVENT_TICK, Date.now())
+    setAppUiStateValue(AppStorageKeys.TASK_EVENT_TICK, Date.now())
   }
 
   private getAppInBackground(): boolean {

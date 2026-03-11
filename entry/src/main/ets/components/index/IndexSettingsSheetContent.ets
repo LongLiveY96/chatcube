@@ -1,12 +1,17 @@
 import { ThemeMode, AppLanguage } from '../../services/PreferencesService'
 import { SettingsSheetType } from '../../pages/index/IndexPageTypes'
 import { IndexSettingsSheetActionCallbacks } from '../../pages/index/IndexSettingsSheetCoordinator'
+import { getAppUiState } from '../../state/AppUiState'
 
 @ComponentV2
 export struct IndexSettingsSheetContent {
   @Param settingsSheetType: SettingsSheetType = SettingsSheetType.NONE
-  @Param themePrimary: string = '#0A59F7'
-  @Param themePrimaryLight: string = '#E6F2FF'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
   @Param currentThemeMode: ThemeMode = ThemeMode.SYSTEM
   @Param currentLanguage: AppLanguage = AppLanguage.SYSTEM
   @Param notifyEnabled: boolean = true
@@ -225,3 +230,4 @@ export struct IndexSettingsSheetContent {
     })
   }
 }
+

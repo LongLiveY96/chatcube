@@ -1,11 +1,16 @@
 import { SessionFilterType } from '../../pages/index/IndexPageTypes'
+import { getAppUiState } from '../../state/AppUiState'
 
 @ComponentV2
 export struct IndexFilterBar {
   @Param currentFilter: SessionFilterType = SessionFilterType.ALL
   @Param countText: string = '0'
-  @Param themePrimary: string = '#0A59F7'
-  @Param themePrimaryLight: string = '#E6F2FF'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
   @Event onFilterChange: (filterType: SessionFilterType) => void = (_filterType: SessionFilterType): void => {}
 
   @Builder
@@ -59,3 +64,4 @@ export struct IndexFilterBar {
     .alignItems(VerticalAlign.Center)
   }
 }
+

@@ -12,6 +12,7 @@ import { getEffectiveApiKey } from '../config/PresetProviders'
 import { getPreferencesService } from '../services/PreferencesService'
 import { PreferenceKeys } from '../services/PreferencesService'
 import { AppStorageKeys } from '../config/AppStorageKeys'
+import { setAppUiStateValue } from '../state/AppUiState'
 import { ChatSessionStore } from './ChatSessionStore'
 import { createThrottle, ThrottleUtil } from '../utils/ThrottleUtil'
 import {
@@ -130,7 +131,7 @@ export class ChatViewModel {
   }
 
   private notifySessionListChanged(): void {
-    AppStorage.setOrCreate<number>(AppStorageKeys.SESSION_LIST_REFRESH_AT, Date.now())
+    setAppUiStateValue(AppStorageKeys.SESSION_LIST_REFRESH_AT, Date.now())
   }
 
   private cloneAttachments(attachments: MessageAttachment[]): MessageAttachment[] {

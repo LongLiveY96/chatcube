@@ -1,5 +1,6 @@
 import { ModelProvider, ModelInfo, ProviderType } from '../models/ChatModels'
 import { ProviderIcon } from './ProviderIcon'
+import { getAppUiState } from '../state/AppUiState'
 
 class ModelTagGroup {
   tagId: string
@@ -15,10 +16,14 @@ class ModelTagGroup {
 
 @ComponentV2
 export struct ProviderCard {
-  @Param provider: ModelProvider = new ModelProvider('', '', ProviderType.OPENAI, '', $r('app.color.primary'))
+  @Param provider: ModelProvider = new ModelProvider('', '', ProviderType.OPENAI, '', $r('app.color.brand_openai'))
   @Local searchKeywords: string = ''
-  @Param themePrimary: string = '#0A59F7'
-  @Param themePrimaryLight: string = '#E6F2FF'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
   @Event onToggleExpand: () => void = () => {}
   @Event onTestConnection: () => Promise<void> = async (): Promise<void> => {}
   @Event onSaveConfig: () => Promise<void> = async (): Promise<void> => {}
@@ -447,8 +452,10 @@ export struct ProviderCard {
 
 @ComponentV2
 export struct AddProviderCard {
-  @Param themePrimary: string = '#0A59F7'
-  private provider: ModelProvider = new ModelProvider('', '', ProviderType.OPENAI, '', $r('app.color.primary'))
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private provider: ModelProvider = new ModelProvider('', '', ProviderType.OPENAI, '', $r('app.color.brand_openai'))
   @Event onAdd: () => void = () => {}
 
   build() {
@@ -516,3 +523,4 @@ export struct AddProviderCard {
     return $r('sys.symbol.message_fill')
   }
 }
+

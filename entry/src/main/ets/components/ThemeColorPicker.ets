@@ -1,10 +1,13 @@
 import { ColorTheme, ThemeInfo, ALL_THEMES } from '../models/ThemeColors'
 import { getThemeService } from '../services/ThemeService'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct ThemeColorPicker {
   @Local currentTheme: ColorTheme = ColorTheme.DEFAULT
-  @Param isDarkMode: boolean = false
+  private get isDarkMode(): boolean {
+    return getAppUiState().isDarkMode
+  }
   @Event onThemeSelected: (theme: ColorTheme) => void = () => {}
 
   aboutToAppear(): void {
@@ -146,3 +149,4 @@ export struct ThemeColorPicker {
     }
   }
 }
+

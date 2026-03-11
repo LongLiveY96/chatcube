@@ -8,6 +8,7 @@ import {
   getButtonScale,
   getButtonAnimation
 } from '../utils/ButtonAnimationUtils'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct ScrollToBottomLoadingButton {
@@ -18,7 +19,9 @@ export struct ScrollToBottomLoadingButton {
 
   @Local private btnPressed: boolean = false
   @Local private loadingAngle: number = 0
-  @Param themePrimary: string = '#0A59F7'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
 
   build() {
     if (this.isVisible) {
@@ -72,3 +75,4 @@ export struct ScrollToBottomLoadingButton {
     }
   }
 }
+

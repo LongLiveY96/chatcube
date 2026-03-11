@@ -1,11 +1,19 @@
 import { ProviderDetailPanel, ProviderDetailPresentationMode } from '../components/ProviderDetailSheet'
 import { getCenteredPageMaxWidth, LayoutSizeClass } from '../config/LayoutProfile'
+import { getAppUiState } from '../state/AppUiState'
 
 @Entry
 @ComponentV2
 struct ProviderDetailPage {
-  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @Param windowWidthVp: number = 0
+  private get layoutSizeClass(): string {
+    return getAppUiState().layoutSizeClass
+  }
+  private get windowWidthVp(): number {
+    return getAppUiState().windowWidthVp
+  }
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
 
   @Local providerId: string = ''
   @Local routeReady: boolean = false
@@ -40,7 +48,7 @@ struct ProviderDetailPage {
       LoadingProgress()
         .width(48)
         .height(48)
-        .color($r('app.color.primary'))
+        .color(this.themePrimary)
 
       Text($r('app.string.loading'))
         .fontSize(14)
@@ -84,3 +92,4 @@ struct ProviderDetailPage {
     .backgroundColor($r('app.color.background'))
   }
 }
+

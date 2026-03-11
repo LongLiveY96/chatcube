@@ -1,5 +1,6 @@
 import { ModelProvider } from '../../models/ChatModels'
 import { ModelSelectorContent } from '../ModelSelector'
+import { getAppUiState } from '../../state/AppUiState'
 
 @ComponentV2
 export struct DefaultModelSelectSheetContent {
@@ -7,7 +8,9 @@ export struct DefaultModelSelectSheetContent {
   @Param isProvidersLoaded: boolean = false
   @Param providers: ModelProvider[] = []
   @Param currentModelId: string = ''
-  @Param themePrimary: string = '#0A59F7'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
   @Event onSelectModel: (providerId: string, modelId: string, modelName: string) => void =
     (_providerId: string, _modelId: string, _modelName: string): void => {}
   @Event onClearSelection: () => void = (): void => {}
@@ -73,3 +76,4 @@ export struct DefaultModelSelectSheetContent {
     .height('100%')
   }
 }
+

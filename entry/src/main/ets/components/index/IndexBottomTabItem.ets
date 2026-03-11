@@ -1,3 +1,5 @@
+import { getAppUiState } from '../../state/AppUiState'
+
 @ComponentV2
 export struct IndexBottomTabItem {
   @Param active: boolean = false
@@ -5,7 +7,9 @@ export struct IndexBottomTabItem {
   @Param inactiveIcon: Resource = $r('sys.symbol.circle')
   @Param label: Resource = $r('app.string.tab_chat')
   @Param badgeCount: number = 0
-  @Param themePrimary: string = '#0A59F7'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
 
   build() {
     Column() {
@@ -48,3 +52,4 @@ export struct IndexBottomTabItem {
     .alignItems(HorizontalAlign.Center)
   }
 }
+

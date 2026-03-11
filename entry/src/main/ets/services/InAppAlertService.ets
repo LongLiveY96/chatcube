@@ -1,4 +1,5 @@
 import { AppStorageKeys } from '../config/AppStorageKeys'
+import { setAppUiStateValue } from '../state/AppUiState'
 import { ChatTaskInfo, ChatTaskStatus, InAppTaskAlertPayload } from '../models/ChatTaskModels'
 
 export class InAppAlertService {
@@ -21,7 +22,7 @@ export class InAppAlertService {
       message,
       Date.now()
     )
-    AppStorage.setOrCreate(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, JSON.stringify(payload))
+    setAppUiStateValue(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, JSON.stringify(payload))
   }
 
   private buildMessage(task: ChatTaskInfo): string {

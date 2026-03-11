@@ -2,11 +2,16 @@ import { ChatSession } from '../../models/ChatModels'
 import { SessionGroupData } from '../../pages/index/IndexPageTypes'
 import { buildSessionRenderKeyForIndex } from '../../pages/index/IndexSessionGroupHelper'
 import { SessionCard } from '../SessionCard'
+import { getAppUiState } from '../../state/AppUiState'
 
 @ComponentV2
 export struct IndexSessionListSection {
-  @Param themePrimary: string = '#0A59F7'
-  @Param themePrimaryLight: string = '#E6F2FF'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
   @Param sessionGroups: SessionGroupData[] = []
   @Param isMultiSelectMode: boolean = false
   @Param selectedSessionIds: Array<string> = []
@@ -418,3 +423,4 @@ export struct IndexSessionListSection {
     .edgeEffect(EdgeEffect.Spring)
   }
 }
+

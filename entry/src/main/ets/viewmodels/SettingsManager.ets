@@ -2,6 +2,7 @@ import { ConfigurationConstant } from '@kit.AbilityKit'
 import { getPreferencesService, ThemeMode, AppLanguage } from '../services/PreferencesService'
 import { ColorTheme, ThemeColorConfig } from '../models/ThemeColors'
 import { getThemeService } from '../services/ThemeService'
+import { setAppUiStateValue } from '../state/AppUiState'
 
 // 设置变化回调接口
 export interface SettingsChangeCallback {
@@ -251,7 +252,7 @@ export class SettingsManager {
 
     this.chatFontSize = size
     await getPreferencesService().setChatFontSize(size)
-    AppStorage.setOrCreate('chat_font_size', size)
+    setAppUiStateValue('chat_font_size', size)
 
     for (let i = 0; i < this.callbacks.length; i++) {
       const callback = this.callbacks[i]

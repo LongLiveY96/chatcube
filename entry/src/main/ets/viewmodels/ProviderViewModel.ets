@@ -93,8 +93,8 @@ export class ProviderViewModel {
   }
 
   // 保存服务商配置（同时同步内存缓存）
-  async saveProvider(provider: ModelProvider): Promise<void> {
-    await this.databaseService.saveProvider(provider)
+  async saveProvider(provider: ModelProvider, insertAtFront: boolean = false): Promise<void> {
+    await this.databaseService.saveProvider(provider, insertAtFront)
     // 同步缓存：就地更新已有条目，或追加新条目
     let found = false
     for (let i = 0; i < this.cachedProviders.length; i++) {
@@ -105,7 +105,11 @@ export class ProviderViewModel {
       }
     }
     if (!found) {
-      this.cachedProviders.push(provider)
+      if (insertAtFront) {
+        this.cachedProviders.unshift(provider)
+      } else {
+        this.cachedProviders.push(provider)
+      }
     }
   }
 

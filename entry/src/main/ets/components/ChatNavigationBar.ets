@@ -15,6 +15,7 @@ import {
 import { buildIconResourcePath, getModelIconPath, isNetworkIconPath, isSandboxIconPath } from '../utils/ProviderIconUtils'
 import { HdsVisualComponent, HdsSceneController, HdsSceneType, hdsEffect } from '@kit.UIDesignKit'
 import { Markdown, MarkdownController } from '@luvi/lv-markdown-in'
+import { getAppUiState, observeAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct ChatNavigationBar {
@@ -63,31 +64,37 @@ export struct ChatNavigationBar {
   @Local private isEditingTitle: boolean = false
   @Local private editingTitleInput: string = ''
   // 主题颜色
-  @Param themePrimary: string = '#0A59F7'
-  @Param isDarkMode: boolean = false
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get isDarkMode(): boolean {
+    return getAppUiState().isDarkMode
+  }
   @Param uiVisualEnhanced: boolean = false
-  private navSceneController: HdsSceneController = new HdsSceneController().setSceneParams({
-    backgroundMaskColors: ['#00000000', '#1A0A59F7', '#00000000'],
-    firstEdgeFlowLight: {
-      startPos: 0,
-      endPos: 0.48,
-      color: '#66FFFFFF'
-    },
-    secondEdgeFlowLight: {
-      startPos: 0,
-      endPos: -0.48,
-      color: '#330A59F7'
-    }
-  })
+  private navSceneController: HdsSceneController = new HdsSceneController()
   private titleMarkdownController: MarkdownController = new MarkdownController()
+  private themeObserverDisposer: (() => void) | null = null
 
   aboutToAppear(): void {
     this.configureTitleMarkdownStyles()
+    this.configureNavigationScene()
+    if (this.themeObserverDisposer === null) {
+      this.themeObserverDisposer = observeAppUiState(['isDarkMode', 'themePrimary'], (): void => {
+        this.onNavThemeStateChange()
+      })
+    }
   }
 
-  @Monitor('isDarkMode')
-  onNavDarkModeChange(): void {
+  onNavThemeStateChange(): void {
     this.configureTitleMarkdownStyles()
+    this.configureNavigationScene()
+  }
+
+  aboutToDisappear(): void {
+    if (this.themeObserverDisposer !== null) {
+      this.themeObserverDisposer()
+      this.themeObserverDisposer = null
+    }
   }
 
   private configureTitleMarkdownStyles(): void {
@@ -101,6 +108,22 @@ export struct ChatNavigationBar {
       .setTextLineHeight(17)
       .setLatexMathTextColor(latexTextColor)
       .setLatexMathTextSize(16)
+  }
+
+  private configureNavigationScene(): void {
+    this.navSceneController = new HdsSceneController().setSceneParams({
+      backgroundMaskColors: ['#00000000', `${this.themePrimary}${this.isDarkMode ? '26' : '1A'}`, '#00000000'],
+      firstEdgeFlowLight: {
+        startPos: 0,
+        endPos: 0.48,
+        color: '#66FFFFFF'
+      },
+      secondEdgeFlowLight: {
+        startPos: 0,
+        endPos: -0.48,
+        color: `${this.themePrimary}${this.isDarkMode ? '66' : '33'}`
+      }
+    })
   }
 
   private hasCurrentModelIdentity(): boolean {
@@ -493,3 +516,4 @@ export struct ChatNavigationBar {
     }
   }
 }
+

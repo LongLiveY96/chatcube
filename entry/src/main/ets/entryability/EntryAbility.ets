@@ -11,6 +11,7 @@ import { ServiceRegistry } from '../services/ServiceRegistry';
 import { IconDownloadCache } from '../services/IconDownloadCache';
 import { ModelCapabilityMatcher } from '../services/ModelCapabilityMatcher';
 import { isExpandedLayoutClass, resolveLayoutSizeClass } from '../config/LayoutProfile';
+import { setAppUiStateValue } from '../state/AppUiState';
 
 const DOMAIN = 0x0000;
 
@@ -66,14 +67,14 @@ export default class EntryAbility extends UIAbility {
       const action = want.parameters.action as string;
       if (action === 'newChat') {
         // 通过 AppStorage 通知应用打开新聊天
-        AppStorage.setOrCreate(AppStorageKeys.OPEN_NEW_CHAT, Date.now());
+        setAppUiStateValue(AppStorageKeys.OPEN_NEW_CHAT, Date.now());
       } else if (action === 'openSession') {
         const payload = want.parameters.payload as string
         const sessionId = want.parameters.sessionId as string
         if (payload !== undefined && payload !== '') {
-          AppStorage.setOrCreate(AppStorageKeys.OPEN_SESSION_PAYLOAD, payload)
+          setAppUiStateValue(AppStorageKeys.OPEN_SESSION_PAYLOAD, payload)
         } else if (sessionId !== undefined && sessionId !== '') {
-          AppStorage.setOrCreate(AppStorageKeys.OPEN_SESSION_PAYLOAD, JSON.stringify({
+          setAppUiStateValue(AppStorageKeys.OPEN_SESSION_PAYLOAD, JSON.stringify({
             sessionId: sessionId,
             taskId: '',
             source: 'notification',
@@ -131,7 +132,7 @@ export default class EntryAbility extends UIAbility {
       hilog.info(DOMAIN, 'testTag', 'ThemeService initialized successfully');
 
       // 提前同步深浅模式到 AppStorage，避免页面首次 build 时读到默认值
-      AppStorage.setOrCreate(AppStorageKeys.IS_DARK_MODE, isDarkMode);
+      setAppUiStateValue(AppStorageKeys.IS_DARK_MODE, isDarkMode);
 
       // 应用保存的语言设置
       await this.applyLanguageSettings();
@@ -232,7 +233,7 @@ export default class EntryAbility extends UIAbility {
     // ChatPage 已迁移为 NavDestination，始终加载 Index
     // 如果从卡片进入需要新建对话，通过 AppStorage 通知 Index
     if (this.pendingNewChat) {
-      AppStorage.setOrCreate(AppStorageKeys.OPEN_NEW_CHAT, Date.now())
+      setAppUiStateValue(AppStorageKeys.OPEN_NEW_CHAT, Date.now())
     }
     this.pendingNewChat = false;
     const pagePath = 'pages/Index';
@@ -283,11 +284,11 @@ export default class EntryAbility extends UIAbility {
       this.mainWindow.on('avoidAreaChange', (data) => {
         if (data.type === window.AvoidAreaType.TYPE_SYSTEM) {
           const topHeight = data.area.topRect.height;
-          AppStorage.setOrCreate(AppStorageKeys.TOP_AVOID_HEIGHT, topHeight);
+          setAppUiStateValue(AppStorageKeys.TOP_AVOID_HEIGHT, topHeight);
           hilog.info(DOMAIN, 'testTag', 'Top avoid area updated: %{public}d', topHeight);
         } else if (data.type === window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR) {
           const bottomHeight = data.area.bottomRect.height;
-          AppStorage.setOrCreate(AppStorageKeys.BOTTOM_AVOID_HEIGHT, bottomHeight);
+          setAppUiStateValue(AppStorageKeys.BOTTOM_AVOID_HEIGHT, bottomHeight);
           hilog.info(DOMAIN, 'testTag', 'Bottom avoid area updated: %{public}d', bottomHeight);
         }
       });
@@ -299,14 +300,14 @@ export default class EntryAbility extends UIAbility {
       // 初始化颜色模式到 AppStorage
       this.updateColorModeStorage();
       // 初始化后台状态到 AppStorage
-      AppStorage.setOrCreate(AppStorageKeys.APP_IN_BACKGROUND, false);
-      AppStorage.setOrCreate(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, '')
-      AppStorage.setOrCreate(AppStorageKeys.SPEAKING_MESSAGE_ID, '')
-      AppStorage.setOrCreate(AppStorageKeys.TASK_UNREAD_BY_SESSION, '{}')
+      setAppUiStateValue(AppStorageKeys.APP_IN_BACKGROUND, false);
+      setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, '')
+      setAppUiStateValue(AppStorageKeys.SPEAKING_MESSAGE_ID, '')
+      setAppUiStateValue(AppStorageKeys.TASK_UNREAD_BY_SESSION, '{}')
       AppStorage.setOrCreate(AppStorageKeys.TASK_UNREAD_TOTAL, 0)
 
       if (this.pendingOpenSessionPayload !== '') {
-        AppStorage.setOrCreate(AppStorageKeys.OPEN_SESSION_PAYLOAD, this.pendingOpenSessionPayload)
+        setAppUiStateValue(AppStorageKeys.OPEN_SESSION_PAYLOAD, this.pendingOpenSessionPayload)
         this.pendingOpenSessionPayload = ''
       }
       });
@@ -324,22 +325,22 @@ export default class EntryAbility extends UIAbility {
     try {
       const systemAvoidArea = this.mainWindow.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
       const topHeight = systemAvoidArea.topRect.height;
-      AppStorage.setOrCreate(AppStorageKeys.TOP_AVOID_HEIGHT, topHeight);
+      setAppUiStateValue(AppStorageKeys.TOP_AVOID_HEIGHT, topHeight);
       hilog.info(DOMAIN, 'testTag', 'Top avoid area height: %{public}d', topHeight);
     } catch (error) {
       hilog.error(DOMAIN, 'testTag', 'Failed to get system avoid area: %{public}s', JSON.stringify(error));
-      AppStorage.setOrCreate(AppStorageKeys.TOP_AVOID_HEIGHT, 0);
+      setAppUiStateValue(AppStorageKeys.TOP_AVOID_HEIGHT, 0);
     }
 
     // 获取导航条高度
     try {
       const navAvoidArea = this.mainWindow.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
       const bottomHeight = navAvoidArea.bottomRect.height;
-      AppStorage.setOrCreate(AppStorageKeys.BOTTOM_AVOID_HEIGHT, bottomHeight);
+      setAppUiStateValue(AppStorageKeys.BOTTOM_AVOID_HEIGHT, bottomHeight);
       hilog.info(DOMAIN, 'testTag', 'Bottom avoid area height: %{public}d', bottomHeight);
     } catch (error) {
       hilog.error(DOMAIN, 'testTag', 'Failed to get navigation avoid area: %{public}s', JSON.stringify(error));
-      AppStorage.setOrCreate(AppStorageKeys.BOTTOM_AVOID_HEIGHT, 0);
+      setAppUiStateValue(AppStorageKeys.BOTTOM_AVOID_HEIGHT, 0);
     }
   }
 
@@ -359,9 +360,9 @@ export default class EntryAbility extends UIAbility {
     const widthVp = Math.round(this.pxToVp(widthPx));
     const heightVp = Math.round(this.pxToVp(heightPx));
     const sizeClass = resolveLayoutSizeClass(widthVp);
-    AppStorage.setOrCreate(AppStorageKeys.WINDOW_WIDTH_VP, widthVp);
-    AppStorage.setOrCreate(AppStorageKeys.WINDOW_HEIGHT_VP, heightVp);
-    AppStorage.setOrCreate(AppStorageKeys.LAYOUT_SIZE_CLASS, sizeClass);
+    setAppUiStateValue(AppStorageKeys.WINDOW_WIDTH_VP, widthVp);
+    setAppUiStateValue(AppStorageKeys.WINDOW_HEIGHT_VP, heightVp);
+    setAppUiStateValue(AppStorageKeys.LAYOUT_SIZE_CLASS, sizeClass);
     AppStorage.setOrCreate(AppStorageKeys.IS_EXPANDED_LAYOUT, isExpandedLayoutClass(sizeClass));
     hilog.info(
       DOMAIN,
@@ -405,7 +406,7 @@ export default class EntryAbility extends UIAbility {
       : themeMode === ThemeMode.LIGHT
         ? false
         : effectiveColorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
-    AppStorage.setOrCreate(AppStorageKeys.IS_DARK_MODE, isDarkMode);
+    setAppUiStateValue(AppStorageKeys.IS_DARK_MODE, isDarkMode);
     hilog.info(DOMAIN, 'testTag', 'isDarkMode updated: %{public}s', isDarkMode.toString());
   }
 
@@ -445,14 +446,14 @@ export default class EntryAbility extends UIAbility {
   onForeground(): void {
     // Ability has brought to foreground
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onForeground');
-    AppStorage.setOrCreate(AppStorageKeys.APP_IN_BACKGROUND, false);
+    setAppUiStateValue(AppStorageKeys.APP_IN_BACKGROUND, false);
     ServiceRegistry.backgroundGuard().onAppBackgroundChanged(false)
   }
 
   onBackground(): void {
     // Ability has back to background
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onBackground');
-    AppStorage.setOrCreate(AppStorageKeys.APP_IN_BACKGROUND, true);
+    setAppUiStateValue(AppStorageKeys.APP_IN_BACKGROUND, true);
     ServiceRegistry.backgroundGuard().onAppBackgroundChanged(true)
   }
 }

@@ -10,16 +10,27 @@ import { AppStorageKeys } from '../config/AppStorageKeys'
 import { LayoutSizeClass } from '../config/LayoutProfile'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getSettingsPageContentMaxWidth, isSettingsPageExpandedLayout } from '../utils/SettingsPageLayoutHelper'
+import { getAppUiState } from '../state/AppUiState'
 
 @Entry
 @ComponentV2
 struct DefaultModelPage {
   // 主题颜色
-  @Param themePrimary: string = '#0A59F7'
-  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @Param windowWidthVp: number = 0
-  @Param windowHeightVp: number = 0
-  @Param settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get layoutSizeClass(): string {
+    return getAppUiState().layoutSizeClass
+  }
+  private get windowWidthVp(): number {
+    return getAppUiState().windowWidthVp
+  }
+  private get windowHeightVp(): number {
+    return getAppUiState().windowHeightVp
+  }
+  private get settingsDetailPresentationMode(): string {
+    return getAppUiState().settingsDetailPresentationMode
+  }
 
   @Local chatModel: DefaultModelConfig = new DefaultModelConfig()
   @Local titleModel: DefaultModelConfig = new DefaultModelConfig()
@@ -573,7 +584,9 @@ struct ModelConfigCard {
   @Param isConfigured: boolean = false
   @Param displayName: string = ''
   // 主题颜色
-  @Param themePrimary: string = '#0A59F7'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
 
   @Event onCardClick: () => void = () => {}
   @Event onPromptClick: () => void = () => {}
@@ -665,3 +678,4 @@ export function DefaultModelPageBuilder(name: string, param: Object) {
   .hideTitleBar(true)
   .hideBackButton(true)
 }
+

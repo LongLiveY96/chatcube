@@ -28,6 +28,7 @@ import {
   removeModelById,
   buildSelectedModelsWithPreservedConfig
 } from '../config/ProviderModelActions'
+import { getAppUiState } from '../state/AppUiState'
 
 export enum ProviderDetailPresentationMode {
   SHEET = 'sheet',
@@ -43,8 +44,15 @@ export struct ProviderDetailPanel {
   @Param presentationMode: ProviderDetailPresentationMode = ProviderDetailPresentationMode.SHEET
   @Event onClose: () => void = () => {}
   @Event onProviderChanged: (providerId: string, isCreateMode: boolean) => void = (_providerId: string, _isCreateMode: boolean) => {}
-  @Param themePrimary: string = '#0A59F7'
-  @Param isDarkMode: boolean = false
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
+  private get isDarkMode(): boolean {
+    return getAppUiState().isDarkMode
+  }
 
   @Local provider: ModelProvider | null = null
   @Local isLoading: boolean = true
@@ -154,7 +162,7 @@ export struct ProviderDetailPanel {
     if (this.provider === null) {
       return
     }
-    await this.providerViewModel.saveProvider(this.provider)
+    await this.providerViewModel.saveProvider(this.provider, this.isCreateMode)
   }
 
   private notifyProviderChanged(): void {
@@ -700,7 +708,7 @@ export struct ProviderDetailPanel {
       LoadingProgress()
         .width(48)
         .height(48)
-        .color($r('app.color.primary'))
+        .color(this.themePrimary)
 
       Text($r('app.string.loading'))
         .fontSize(14)
@@ -727,9 +735,9 @@ export struct ProviderDetailPanel {
       Button() {
         Text(this.closeActionLabel())
           .fontSize(14)
-          .fontColor($r('app.color.primary'))
+          .fontColor(this.themePrimary)
       }
-        .backgroundColor($r('app.color.primary_light'))
+        .backgroundColor(this.themePrimaryLight)
         .borderRadius(20)
         .height(40)
         .padding({ left: 24, right: 24 })
@@ -825,7 +833,7 @@ export struct ProviderDetailPanel {
 
         // 启用开关
         Toggle({ type: ToggleType.Switch, isOn: this.provider?.isConnected ?? false })
-          .selectedColor($r('app.color.primary'))
+          .selectedColor(this.themePrimary)
           .onChange((isOn: boolean) => {
             // 只有当状态真正改变时才处理（避免重复触发）
             if (this.provider !== null && this.provider.isConnected !== isOn) {
@@ -944,16 +952,16 @@ export struct ProviderDetailPanel {
               LoadingProgress()
                 .width(16)
                 .height(16)
-                .color($r('app.color.primary'))
+                .color(this.themePrimary)
             } else {
               Text($r('app.string.test_connection'))
                 .fontSize(13)
-                .fontColor($r('app.color.primary'))
+                .fontColor(this.themePrimary)
             }
           }
           .height(32)
           .padding({ left: 12, right: 12 })
-          .backgroundColor($r('app.color.primary_light'))
+          .backgroundColor(this.themePrimaryLight)
           .borderRadius(16)
           .margin({ left: 8 })
           .enabled(!this.isTesting)
@@ -1062,17 +1070,17 @@ export struct ProviderDetailPanel {
             Row() {
               SymbolGlyph(this.isAllModelsEnabled() ? $r('sys.symbol.xmark_circle') : $r('sys.symbol.checkmark_circle'))
                 .fontSize(14)
-                .fontColor([this.isAllModelsEnabled() ? $r('app.color.text_tertiary') : $r('app.color.primary')])
+                .fontColor([this.isAllModelsEnabled() ? $r('app.color.text_tertiary') : this.themePrimary])
                 .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), this.toggleAllEffectTrigger)
               Text(this.isAllModelsEnabled() ? $r('app.string.provider_disable_all') : $r('app.string.provider_enable_all'))
                 .fontSize(13)
-                .fontColor(this.isAllModelsEnabled() ? $r('app.color.text_tertiary') : $r('app.color.primary'))
+                .fontColor(this.isAllModelsEnabled() ? $r('app.color.text_tertiary') : this.themePrimary)
                 .margin({ left: 4 })
             }
           }
           .height(32)
           .padding({ left: 10, right: 10 })
-          .backgroundColor(this.isAllModelsEnabled() ? $r('app.color.background') : $r('app.color.primary_light'))
+          .backgroundColor(this.isAllModelsEnabled() ? $r('app.color.background') : this.themePrimaryLight)
           .borderRadius(16)
           .margin({ right: 8 })
           .onClick(() => {
@@ -1093,21 +1101,21 @@ export struct ProviderDetailPanel {
               LoadingProgress()
                 .width(14)
                 .height(14)
-                .color($r('app.color.primary'))
+                .color(this.themePrimary)
             } else {
               SymbolGlyph($r('sys.symbol.arrow_clockwise'))
                 .fontSize(14)
-                .fontColor([$r('app.color.primary')])
+                .fontColor([this.themePrimary])
             }
             Text(this.isFetchingModels ? $r('app.string.provider_fetching') : $r('app.string.provider_fetch_models'))
               .fontSize(13)
-              .fontColor($r('app.color.primary'))
+              .fontColor(this.themePrimary)
               .margin({ left: 4 })
           }
         }
         .height(32)
         .padding({ left: 12, right: 12 })
-        .backgroundColor($r('app.color.primary_light'))
+        .backgroundColor(this.themePrimaryLight)
         .borderRadius(16)
         .enabled(!this.isFetchingModels)
         .onClick(() => {
@@ -1162,7 +1170,7 @@ export struct ProviderDetailPanel {
                 Button() {
                   SymbolGlyph(this.isGroupAllEnabled(groupIndex) ? $r('sys.symbol.xmark_circle') : $r('sys.symbol.checkmark_circle'))
                     .fontSize(16)
-                    .fontColor([this.isGroupAllEnabled(groupIndex) ? $r('app.color.text_tertiary') : $r('app.color.primary')])
+                    .fontColor([this.isGroupAllEnabled(groupIndex) ? $r('app.color.text_tertiary') : this.themePrimary])
                 }
                 .type(ButtonType.Circle)
                 .width(32)
@@ -1426,6 +1434,9 @@ export struct ModelItemCard {
   @Param model: ModelInfo = new ModelInfo('', '')
   @Param showDivider: boolean = false
   @Param providerId: string = ''
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
   @Event onToggle: () => void = () => {}
   @Event onEdit: () => void = () => {}
 
@@ -1507,7 +1518,7 @@ export struct ModelItemCard {
 
         // 启用开关
         Toggle({ type: ToggleType.Switch, isOn: this.model.isEnabled })
-          .selectedColor($r('app.color.primary'))
+          .selectedColor(this.themePrimary)
           .width(44)
           .height(24)
           .onChange((isOn: boolean) => {
@@ -1543,3 +1554,4 @@ export struct ModelItemCard {
     }
   }
 }
+

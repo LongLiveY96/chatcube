@@ -5,6 +5,7 @@ import { registerBuiltinTools } from '../config/BuiltinTools'
 import { getPreferencesService, PreferencesService, PreferenceKeys } from '../services/PreferencesService'
 import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
 import { HdsListItemCard, SuffixCustomBuilder } from '@kit.UIDesignKit'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct ToolsCenterPanel {
@@ -19,7 +20,9 @@ export struct ToolsCenterPanel {
   @Local isLoading: boolean = false
   @Local showSearchConfigSheet: boolean = false
 
-  @Param themePrimary: string = '#0A59F7'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
 
   private toolRegistry: ToolRegistry = ServiceRegistry.toolRegistry()
   private preferencesService: PreferencesService = getPreferencesService()
@@ -591,3 +594,4 @@ struct BuiltinToolCardItem {
     .margin({ bottom: 8 })
   }
 }
+

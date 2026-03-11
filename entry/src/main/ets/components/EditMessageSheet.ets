@@ -4,6 +4,7 @@
  */
 
 import { ReasoningLevel, MessageAttachment, AttachmentType } from '../models/ChatModels'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct EditMessageSheet {
@@ -30,7 +31,9 @@ export struct EditMessageSheet {
   // 内部状态
   @Local private iconTrigger: number = 0
   @Local private sendBtnPressed: boolean = false
-  @Param themePrimary: string = '#0A59F7'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
 
   build() {
     Column() {
@@ -300,3 +303,4 @@ export struct EditMessageSheet {
     .padding({ left: 8, right: 16 })
   }
 }
+

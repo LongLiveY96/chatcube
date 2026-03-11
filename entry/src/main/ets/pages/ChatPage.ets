@@ -56,6 +56,7 @@ import {
 } from './chat/ChatMessageActionHelper'
 import { ChatPageRouteParams } from './chat/ChatPageRouteTypes'
 import { getChatContentMaxWidth, LayoutSizeClass } from '../config/LayoutProfile'
+import { getAppUiState, observeAppUiState, setAppUiStateValue } from '../state/AppUiState'
 
 const DOMAIN = 0x0003
 const TAG = 'ChatPage'
@@ -75,10 +76,18 @@ export struct ChatPage {
   @Local isLoading: boolean = false
   @Local isSending: boolean = false
   // 应用是否退到后台（用于处理生成中返回桌面/关闭应用）
-  @Param appInBackground: boolean = false
-  @Param taskUnreadBySessionJson: string = '{}'
-  @Param inAppTaskAlertPayload: string = ''
-  @Param openSessionPayload: string = ''
+  private get appInBackground(): boolean {
+    return getAppUiState().appInBackground
+  }
+  private get taskUnreadBySessionJson(): string {
+    return getAppUiState().taskUnreadBySessionJson
+  }
+  private get inAppTaskAlertPayload(): string {
+    return getAppUiState().inAppTaskAlertPayload
+  }
+  private get openSessionPayload(): string {
+    return getAppUiState().openSessionPayload
+  }
   @Local providers: ModelProvider[] = []
   // 附件相关状态
   @Local pendingAttachments: MessageAttachment[] = []
@@ -107,8 +116,8 @@ export struct ChatPage {
   @Local previewImages: Array<string> = []
   @Local previewImageIndex: number = 0
   // 当前正在朗读的消息ID
-  @Param speakingMessageId: string = ''
-  @Event $speakingMessageId: (value: string) => void = (_value: string) => {
+  private get speakingMessageId(): string {
+    return getAppUiState().speakingMessageId
   }
   // 是否为通过"新建对话"创建的空会话（返回时需要删除）
   private isNewEmptySession: boolean = false
@@ -129,14 +138,34 @@ export struct ChatPage {
   // 是否自动聚焦输入框
   @Local autoFocusInput: boolean = false
   // 避让区域高度
-  @Param topAvoidHeight: number = 0
-  @Param bottomAvoidHeight: number = 0
-  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @Param windowWidthVp: number = 0
+  private get topAvoidHeight(): number {
+    return getAppUiState().topAvoidHeight
+  }
+  private get bottomAvoidHeight(): number {
+    return getAppUiState().bottomAvoidHeight
+  }
+  private get layoutSizeClass(): string {
+    return getAppUiState().layoutSizeClass
+  }
+  private get windowWidthVp(): number {
+    return getAppUiState().windowWidthVp
+  }
   // 主题颜色
-  @Param themePrimary: string = '#0A59F7'
-  @Param themeUserBubble: string = '#0A59F7'
-  @Param themeUserBubbleText: string = '#FFFFFF'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themeUserBubble(): string {
+    return getAppUiState().themeUserBubble
+  }
+  private get themeUserBubbleText(): string {
+    return getAppUiState().themeUserBubbleText
+  }
+  private get themeAiBubble(): string {
+    return getAppUiState().themeAiBubble
+  }
+  private get isDarkMode(): boolean {
+    return getAppUiState().isDarkMode
+  }
   // 多选模式状态
   @Local isMultiSelectMode: boolean = false
   @Local selectedMessageIds: Array<string> = []
@@ -184,6 +213,7 @@ export struct ChatPage {
   private scrollUiFlow: ChatScrollUiFlow | null = null
   private draftAutosaveTimerId: number = -1
   private readonly draftAutosaveDelayMs: number = 400
+  private appUiStateDisposers: Array<() => void> = []
 
   private showChatSnack(message: string | Resource, duration: number = 2000,
     tone: SnackBarTone = SnackBarTone.DEFAULT): void {
@@ -195,6 +225,7 @@ export struct ChatPage {
   }
 
   aboutToAppear(): void {
+    this.registerAppUiStateObservers()
     // 设置键盘避让模式
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
 
@@ -277,7 +308,8 @@ export struct ChatPage {
     this.flushDraftAutosave(true).catch((error: Error): void => {
       console.error('ChatPage', `Failed to flush draft on disappear: ${JSON.stringify(error)}`)
     })
-    AppStorage.setOrCreate(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, '')
+    this.unregisterAppUiStateObservers()
+    setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, '')
 
     if (this.shouldDeleteEmptySessionOnDisappear()) {
       this.chatViewModel.deleteSession(this.sessionId)
@@ -374,19 +406,34 @@ export struct ChatPage {
     }
   }
 
-  @Monitor('taskUnreadBySessionJson')
   onTaskUnreadBySessionChanged(): void {
     this.getTaskAlertFlow().refreshOtherSessionUnreadCount()
   }
 
-  @Monitor('inAppTaskAlertPayload')
   onInAppTaskAlertPayloadChanged(): void {
     this.getTaskAlertFlow().handleInAppTaskAlertPayload(this.inAppTaskAlertPayload)
   }
 
-  @Monitor('openSessionPayload')
   onOpenSessionPayloadChanged(): void {
     this.getTaskAlertFlow().handleOpenSessionPayload(this.openSessionPayload)
+  }
+
+  private registerAppUiStateObservers(): void {
+    if (this.appUiStateDisposers.length > 0) {
+      return
+    }
+    this.appUiStateDisposers = [
+      observeAppUiState(AppStorageKeys.TASK_UNREAD_BY_SESSION, (): void => this.onTaskUnreadBySessionChanged()),
+      observeAppUiState(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, (): void => this.onInAppTaskAlertPayloadChanged()),
+      observeAppUiState(AppStorageKeys.OPEN_SESSION_PAYLOAD, (): void => this.onOpenSessionPayloadChanged())
+    ]
+  }
+
+  private unregisterAppUiStateObservers(): void {
+    for (let i = 0; i < this.appUiStateDisposers.length; i++) {
+      this.appUiStateDisposers[i]()
+    }
+    this.appUiStateDisposers = []
   }
 
   private handlePageShown(): void {
@@ -398,14 +445,14 @@ export struct ChatPage {
     this.syncSendingStateFromRuntime()
     this.fixInconsistentState()
     this.refreshProviders()
-    AppStorage.setOrCreate(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, this.sessionId)
+    setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, this.sessionId)
     this.chatTaskOrchestrator.markSessionRead(this.sessionId)
     this.getTaskAlertFlow().refreshOtherSessionUnreadCount()
     this.updateStreamSyncTimer()
   }
 
   private activateCurrentSessionRuntimeState(): void {
-    AppStorage.setOrCreate(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, this.sessionId)
+    setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, this.sessionId)
     this.chatTaskOrchestrator.markSessionRead(this.sessionId)
     this.getTaskAlertFlow().refreshOtherSessionUnreadCount()
     this.syncSendingStateFromRuntime()
@@ -775,10 +822,10 @@ export struct ChatPage {
         this.navPathStack.replacePath({ name: 'ChatPage', param: { sessionId: sessionId } as ChatPageRouteParams })
       },
       onClearOpenSessionPayloadStorage: (): void => {
-        AppStorage.setOrCreate(AppStorageKeys.OPEN_SESSION_PAYLOAD, '')
+        setAppUiStateValue(AppStorageKeys.OPEN_SESSION_PAYLOAD, '')
       },
       onClearInAppTaskAlertPayloadStorage: (): void => {
-        AppStorage.setOrCreate(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, '')
+        setAppUiStateValue(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, '')
       },
       getUIContext: (): UIContext => {
         return this.getUIContext()
@@ -1446,7 +1493,6 @@ export struct ChatPage {
 
   }
 
-  @Monitor('appInBackground')
   onAppInBackgroundChanged(): void {
     // 后台切换由任务调度器与后台守护服务处理，这里只保留日志
     console.info('ChatPage', `[onAppInBackgroundChanged] appInBackground=${this.appInBackground}`)
@@ -1588,7 +1634,7 @@ export struct ChatPage {
     }
     this.sessionId = session.id
     this.sessionTitle = session.title
-    AppStorage.setOrCreate(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, session.id)
+    setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, session.id)
   }
 
   private async prepareCurrentSessionForTransition(): Promise<void> {
@@ -1607,7 +1653,7 @@ export struct ChatPage {
       this.sessionId = ''
       this.sessionTitle = ''
       this.isNewEmptySession = false
-      AppStorage.setOrCreate(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, '')
+      setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, '')
     }
   }
 
@@ -1767,7 +1813,7 @@ export struct ChatPage {
       this.ttsService.stop()
     }
 
-    this.$speakingMessageId(messageId)
+    this.setSpeakingMessageId(messageId)
 
     this.ttsService.speak(content, {
       onStart: () => {
@@ -1775,10 +1821,10 @@ export struct ChatPage {
       },
       onComplete: () => {
         // 朗读完成
-        this.$speakingMessageId('')
+        this.setSpeakingMessageId('')
       },
       onError: (error: string) => {
-        this.$speakingMessageId('')
+        this.setSpeakingMessageId('')
         this.showChatSnack(error, 3000, SnackBarTone.ERROR)
       }
     })
@@ -1787,7 +1833,11 @@ export struct ChatPage {
   // 处理停止TTS朗读
   private handleTTSStop(): void {
     this.ttsService.stop()
-    this.$speakingMessageId('')
+    this.setSpeakingMessageId('')
+  }
+
+  private setSpeakingMessageId(messageId: string): void {
+    setAppUiStateValue(AppStorageKeys.SPEAKING_MESSAGE_ID, messageId)
   }
 
   // 处理新建对话
@@ -1808,7 +1858,7 @@ export struct ChatPage {
     this.titleGenerateFailed = false
     // 标记为新建的空会话（返回时需要删除）
     this.isNewEmptySession = true
-    AppStorage.setOrCreate(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, this.sessionId)
+    setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, this.sessionId)
 
     this.showChatSnack($r('app.string.chat_created'), 2000, SnackBarTone.SUCCESS)
   }
@@ -1986,3 +2036,4 @@ export struct ChatPage {
 export function ChatPageBuilder(name: string, param: Object) {
   ChatPage()
 }
+

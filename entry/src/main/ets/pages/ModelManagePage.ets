@@ -12,6 +12,7 @@ import { AppStorageKeys } from '../config/AppStorageKeys'
 import { LayoutSizeClass } from '../config/LayoutProfile'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { isSettingsPageExpandedLayout } from '../utils/SettingsPageLayoutHelper'
+import { getAppUiState, observeAppUiState } from '../state/AppUiState'
 
 @Entry
 @ComponentV2
@@ -24,20 +25,32 @@ struct ModelManagePage {
   @Local selectedProviderId: string = ''
   @Local detailCreateMode: boolean = false
   @Local isMatchingIcons: boolean = false
-  @Param themePrimary: string = '#0A59F7'
-  @Param themePrimaryLight: string = '#E6F2FF'
-  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @Param windowWidthVp: number = 0
-  @Param windowHeightVp: number = 0
-  @Param settingsDetailPresentationMode: string = SettingsPagePresentationMode.PAGE
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
+  private get layoutSizeClass(): string {
+    return getAppUiState().layoutSizeClass
+  }
+  private get windowWidthVp(): number {
+    return getAppUiState().windowWidthVp
+  }
+  private get windowHeightVp(): number {
+    return getAppUiState().windowHeightVp
+  }
+  private get settingsDetailPresentationMode(): string {
+    return getAppUiState().settingsDetailPresentationMode
+  }
   private hasLoaded: boolean = false
   private providerViewModel: ProviderViewModel = ServiceRegistry.provider()
+  private layoutObserverDisposer: (() => void) | null = null
 
   private showManageToast(message: string | Resource, duration: number = 2000): void {
     showToast(this.getUIContext(), message, duration)
   }
 
-  @Monitor('layoutSizeClass')
   onLayoutSizeClassChanged(): void {
     this.ensureExpandedDetailSelection()
   }
@@ -115,7 +128,20 @@ struct ModelManagePage {
   }
 
   aboutToAppear(): void {
+    if (this.layoutObserverDisposer === null) {
+      this.layoutObserverDisposer = observeAppUiState(['layoutSizeClass', 'windowWidthVp', 'windowHeightVp',
+        'settingsDetailPresentationMode'], (): void => {
+        this.onLayoutSizeClassChanged()
+      })
+    }
     this.loadData()
+  }
+
+  aboutToDisappear(): void {
+    if (this.layoutObserverDisposer !== null) {
+      this.layoutObserverDisposer()
+      this.layoutObserverDisposer = null
+    }
   }
 
   onPageShow(): void {
@@ -379,7 +405,11 @@ struct ModelManagePage {
         Search({ value: this.searchKeywords, placeholder: $r('app.string.filter_models_placeholder') })
           .width('100%')
           .height(40)
-          .backgroundColor($r('app.color.surface'))
+          .backgroundColor($r('app.color.background'))
+          .border({
+            width: 1,
+            color: $r('app.color.divider')
+          })
           .onChange((value: string) => {
             this.searchKeywords = value
           })
@@ -562,7 +592,7 @@ struct ModelManagePage {
       LoadingProgress()
         .width(48)
         .height(48)
-        .color($r('app.color.primary'))
+        .color(this.themePrimary)
 
       Text($r('app.string.loading'))
         .fontSize(14)
@@ -657,11 +687,15 @@ struct ModelManagePage {
 
 @ComponentV2
 struct ProviderCardItem {
-  @Param provider: ModelProvider = new ModelProvider('', '', ProviderType.CUSTOM, '', $r('app.color.primary'))
+  @Param provider: ModelProvider = new ModelProvider('', '', ProviderType.CUSTOM, '', $r('app.color.brand_custom'))
   @Param searchKeywords: string = ''
   @Param active: boolean = false
-  @Param themePrimary: string = '#0A59F7'
-  @Param themePrimaryLight: string = '#E6F2FF'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
   @Event onCardClick: () => void = () => {}
   @Event onToggleEnabled: () => void = () => {}
 
@@ -719,8 +753,8 @@ struct ProviderCardItem {
           if (this.provider.id === 'siliconflow') {
             Text($r('app.string.system_service'))
               .fontSize(11)
-              .fontColor($r('app.color.primary'))
-              .backgroundColor($r('app.color.primary_light'))
+              .fontColor(this.themePrimary)
+              .backgroundColor(this.themePrimaryLight)
               .padding({ left: 6, right: 6, top: 2, bottom: 2 })
               .borderRadius(4)
               .margin({ left: 8 })
@@ -778,3 +812,4 @@ export function ModelManagePageBuilder(name: string, param: Object) {
   .hideTitleBar(true)
   .hideBackButton(true)
 }
+

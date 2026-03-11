@@ -8,6 +8,7 @@ import {
   hasSessionDraftContent,
   SESSION_DRAFT_TAG_TEXT
 } from '../utils/ChatSessionDisplayHelper'
+import { getAppUiState, observeAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct SessionCard {
@@ -16,11 +17,18 @@ export struct SessionCard {
   @Param enableAnimation: boolean = true
   @Param enableContextMenu: boolean = true
   @Local scaleValue: number = 1
-  @Param themePrimary: string = '#0A59F7'
-  @Param themePrimaryLight: string = '#E6F2FF'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
   @Param uiVisualEnhanced: boolean = false
-  @Param isDarkMode: boolean = false
+  private get isDarkMode(): boolean {
+    return getAppUiState().isDarkMode
+  }
   private titleMarkdownController: MarkdownController = new MarkdownController()
+  private darkModeObserverDisposer: (() => void) | null = null
   @Event onTap: () => void = () => {}
   @Event onDelete: () => void = () => {}
   @Event onMultiSelect: () => void = () => {}
@@ -29,11 +37,22 @@ export struct SessionCard {
 
   aboutToAppear(): void {
     this.configureTitleMarkdownStyles()
+    if (this.darkModeObserverDisposer === null) {
+      this.darkModeObserverDisposer = observeAppUiState('isDarkMode', (): void => {
+        this.onCardDarkModeChange()
+      })
+    }
   }
 
-  @Monitor('isDarkMode')
   onCardDarkModeChange(): void {
     this.configureTitleMarkdownStyles()
+  }
+
+  aboutToDisappear(): void {
+    if (this.darkModeObserverDisposer !== null) {
+      this.darkModeObserverDisposer()
+      this.darkModeObserverDisposer = null
+    }
   }
 
   private configureTitleMarkdownStyles(): void {
@@ -431,3 +450,4 @@ export struct SessionCard {
     return this.unreadCount.toString()
   }
 }
+

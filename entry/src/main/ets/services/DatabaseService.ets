@@ -16,6 +16,7 @@ import { generateDefaultTextIcon } from '../utils/IconGeneratorUtils'
 import { isPresetProvider, getPresetProviderById } from '../config/PresetProviders'
 import { AppError, AppErrorCode, toErrorDetail } from '../models/AppError'
 import { AppStorageKeys } from '../config/AppStorageKeys'
+import { setAppUiStateValue } from '../state/AppUiState'
 
 // 数据库配置
 const DB_CONFIG: relationalStore.StoreConfig = {
@@ -682,7 +683,7 @@ export class DatabaseService {
     updatePredicates.equalTo('id', sessionId)
     try {
       await this.rdbStore.update(valueBucket, updatePredicates)
-      AppStorage.setOrCreate<number>(AppStorageKeys.SESSION_LIST_REFRESH_AT, Date.now())
+      setAppUiStateValue(AppStorageKeys.SESSION_LIST_REFRESH_AT, Date.now())
     } catch (error) {
       console.error('DatabaseService', `Failed to update session summary: ${JSON.stringify(error)}`)
     }
@@ -804,7 +805,7 @@ export class DatabaseService {
     updatePredicates.equalTo('id', sessionId)
     try {
       await this.rdbStore.update(valueBucket, updatePredicates)
-      AppStorage.setOrCreate<number>(AppStorageKeys.SESSION_LIST_REFRESH_AT, Date.now())
+      setAppUiStateValue(AppStorageKeys.SESSION_LIST_REFRESH_AT, Date.now())
     } catch (error) {
       console.error('DatabaseService', `Failed to update session draft: ${JSON.stringify(error)}`)
     }
@@ -1365,7 +1366,7 @@ export class DatabaseService {
   // ============ 服务商操作 ============
 
   // 保存服务商配置
-  async saveProvider(provider: ModelProvider): Promise<void> {
+  async saveProvider(provider: ModelProvider, insertAtFront: boolean = false): Promise<void> {
     await this.waitForInitialization()
     if (this.rdbStore === null) {
       return
@@ -1442,10 +1443,34 @@ export class DatabaseService {
       if (exists) {
         await this.rdbStore.update(valueBucket, predicates)
       } else {
+        valueBucket.sort_order = insertAtFront ? 0 : await this.getNextProviderSortOrder()
+        if (insertAtFront) {
+          await this.rdbStore.executeSql(`UPDATE ${TableNames.PROVIDERS} SET sort_order = sort_order + 1`)
+        }
         await this.rdbStore.insert(TableNames.PROVIDERS, valueBucket)
       }
     } catch (error) {
       console.error('DatabaseService', `Failed to save provider: ${JSON.stringify(error)}`)
+    }
+  }
+
+  private async getNextProviderSortOrder(): Promise<number> {
+    if (this.rdbStore === null) {
+      return 0
+    }
+    const predicates = new relationalStore.RdbPredicates(TableNames.PROVIDERS)
+    predicates.orderByDesc('sort_order')
+    try {
+      const resultSet = await this.rdbStore.query(predicates)
+      let nextSortOrder = 0
+      if (resultSet.goToNextRow()) {
+        nextSortOrder = resultSet.getLong(resultSet.getColumnIndex('sort_order')) + 1
+      }
+      resultSet.close()
+      return nextSortOrder
+    } catch (error) {
+      console.error('DatabaseService', `Failed to get next provider sort order: ${JSON.stringify(error)}`)
+      return 0
     }
   }
 

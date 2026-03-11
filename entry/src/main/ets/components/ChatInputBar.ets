@@ -10,6 +10,7 @@ import {
 import { fileIo } from '@kit.CoreFileKit'
 import { util } from '@kit.ArkTS'
 import { getAttachmentStorageService } from '../services/AttachmentStorageService'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct ChatInputBar {
@@ -42,9 +43,15 @@ export struct ChatInputBar {
   // 是否自动聚焦输入框
   @Param autoFocus: boolean = false
   // 主题颜色（从 ThemeService 同步）
-  @Param themePrimary: string = '#0A59F7'
-  @Param themeUserBubble: string = '#0A59F7'
-  @Param isDarkMode: boolean = false
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themeUserBubble(): string {
+    return getAppUiState().themeUserBubble
+  }
+  private get themeAiBubble(): string {
+    return getAppUiState().themeAiBubble
+  }
   // ========== 最近截图相关 ==========
   private recentPhotoOptions: RecentPhotoOptions = new RecentPhotoOptions()
   @Local hasRecentPhoto: boolean = false // 当前是否存在符合时间条件的截图
@@ -134,7 +141,7 @@ export struct ChatInputBar {
         .width('100%')
         .height(28)
         .justifyContent(FlexAlign.Center)
-        .backgroundColor($r('app.color.chat_ai_bubble'))
+        .backgroundColor(this.themeAiBubble)
         .borderRadius(8)
         .margin({ bottom: 8 })
       }
@@ -181,7 +188,7 @@ export struct ChatInputBar {
         }
         .width(40)
         .height(40)
-        .backgroundColor(this.modelBtnPressed ? $r('app.color.divider') : $r('app.color.chat_ai_bubble'))
+        .backgroundColor(this.modelBtnPressed ? $r('app.color.divider') : this.themeAiBubble)
         .scale({ x: this.modelBtnPressed ? 0.95 : 1, y: this.modelBtnPressed ? 0.95 : 1 })
         .animation({ duration: 150, curve: Curve.EaseOut })
         .onTouch((event: TouchEvent) => {
@@ -529,3 +536,4 @@ export struct ChatInputBar {
     this.breathOpacity = 1
   }
 }
+

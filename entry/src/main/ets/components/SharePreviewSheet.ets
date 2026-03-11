@@ -10,6 +10,7 @@ import { common } from '@kit.AbilityKit'
 import { image } from '@kit.ImageKit'
 import { fileIo as fs } from '@kit.CoreFileKit'
 import { fileUri } from '@kit.CoreFileKit'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct SharePreviewSheet {
@@ -18,8 +19,12 @@ export struct SharePreviewSheet {
   @Local selectedMode: ShareMode = ShareMode.IMAGE
   @Local isSharing: boolean = false
   @Local previewText: string = ''
-  @Param themePrimary: string = '#0A59F7'
-  @Param themePrimaryLight: string = '#E6F2FF'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
   @Event onClose: () => void = () => {}
 
   private shareService: ShareService = getShareService()
@@ -318,3 +323,4 @@ export struct SharePreviewSheet {
     }
   }
 }
+

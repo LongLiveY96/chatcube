@@ -1,4 +1,5 @@
 import { ToolCall, ToolResult } from '../models/ChatModels'
+import { getAppUiState } from '../state/AppUiState'
 
 // 获取工具显示名称
 function getToolDisplayName(toolId: string): string | Resource {
@@ -30,7 +31,9 @@ export struct ToolCallCard {
   @Local dot2Scale: number = 0.6
   @Local dot3Scale: number = 0.6
   // 主题颜色
-  @Param themePrimary: string = '#0A59F7'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
   private dotAnimationTimer: number = -1
 
   aboutToAppear(): void {
@@ -247,3 +250,4 @@ export struct ToolCallCard {
     }
   }
 }
+

@@ -6,17 +6,31 @@ import { ThemeMode } from '../services/PreferencesService'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct ThemeAppearanceSettingsView {
-  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @Param windowWidthVp: number = 0
-  @Param windowHeightVp: number = 0
-  @Param settingsDetailPresentationMode: string =
-    SettingsPagePresentationMode.PAGE
-  @Param themePrimary: string = '#0A59F7'
-  @Param themePrimaryLight: string = '#E6F2FF'
-  @Param isDarkMode: boolean = false
+  private get layoutSizeClass(): string {
+    return getAppUiState().layoutSizeClass
+  }
+  private get windowWidthVp(): number {
+    return getAppUiState().windowWidthVp
+  }
+  private get windowHeightVp(): number {
+    return getAppUiState().windowHeightVp
+  }
+  private get settingsDetailPresentationMode(): string {
+    return getAppUiState().settingsDetailPresentationMode
+  }
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
+  private get isDarkMode(): boolean {
+    return getAppUiState().isDarkMode
+  }
 
   @Local currentThemeMode: ThemeMode = ThemeMode.SYSTEM
   @Local currentColorTheme: ColorTheme = ColorTheme.DEFAULT
@@ -572,3 +586,4 @@ export function ThemeModeSettingsPageBuilder(name: string, param: Object) {
   .hideTitleBar(true)
   .hideBackButton(true)
 }
+

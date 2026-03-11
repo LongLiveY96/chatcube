@@ -4,11 +4,17 @@
  */
 import { ModelInfo, InputMode, OutputMode } from '../models/ChatModels'
 import { LengthMetrics } from '@kit.ArkUI'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct ModelEditSheet {
   @Param model: ModelInfo = new ModelInfo('', '')
-  @Param themePrimary: string = '#0A59F7'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
   @Local tempName: string = ''
   // 能力开关状态（用于触发 UI 刷新）
   @Local capSupportsTools: boolean = false
@@ -187,15 +193,15 @@ export struct ModelEditSheet {
         Row() {
           SymbolGlyph($r('sys.symbol.wrench_and_screwdriver'))
             .fontSize(16)
-            .fontColor([this.capSupportsTools ? $r('app.color.primary') : $r('app.color.text_tertiary')])
+            .fontColor([this.capSupportsTools ? this.themePrimary : $r('app.color.text_tertiary')])
           Text('工具调用')
             .fontSize(13)
-            .fontColor(this.capSupportsTools ? $r('app.color.primary') : $r('app.color.text_secondary'))
+            .fontColor(this.capSupportsTools ? this.themePrimary : $r('app.color.text_secondary'))
             .margin({ left: 6 })
         }
         .height(36)
         .padding({ left: 12, right: 14 })
-        .backgroundColor(this.capSupportsTools ? $r('app.color.primary_light') : $r('app.color.divider'))
+        .backgroundColor(this.capSupportsTools ? this.themePrimaryLight : $r('app.color.divider'))
         .borderRadius(18)
         .onClick(() => {
           this.capSupportsTools = !this.capSupportsTools
@@ -206,15 +212,15 @@ export struct ModelEditSheet {
         Row() {
           SymbolGlyph($r('sys.symbol.AI_deep_thinking'))
             .fontSize(16)
-            .fontColor([this.capSupportsReasoning ? $r('app.color.primary') : $r('app.color.text_tertiary')])
+            .fontColor([this.capSupportsReasoning ? this.themePrimary : $r('app.color.text_tertiary')])
           Text('推理')
             .fontSize(13)
-            .fontColor(this.capSupportsReasoning ? $r('app.color.primary') : $r('app.color.text_secondary'))
+            .fontColor(this.capSupportsReasoning ? this.themePrimary : $r('app.color.text_secondary'))
             .margin({ left: 6 })
         }
         .height(36)
         .padding({ left: 12, right: 14 })
-        .backgroundColor(this.capSupportsReasoning ? $r('app.color.primary_light') : $r('app.color.divider'))
+        .backgroundColor(this.capSupportsReasoning ? this.themePrimaryLight : $r('app.color.divider'))
         .borderRadius(18)
         .onClick(() => {
           this.capSupportsReasoning = !this.capSupportsReasoning
@@ -225,16 +231,16 @@ export struct ModelEditSheet {
         Row() {
           SymbolGlyph($r('sys.symbol.ohos_wifi'))
             .fontSize(16)
-            .fontColor([this.capSupportsWebSearch ? $r('app.color.primary') : $r('app.color.text_tertiary')])
+            .fontColor([this.capSupportsWebSearch ? this.themePrimary : $r('app.color.text_tertiary')])
           Text('联网搜索')
             .fontSize(13)
-            .fontColor(this.capSupportsWebSearch ? $r('app.color.primary') : $r('app.color.text_secondary'))
+            .fontColor(this.capSupportsWebSearch ? this.themePrimary : $r('app.color.text_secondary'))
             .margin({ left: 6 })
         }
         .height(36)
         .padding({ left: 12, right: 14 })
 
-        .backgroundColor(this.capSupportsWebSearch ? $r('app.color.primary_light') : $r('app.color.divider'))
+        .backgroundColor(this.capSupportsWebSearch ? this.themePrimaryLight : $r('app.color.divider'))
         .borderRadius(18)
         .onClick(() => {
           this.capSupportsWebSearch = !this.capSupportsWebSearch
@@ -245,15 +251,15 @@ export struct ModelEditSheet {
         Row() {
           SymbolGlyph($r('sys.symbol.ohos_photo'))
             .fontSize(16)
-            .fontColor([this.capSupportsVision ? $r('app.color.primary') : $r('app.color.text_tertiary')])
+            .fontColor([this.capSupportsVision ? this.themePrimary : $r('app.color.text_tertiary')])
           Text('视觉理解')
             .fontSize(13)
-            .fontColor(this.capSupportsVision ? $r('app.color.primary') : $r('app.color.text_secondary'))
+            .fontColor(this.capSupportsVision ? this.themePrimary : $r('app.color.text_secondary'))
             .margin({ left: 6 })
         }
         .height(36)
         .padding({ left: 12, right: 14 })
-        .backgroundColor(this.capSupportsVision ? $r('app.color.primary_light') : $r('app.color.divider'))
+        .backgroundColor(this.capSupportsVision ? this.themePrimaryLight : $r('app.color.divider'))
         .borderRadius(18)
         .onClick(() => {
           this.capSupportsVision = !this.capSupportsVision
@@ -265,15 +271,15 @@ export struct ModelEditSheet {
         Row() {
           SymbolGlyph($r('sys.symbol.picture'))
             .fontSize(16)
-            .fontColor([this.capOutputImage ? $r('app.color.primary') : $r('app.color.text_tertiary')])
+            .fontColor([this.capOutputImage ? this.themePrimary : $r('app.color.text_tertiary')])
           Text('图片生成')
             .fontSize(13)
-            .fontColor(this.capOutputImage ? $r('app.color.primary') : $r('app.color.text_secondary'))
+            .fontColor(this.capOutputImage ? this.themePrimary : $r('app.color.text_secondary'))
             .margin({ left: 6 })
         }
         .height(36)
         .padding({ left: 12, right: 14 })
-        .backgroundColor(this.capOutputImage ? $r('app.color.primary_light') : $r('app.color.divider'))
+        .backgroundColor(this.capOutputImage ? this.themePrimaryLight : $r('app.color.divider'))
         .borderRadius(18)
         .onClick(() => {
           this.capOutputImage = !this.capOutputImage
@@ -336,7 +342,7 @@ export struct ModelEditSheet {
               Text(this.paramTemperature.toFixed(2))
                 .fontSize(16)
                 .fontWeight(FontWeight.Medium)
-                .fontColor($r('app.color.primary'))
+                .fontColor(this.themePrimary)
                 .width(50)
                 .textAlign(TextAlign.End)
             }
@@ -348,7 +354,7 @@ export struct ModelEditSheet {
               max: 2,
               step: 0.1
             })
-              .selectedColor($r('app.color.primary'))
+              .selectedColor(this.themePrimary)
               .trackColor($r('app.color.divider'))
               .blockColor(Color.White)
               .showSteps(false)
@@ -380,7 +386,7 @@ export struct ModelEditSheet {
               Text(this.paramTopP.toFixed(2))
                 .fontSize(16)
                 .fontWeight(FontWeight.Medium)
-                .fontColor($r('app.color.primary'))
+                .fontColor(this.themePrimary)
                 .width(50)
                 .textAlign(TextAlign.End)
             }
@@ -392,7 +398,7 @@ export struct ModelEditSheet {
               max: 1,
               step: 0.05
             })
-              .selectedColor($r('app.color.primary'))
+              .selectedColor(this.themePrimary)
               .trackColor($r('app.color.divider'))
               .blockColor(Color.White)
               .showSteps(false)
@@ -424,7 +430,7 @@ export struct ModelEditSheet {
               Text(this.paramPresencePenalty.toFixed(2))
                 .fontSize(16)
                 .fontWeight(FontWeight.Medium)
-                .fontColor($r('app.color.primary'))
+                .fontColor(this.themePrimary)
                 .width(50)
                 .textAlign(TextAlign.End)
             }
@@ -436,7 +442,7 @@ export struct ModelEditSheet {
               max: 2,
               step: 0.1
             })
-              .selectedColor($r('app.color.primary'))
+              .selectedColor(this.themePrimary)
               .trackColor($r('app.color.divider'))
               .blockColor(Color.White)
               .showSteps(false)
@@ -468,7 +474,7 @@ export struct ModelEditSheet {
               Text(this.paramFrequencyPenalty.toFixed(2))
                 .fontSize(16)
                 .fontWeight(FontWeight.Medium)
-                .fontColor($r('app.color.primary'))
+                .fontColor(this.themePrimary)
                 .width(50)
                 .textAlign(TextAlign.End)
             }
@@ -480,7 +486,7 @@ export struct ModelEditSheet {
               max: 2,
               step: 0.1
             })
-              .selectedColor($r('app.color.primary'))
+              .selectedColor(this.themePrimary)
               .trackColor($r('app.color.divider'))
               .blockColor(Color.White)
               .showSteps(false)
@@ -525,3 +531,4 @@ export struct ModelEditSheet {
     .borderRadius(16)
   }
 }
+

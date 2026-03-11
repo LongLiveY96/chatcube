@@ -1,3 +1,5 @@
+import { getAppUiState } from '../../state/AppUiState'
+
 @ComponentV2
 export struct IndexEmptyStateCard {
   @Param icon: Resource = $r('sys.symbol.circle')
@@ -5,7 +7,9 @@ export struct IndexEmptyStateCard {
   @Param description: Resource = $r('app.string.start_new_chat')
   @Param showButton: boolean = false
   @Param buttonText: Resource = $r('app.string.new_chat')
-  @Param themePrimary: string = '#0A59F7'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
   @Event onButtonClick: () => void = () => {}
 
   build() {
@@ -51,3 +55,4 @@ export struct IndexEmptyStateCard {
     .justifyContent(FlexAlign.Center)
   }
 }
+

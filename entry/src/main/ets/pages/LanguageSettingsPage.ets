@@ -8,14 +8,23 @@ import { IndexSettingsSheetActionCallbacks } from './index/IndexSettingsSheetCoo
 import { SettingsSheetType } from './index/IndexPageTypes'
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
+import { getAppUiState } from '../state/AppUiState'
 
 @Entry
 @ComponentV2
 struct LanguageSettingsPage {
-  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @Param windowWidthVp: number = 0
-  @Param windowHeightVp: number = 0
-  @Param settingsDetailPresentationMode: string = 'page'
+  private get layoutSizeClass(): string {
+    return getAppUiState().layoutSizeClass
+  }
+  private get windowWidthVp(): number {
+    return getAppUiState().windowWidthVp
+  }
+  private get windowHeightVp(): number {
+    return getAppUiState().windowHeightVp
+  }
+  private get settingsDetailPresentationMode(): string {
+    return getAppUiState().settingsDetailPresentationMode
+  }
 
   @Local currentLanguage: AppLanguage = AppLanguage.SYSTEM
 
@@ -136,3 +145,4 @@ export function LanguageSettingsPageBuilder(name: string, param: Object) {
   .hideTitleBar(true)
   .hideBackButton(true)
 }
+

@@ -1,5 +1,6 @@
 import { SearchReference } from '../models/ChatModels'
 import { webview } from '@kit.ArkWeb'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct SearchReferenceCard {
@@ -12,7 +13,9 @@ export struct SearchReferenceCard {
   @Local sheetUrl: string = ''
   @Local sheetTitle: string = ''
   private sheetWebController: webview.WebviewController = new webview.WebviewController()
-  @Param isDarkMode: boolean = false
+  private get isDarkMode(): boolean {
+    return getAppUiState().isDarkMode
+  }
 
   // 获取引用数量文本
   private getReferenceCountText(): string {
@@ -238,3 +241,4 @@ export struct SearchReferenceCard {
     })
   }
 }
+

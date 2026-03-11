@@ -2,6 +2,7 @@ import { motion } from '@kit.MultimodalAwarenessKit'
 import { BusinessError } from '@kit.BasicServicesKit'
 import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
 import { AppStorageKeys } from '../config/AppStorageKeys'
+import { setAppUiStateValue } from '../state/AppUiState'
 import { LayoutSizeClass } from '../config/LayoutProfile'
 import { PreferenceKeys } from '../services/PreferencesService'
 import { ServiceRegistry } from '../services/ServiceRegistry'
@@ -10,14 +11,23 @@ import { IndexSettingsSheetActionCallbacks } from './index/IndexSettingsSheetCoo
 import { SettingsSheetType } from './index/IndexPageTypes'
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
+import { getAppUiState } from '../state/AppUiState'
 
 @Entry
 @ComponentV2
 struct HandAdaptiveSettingsPage {
-  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @Param windowWidthVp: number = 0
-  @Param windowHeightVp: number = 0
-  @Param settingsDetailPresentationMode: string = 'page'
+  private get layoutSizeClass(): string {
+    return getAppUiState().layoutSizeClass
+  }
+  private get windowWidthVp(): number {
+    return getAppUiState().windowWidthVp
+  }
+  private get windowHeightVp(): number {
+    return getAppUiState().windowHeightVp
+  }
+  private get settingsDetailPresentationMode(): string {
+    return getAppUiState().settingsDetailPresentationMode
+  }
 
   @Local handAdaptiveEnabled: boolean = false
   @Local handAdaptiveNewChat: boolean = false
@@ -66,7 +76,7 @@ struct HandAdaptiveSettingsPage {
     AppStorage.setOrCreate(AppStorageKeys.SETTING_HAND_ADAPTIVE_ENABLED, this.handAdaptiveEnabled)
     AppStorage.setOrCreate(AppStorageKeys.SETTING_HAND_ADAPTIVE_NEW_CHAT, this.handAdaptiveNewChat)
     AppStorage.setOrCreate(AppStorageKeys.SETTING_HAND_ADAPTIVE_UNSUPPORTED, this.handAdaptiveUnsupported)
-    AppStorage.setOrCreate(AppStorageKeys.SETTINGS_HAND_ADAPTIVE_CHANGED_AT, Date.now())
+    setAppUiStateValue(AppStorageKeys.SETTINGS_HAND_ADAPTIVE_CHANGED_AT, Date.now())
   }
 
   private buildCallbacks(): IndexSettingsSheetActionCallbacks {
@@ -190,3 +200,4 @@ export function HandAdaptiveSettingsPageBuilder(name: string, param: Object) {
   .hideTitleBar(true)
   .hideBackButton(true)
 }
+

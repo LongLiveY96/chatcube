@@ -2,6 +2,7 @@ import { ThemeMode, AppLanguage } from '../../services/PreferencesService'
 import { ColorTheme } from '../../models/ThemeColors'
 import { bundleManager } from '@kit.AbilityKit'
 import { SettingsRouteName } from '../../config/SettingsRouteName'
+import { getAppUiState } from '../../state/AppUiState'
 
 class SettingsListItemModel {
   key: string = ''
@@ -20,8 +21,12 @@ class SettingsGroupModel {
 
 @ComponentV2
 export struct IndexSettingsPanel {
-  @Param themePrimary: string = '#0A59F7'
-  @Param themePrimaryLight: string = '#E6F2FF'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
   @Param currentThemeMode: ThemeMode = ThemeMode.SYSTEM
   @Event $currentThemeMode: (value: ThemeMode) => void = () => {}
   @Param currentLanguage: AppLanguage = AppLanguage.SYSTEM
@@ -449,3 +454,4 @@ export struct IndexSettingsPanel {
     .backgroundColor($r('app.color.background'))
   }
 }
+

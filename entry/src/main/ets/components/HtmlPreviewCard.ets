@@ -1,6 +1,7 @@
 import { webview } from '@kit.ArkWeb'
 import { pasteboard } from '@kit.BasicServicesKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
+import { getAppUiState, observeAppUiState } from '../state/AppUiState'
 
 const DOMAIN = 0x0002
 const TAG = 'HtmlPreviewCard'
@@ -8,7 +9,15 @@ const TAG = 'HtmlPreviewCard'
 @ComponentV2
 export struct HtmlPreviewCard {
   @Param htmlCode: string = ''
-  @Param isDarkMode: boolean = false
+  private get isDarkMode(): boolean {
+    return getAppUiState().isDarkMode
+  }
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
   @Local activeTab: number = 1
   @Local showFullScreen: boolean = false
   @Local copyBtnPressed: boolean = false
@@ -17,6 +26,7 @@ export struct HtmlPreviewCard {
   private previewWebController: webview.WebviewController = new webview.WebviewController()
   private fullScreenWebController: webview.WebviewController = new webview.WebviewController()
   private isPreviewWebReady: boolean = false
+  private darkModeObserverDisposer: (() => void) | null = null
   @Event onCopyCode: (code: string) => void = () => {
   }
 
@@ -62,9 +72,23 @@ export struct HtmlPreviewCard {
     this.reloadPreview()
   }
 
-  @Monitor('isDarkMode')
   onDarkModeChange(): void {
     this.reloadPreview()
+  }
+
+  aboutToAppear(): void {
+    if (this.darkModeObserverDisposer === null) {
+      this.darkModeObserverDisposer = observeAppUiState('isDarkMode', (): void => {
+        this.onDarkModeChange()
+      })
+    }
+  }
+
+  aboutToDisappear(): void {
+    if (this.darkModeObserverDisposer !== null) {
+      this.darkModeObserverDisposer()
+      this.darkModeObserverDisposer = null
+    }
   }
 
   private copyToClipboard(text: string): void {
@@ -86,16 +110,16 @@ export struct HtmlPreviewCard {
           Text('</>')
             .fontSize(11)
             .fontWeight(FontWeight.Bold)
-            .fontColor(this.activeTab === 0 ? $r('app.color.primary') : $r('app.color.text_tertiary'))
+            .fontColor(this.activeTab === 0 ? this.themePrimary : $r('app.color.text_tertiary'))
           Text('代码')
             .fontSize(13)
             .fontWeight(this.activeTab === 0 ? FontWeight.Medium : FontWeight.Normal)
-            .fontColor(this.activeTab === 0 ? $r('app.color.primary') : $r('app.color.text_secondary'))
+            .fontColor(this.activeTab === 0 ? this.themePrimary : $r('app.color.text_secondary'))
             .margin({ left: 4 })
         }
         .height(30)
         .padding({ left: 10, right: 10 })
-        .backgroundColor(this.activeTab === 0 ? $r('app.color.primary_light') : Color.Transparent)
+        .backgroundColor(this.activeTab === 0 ? this.themePrimaryLight : Color.Transparent)
         .borderRadius(8)
         .onClick(() => {
           this.activeTab = 0
@@ -105,16 +129,16 @@ export struct HtmlPreviewCard {
         Row() {
           SymbolGlyph($r('sys.symbol.eye'))
             .fontSize(14)
-            .fontColor([this.activeTab === 1 ? $r('app.color.primary') : $r('app.color.text_tertiary')])
+            .fontColor([this.activeTab === 1 ? this.themePrimary : $r('app.color.text_tertiary')])
           Text('预览')
             .fontSize(13)
             .fontWeight(this.activeTab === 1 ? FontWeight.Medium : FontWeight.Normal)
-            .fontColor(this.activeTab === 1 ? $r('app.color.primary') : $r('app.color.text_secondary'))
+            .fontColor(this.activeTab === 1 ? this.themePrimary : $r('app.color.text_secondary'))
             .margin({ left: 4 })
         }
         .height(30)
         .padding({ left: 10, right: 10 })
-        .backgroundColor(this.activeTab === 1 ? $r('app.color.primary_light') : Color.Transparent)
+        .backgroundColor(this.activeTab === 1 ? this.themePrimaryLight : Color.Transparent)
         .borderRadius(8)
         .margin({ left: 4 })
         .onClick(() => {
@@ -242,3 +266,4 @@ export struct HtmlPreviewCard {
     .backgroundColor($r('app.color.background'))
   }
 }
+

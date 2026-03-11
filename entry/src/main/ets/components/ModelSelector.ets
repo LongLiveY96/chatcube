@@ -11,6 +11,7 @@ import {
 import { FavoriteModelsService, getFavoriteModelsService } from '../services/FavoriteModelsService'
 import { ProviderIcon } from './ProviderIcon'
 import { buildModelIconRenderData, ModelIconRenderData } from '../utils/ModelIconRenderUtils'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct ModelSelectorContent {
@@ -29,9 +30,15 @@ export struct ModelSelectorContent {
   @Local hasEnabledModels: boolean = false
   @Local hasFavoriteModels: boolean = false
   @Local hasFilteredModels: boolean = false
-  @Param themePrimary: string = '#0A59F7'
-  @Param themePrimaryLight: string = '#E6F2FF'
-  @Param isDarkMode: boolean = false
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
+  private get isDarkMode(): boolean {
+    return getAppUiState().isDarkMode
+  }
   @Event onSelectModel: (providerId: string, modelId: string, modelName: string) => void =
     (_providerId: string, _modelId: string, _modelName: string): void => {}
   @Event onLongPressModel: (model: ModelInfo, provider: ModelProvider) => void =
@@ -481,3 +488,4 @@ export struct ModelSelectorContent {
       .margin({ right: 6 })
   }
 }
+

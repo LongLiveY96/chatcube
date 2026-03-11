@@ -62,6 +62,7 @@ import {
   SystemPromptTemplateDefaults
 } from '../utils/SystemPromptTemplateUtils'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
+import { getAppUiState, observeAppUiState, setAppUiStateValue } from '../state/AppUiState'
 
 @Entry
 @ComponentV2
@@ -77,7 +78,9 @@ struct Index {
   @Local handAdaptiveEnabled: boolean = false
   @Local handAdaptiveNewChat: boolean = false
   @Local handAdaptiveUnsupported: boolean = false
-  @Param handAdaptiveSettingsChangedAt: number = 0
+  private get handAdaptiveSettingsChangedAt(): number {
+    return getAppUiState().settingsHandAdaptiveChangedAt
+  }
   @Local currentHoldingHand: motion.HoldingHandStatus = motion.HoldingHandStatus.UNKNOWN_STATUS
   @Local fabPressed: boolean = false
   @Local currentColorTheme: ColorTheme = ColorTheme.DEFAULT
@@ -89,26 +92,54 @@ struct Index {
   @Local isSearchExpanded: boolean = false
   @Local currentSessionFilter: SessionFilterType = SessionFilterType.ALL
   @Local tabletDetailSessionId: string = ''
-  @Param activeChatSessionId: string = ''
+  private get activeChatSessionId(): string {
+    return getAppUiState().activeChatSessionId
+  }
   // 避让区域高度
-  @Param topAvoidHeight: number = 0
-  @Param bottomAvoidHeight: number = 0
-  @Param layoutSizeClass: string = LayoutSizeClass.COMPACT
-  @Param windowWidthVp: number = 0
-  @Param windowHeightVp: number = 0
+  private get topAvoidHeight(): number {
+    return getAppUiState().topAvoidHeight
+  }
+  private get bottomAvoidHeight(): number {
+    return getAppUiState().bottomAvoidHeight
+  }
+  private get layoutSizeClass(): string {
+    return getAppUiState().layoutSizeClass
+  }
+  private get windowWidthVp(): number {
+    return getAppUiState().windowWidthVp
+  }
+  private get windowHeightVp(): number {
+    return getAppUiState().windowHeightVp
+  }
   // 主题颜色
-  @Param themePrimary: string = '#0A59F7'
-  @Param themePrimaryLight: string = '#E6F2FF'
+  private get themePrimary(): string {
+    return getAppUiState().themePrimary
+  }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
   @Local chatFontSize: number = 15
   // 监听从服务卡片打开新聊天的事件
-  @Param openNewChatTimestamp: number = 0
-  @Param openSessionPayload: string = ''
-  @Param taskUnreadBySessionJson: string = '{}'
-  @Param taskEventTick: number = 0
-  @Param inAppTaskAlertPayload: string = ''
+  private get openNewChatTimestamp(): number {
+    return getAppUiState().openNewChatTimestamp
+  }
+  private get openSessionPayload(): string {
+    return getAppUiState().openSessionPayload
+  }
+  private get taskUnreadBySessionJson(): string {
+    return getAppUiState().taskUnreadBySessionJson
+  }
+  private get taskEventTick(): number {
+    return getAppUiState().taskEventTick
+  }
+  private get inAppTaskAlertPayload(): string {
+    return getAppUiState().inAppTaskAlertPayload
+  }
   @Local unreadRenderTick: number = 0
   // 监听会话列表刷新信号（标题更新、创建、删除等）
-  @Param sessionListRefreshAt: number = 0
+  private get sessionListRefreshAt(): number {
+    return getAppUiState().sessionListRefreshAt
+  }
   // 多选模式状态
   @Local isMultiSelectMode: boolean = false
   @Local selectedSessionIds: Array<string> = []
@@ -133,6 +164,7 @@ struct Index {
   private unreadBySession: Map<string, number> = new Map()
   private holdingHandSubscribed: boolean = false
   private handAdaptiveLoadSeq: number = 0
+  private appUiStateDisposers: Array<() => void> = []
   private holdingHandCallback: (status: motion.HoldingHandStatus) => void = (status: motion.HoldingHandStatus): void => {
     this.currentHoldingHand = status
   }
@@ -153,7 +185,6 @@ struct Index {
       `${this.handAdaptiveUnsupported}, notify=${this.notifyEnabled}/${this.notifyOnComplete}/${this.notifyOnFailed}`)
   }
 
-  @Monitor('layoutSizeClass')
   onLayoutSizeClassChanged(): void {
     if (this.currentTabIndex === 2 && this.settingsNavPathStack.size() > 0) {
       this.syncSettingsDetailPresentationMode()
@@ -177,7 +208,6 @@ struct Index {
     return this.layoutSizeClass === LayoutSizeClass.EXPANDED
   }
 
-  @Monitor('windowWidthVp', 'windowHeightVp')
   onWindowMetricsChanged(): void {
     if (this.currentTabIndex !== 2) {
       return
@@ -217,7 +247,7 @@ struct Index {
   }
 
   private syncSettingsDetailPresentationMode(): void {
-    AppStorage.setOrCreate(
+    setAppUiStateValue(
       AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE,
       this.isSettingsSplitMode() ? SettingsPagePresentationMode.DETAIL_PANE : SettingsPagePresentationMode.PAGE
     )
@@ -261,9 +291,6 @@ struct Index {
   }
 
   private switchToTab(index: number, shouldEnsureSettingsSplitLanding: boolean = true): void {
-    if (this.currentTabIndex === 2 && index !== 2) {
-      this.clearSettingsDestination(false)
-    }
     if (index !== 2) {
       this.dismissSettingsSheetForNavigation()
     }
@@ -273,6 +300,10 @@ struct Index {
       return
     }
     if (index === 2 && shouldEnsureSettingsSplitLanding) {
+      setAppUiStateValue(
+        AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE,
+        this.isSettingsSplitMode() ? SettingsPagePresentationMode.DETAIL_PANE : SettingsPagePresentationMode.PAGE
+      )
       this.ensureSettingsSplitLandingRoute()
     }
   }
@@ -321,27 +352,23 @@ struct Index {
       this.settingsNavPathStack.clear(animated)
     }
     this.currentSettingsRouteName = ''
-    AppStorage.setOrCreate(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE, SettingsPagePresentationMode.PAGE)
+    setAppUiStateValue(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE, SettingsPagePresentationMode.PAGE)
   }
 
-  @Monitor('openNewChatTimestamp')
   onOpenNewChat(): void {
     if (this.openNewChatTimestamp > 0) {
       this.openChatRoute({} as ChatPageRouteParams)
     }
   }
 
-  @Monitor('openSessionPayload')
   onOpenSessionPayloadChanged(): void {
     this.handleOpenSessionPayload(this.openSessionPayload)
   }
 
-  @Monitor('taskUnreadBySessionJson')
   onTaskUnreadBySessionChanged(): void {
     this.parseUnreadBySessionJson(this.taskUnreadBySessionJson)
   }
 
-  @Monitor('taskEventTick')
   onTaskEventTickChanged(): void {
     if (this.taskEventTick > 0) {
       this.loadSessions()
@@ -349,26 +376,50 @@ struct Index {
     }
   }
 
-  @Monitor('inAppTaskAlertPayload')
   onInAppTaskAlertPayloadChanged(): void {
     this.handleInAppTaskAlertPayload(this.inAppTaskAlertPayload)
   }
 
-  @Monitor('sessionListRefreshAt')
   onSessionListRefresh(): void {
     if (this.sessionListRefreshAt > 0) {
       this.loadSessions()
     }
   }
 
-  @Monitor('handAdaptiveSettingsChangedAt')
   onHandAdaptiveSettingsTickChanged(): void {
     if (this.handAdaptiveSettingsChangedAt > 0) {
       this.loadHandAdaptiveSettings()
     }
   }
 
+  private registerAppUiStateObservers(): void {
+    if (this.appUiStateDisposers.length > 0) {
+      return
+    }
+    this.appUiStateDisposers = [
+      observeAppUiState(AppStorageKeys.LAYOUT_SIZE_CLASS, (): void => this.onLayoutSizeClassChanged()),
+      observeAppUiState([AppStorageKeys.WINDOW_WIDTH_VP, AppStorageKeys.WINDOW_HEIGHT_VP],
+        (): void => this.onWindowMetricsChanged()),
+      observeAppUiState(AppStorageKeys.OPEN_NEW_CHAT, (): void => this.onOpenNewChat()),
+      observeAppUiState(AppStorageKeys.OPEN_SESSION_PAYLOAD, (): void => this.onOpenSessionPayloadChanged()),
+      observeAppUiState(AppStorageKeys.TASK_UNREAD_BY_SESSION, (): void => this.onTaskUnreadBySessionChanged()),
+      observeAppUiState(AppStorageKeys.TASK_EVENT_TICK, (): void => this.onTaskEventTickChanged()),
+      observeAppUiState(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, (): void => this.onInAppTaskAlertPayloadChanged()),
+      observeAppUiState(AppStorageKeys.SESSION_LIST_REFRESH_AT, (): void => this.onSessionListRefresh()),
+      observeAppUiState(AppStorageKeys.SETTINGS_HAND_ADAPTIVE_CHANGED_AT,
+        (): void => this.onHandAdaptiveSettingsTickChanged())
+    ]
+  }
+
+  private unregisterAppUiStateObservers(): void {
+    for (let i = 0; i < this.appUiStateDisposers.length; i++) {
+      this.appUiStateDisposers[i]()
+    }
+    this.appUiStateDisposers = []
+  }
+
   aboutToAppear(): void {
+    this.registerAppUiStateObservers()
     this.navPathStack.setInterception({
       didShow: (from: NavDestinationContext | "navBar", to: NavDestinationContext | "navBar",
         operation: NavigationOperation, isAnimated: boolean): void => {
@@ -399,7 +450,7 @@ struct Index {
         operation: NavigationOperation, isAnimated: boolean): void => {
         if (to === 'navBar' || this.settingsNavPathStack.size() <= 0) {
           this.currentSettingsRouteName = ''
-          AppStorage.setOrCreate(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE, SettingsPagePresentationMode.PAGE)
+          setAppUiStateValue(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE, SettingsPagePresentationMode.PAGE)
         }
       }
     })
@@ -420,6 +471,7 @@ struct Index {
   }
 
   aboutToDisappear(): void {
+    this.unregisterAppUiStateObservers()
     this.unsubscribeHoldingHand()
     if (this.settingsCallback !== null) {
       this.settingsManager.unregisterCallback(this.settingsCallback)
@@ -546,14 +598,14 @@ struct Index {
   private syncSettingsSummaryToStorage(): void {
     AppStorage.setOrCreate('setting_theme_mode', this.currentThemeMode)
     AppStorage.setOrCreate('setting_language', this.currentLanguage)
-    AppStorage.setOrCreate(AppStorageKeys.COLOR_THEME, this.currentColorTheme)
+    setAppUiStateValue(AppStorageKeys.COLOR_THEME, this.currentColorTheme)
     AppStorage.setOrCreate('setting_notify_enabled', this.notifyEnabled)
     AppStorage.setOrCreate('setting_notify_on_complete', this.notifyOnComplete)
     AppStorage.setOrCreate('setting_notify_on_failed', this.notifyOnFailed)
     AppStorage.setOrCreate(AppStorageKeys.SETTING_HAND_ADAPTIVE_ENABLED, this.handAdaptiveEnabled)
     AppStorage.setOrCreate(AppStorageKeys.SETTING_HAND_ADAPTIVE_NEW_CHAT, this.handAdaptiveNewChat)
     AppStorage.setOrCreate(AppStorageKeys.SETTING_HAND_ADAPTIVE_UNSUPPORTED, this.handAdaptiveUnsupported)
-    AppStorage.setOrCreate(AppStorageKeys.CHAT_FONT_SIZE, this.chatFontSize)
+    setAppUiStateValue(AppStorageKeys.CHAT_FONT_SIZE, this.chatFontSize)
   }
 
   private async loadHandAdaptiveSettings(): Promise<void> {
@@ -712,7 +764,7 @@ struct Index {
     }
     this.chatTaskOrchestrator.markSessionRead(payload.sessionId)
     this.openChatRoute({ sessionId: payload.sessionId } as ChatPageRouteParams)
-    AppStorage.setOrCreate(AppStorageKeys.OPEN_SESSION_PAYLOAD, '')
+    setAppUiStateValue(AppStorageKeys.OPEN_SESSION_PAYLOAD, '')
   }
 
   private handleInAppTaskAlertPayload(payloadText: string): void {
@@ -735,7 +787,7 @@ struct Index {
       this.openChatRoute({ sessionId: payload.sessionId } as ChatPageRouteParams)
     }
     showSnackBar(this.getUIContext(), opts)
-    AppStorage.setOrCreate(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, '')
+    setAppUiStateValue(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, '')
   }
 
   private openSettingsSheet(type: SettingsSheetType): void {
@@ -836,7 +888,7 @@ struct Index {
       this.clearTabletChatDetail(false)
     }
     if (this.activeChatSessionId === sessionId) {
-      AppStorage.setOrCreate(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, '')
+      setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, '')
     }
     this.showIndexSnack($r('app.string.conversation_deleted'), 2000, SnackBarTone.SUCCESS)
   }
@@ -866,7 +918,7 @@ struct Index {
   }
 
   private shouldApplyCompactContentTopInset(): boolean {
-    return !(this.currentTabIndex === 2 && !this.isSettingsSplitMode() && this.currentSettingsRouteName !== '')
+    return false
   }
 
   private shouldApplyExpandedContentTopInset(): boolean {
@@ -1171,6 +1223,12 @@ struct Index {
   AssistantTab() {
     Navigation() {
       Column() {
+        if (!this.isExpandedLayout()) {
+          Column()
+            .width('100%')
+            .height(this.px2vp(this.topAvoidHeight))
+        }
+
         Row() {
           Text($r('app.string.tab_assistant'))
             .fontSize(16)
@@ -1252,6 +1310,12 @@ struct Index {
   ChatListPanel() {
     Stack({ alignContent: Alignment.BottomEnd }) {
       Column() {
+        if (!this.isExpandedLayout()) {
+          Column()
+            .width('100%')
+            .height(this.px2vp(this.topAvoidHeight))
+        }
+
         if (!this.isMultiSelectMode) {
           Row() {
             if (!this.isSearchExpanded) {
@@ -1647,8 +1711,45 @@ struct Index {
     .backgroundColor($r('app.color.background'))
   }
 
+  @Builder
+  private CompactSettingsHeader() {
+    Column() {
+      Column()
+        .width('100%')
+        .height(this.px2vp(this.topAvoidHeight))
+
+      Row() {
+        Text($r('app.string.tab_settings'))
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+      }
+      .width('100%')
+      .height(56)
+      .padding({ left: 8, right: 8 })
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .backgroundColor($r('app.color.background'))
+  }
+
+  @Builder
+  private CompactSettingsRootContent() {
+    Column() {
+      this.CompactSettingsHeader()
+      Column() {
+        this.SettingsNavigationScrollableContent()
+      }
+      .width('100%')
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .height('100%')
+  }
+
   private shouldIgnoreCompactSettingsTopSafeArea(): boolean {
-    return !this.isSettingsSplitMode()
+    return true
   }
 
   @Builder
@@ -1672,7 +1773,7 @@ struct Index {
       })
     } else {
       Navigation(this.settingsNavPathStack) {
-        this.SettingsNavigationScrollableContent()
+        this.CompactSettingsRootContent()
       }
       .width('100%')
       .height('100%')
@@ -1681,10 +1782,9 @@ struct Index {
         [LayoutSafeAreaType.SYSTEM],
         this.shouldIgnoreCompactSettingsTopSafeArea() ? [LayoutSafeAreaEdge.TOP] : []
       )
-      .title($r('app.string.tab_settings'))
-      .titleMode(NavigationTitleMode.Mini)
       .mode(NavigationMode.Stack)
       .navBarWidth(this.windowWidthVp)
+      .hideTitleBar(true)
       .hideBackButton(true)
       .hideToolBar(true)
     }
@@ -2136,3 +2236,4 @@ struct Index {
     this.showSharePreview = true
   }
 }
+
