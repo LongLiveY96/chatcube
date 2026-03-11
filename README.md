@@ -19,6 +19,7 @@
 
 - Built entirely with ArkTS — a true HarmonyOS native app, not a web wrapper
 - Polished UI with dynamic blur, 7 color themes, and smooth interactions
+- Adaptive layouts for phones, tablets, and large screens
 - Highly customizable providers — add any OpenAI / Anthropic / Gemini compatible service in seconds
 - Simple and intuitive — configure your API key and start chatting
 - Home screen widget for quick access
@@ -58,6 +59,10 @@ Full markdown rendering — code blocks with syntax highlighting, tables, LaTeX 
 ### Looks good, feels good
 
 7 color themes. Dark / Light / System mode. Real-time dynamic blur effects. A UI that feels native because it is native.
+
+### Phone & tablet ready
+
+Responsive layouts for phones and HarmonyOS tablets. Chat, settings, and provider management all stay comfortable on larger screens.
 
 ### Smart Grip
 
@@ -126,6 +131,10 @@ entry/src/main/ets/
 ├── utils/              # Utilities
 └── widget/             # Home screen widget
 ```
+
+## Community
+
+Chinese-speaking users can join the feedback group in [README_ZH.md](./README_ZH.md).
 
 ## License
 
