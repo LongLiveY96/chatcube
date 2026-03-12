@@ -12,10 +12,6 @@ function getToolDisplayName(toolId: string): string | Resource {
     || normalized === 'search_web' || normalized === 'internet_search' || normalized === 'web_search_exa') {
     return $r('app.string.web_search')
   }
-  if (normalized === 'weather_query' || normalized === 'weather' || normalized === 'weather_search'
-    || normalized === 'get_weather' || normalized === 'query_weather' || normalized === 'weather_lookup') {
-    return $r('app.string.weather_query')
-  }
   return raw
 }
 
@@ -43,6 +39,15 @@ export struct ToolCallCard {
   }
 
   aboutToDisappear(): void {
+    this.stopDotAnimation()
+  }
+
+  @Monitor('isExecuting')
+  onExecutingStateChange(): void {
+    if (this.isExecuting) {
+      this.startDotAnimation()
+      return
+    }
     this.stopDotAnimation()
   }
 

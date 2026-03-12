@@ -2,7 +2,6 @@ import {
   ApiStyle,
   ChatMessage,
   MessageAttachment,
-  MessageRole,
   ModelProvider,
   ProviderType,
   ReasoningLevel,
@@ -22,10 +21,25 @@ export class ChatSendPrepareResult {
   currentProvider: ModelProvider | null = null
 }
 
-export enum ChatSendDispatchResult {
-  NOT_HANDLED,
-  SENT_WITH_TOOLS,
-  MANUAL_FALLBACK
+export enum ChatExecutionMode {
+  PLAIN = 'plain',
+  WEB_SEARCH = 'web_search'
+}
+
+enum ChatExecutionPlanKind {
+  PLAIN_DIRECT = 'plain_direct',
+  TOOLS = 'tools',
+  MANUAL_SEARCH = 'manual_search'
+}
+
+class ChatExecutionPlan {
+  kind: ChatExecutionPlanKind
+  enabledToolIds: string[]
+
+  constructor(kind: ChatExecutionPlanKind, enabledToolIds: string[] = []) {
+    this.kind = kind
+    this.enabledToolIds = enabledToolIds
+  }
 }
 
 export interface ChatSendFlowDependencies {
@@ -40,6 +54,7 @@ export interface ChatSendFlowDependencies {
   getCurrentModelName: () => string
   getMessages: () => ChatMessage[]
   getReasoningLevel: () => ReasoningLevel
+  executeManualSearch: (messageContent: string, attachmentsToSend: MessageAttachment[]) => Promise<void>
   onClearComposer: () => void
   onBeforeSend: () => void
   onSetSending: (value: boolean) => void
@@ -105,49 +120,49 @@ export class ChatSendFlow {
     return result
   }
 
-  async trySendWithFunctionCalling(
+  async executeSend(
     messageContent: string,
     currentProvider: ModelProvider,
     effectiveApiKey: string,
     attachmentsToSend: MessageAttachment[],
     forcedToolIds: string[],
-    webSearchEnabled: boolean,
-    weatherQueryEnabled: boolean,
-    currentModelId: string,
-    onManualFallbackStart: (content: string, attachments: MessageAttachment[]) => void
-  ): Promise<ChatSendDispatchResult> {
-    const enabledToolIds = this.buildEnabledToolIds(webSearchEnabled, weatherQueryEnabled, forcedToolIds)
-    if (enabledToolIds.length <= 0) {
-      return ChatSendDispatchResult.NOT_HANDLED
+    executionMode: ChatExecutionMode,
+    currentModelId: string
+  ): Promise<void> {
+    const plan = this.buildExecutionPlan(
+      messageContent,
+      currentProvider,
+      forcedToolIds,
+      executionMode,
+      currentModelId
+    )
+    console.info(
+      'ChatSendFlow',
+      `[executeSend] mode=${executionMode}, plan=${plan.kind}, tools=${plan.enabledToolIds.join(',')}`
+    )
+
+    if (plan.kind === ChatExecutionPlanKind.MANUAL_SEARCH) {
+      await this.deps.executeManualSearch(messageContent, attachmentsToSend)
+      return
     }
 
-    const currentModelSupportsTools = this.isCurrentModelSupportsTools(currentProvider, currentModelId)
-    if (currentModelSupportsTools) {
-      const hasContent = await this.sendMessageWithTools(
+    if (plan.kind === ChatExecutionPlanKind.TOOLS) {
+      await this.sendMessageWithTools(
         messageContent,
         currentProvider,
         effectiveApiKey,
         attachmentsToSend,
-        forcedToolIds,
-        webSearchEnabled,
-        weatherQueryEnabled
+        plan.enabledToolIds
       )
-      if (!hasContent) {
-        console.warn('ChatSendFlow',
-          '[Function Calling] tools 路径返回空内容，疑似模型不兼容 Function Calling，降级为不带 tools 重试')
-        await this.retryWithoutTools(messageContent, currentProvider, effectiveApiKey, attachmentsToSend)
-      }
-      return ChatSendDispatchResult.SENT_WITH_TOOLS
+      return
     }
 
-    if (enabledToolIds.includes('web_search')) {
-      onManualFallbackStart(messageContent, attachmentsToSend)
-      return ChatSendDispatchResult.MANUAL_FALLBACK
-    }
-
-    // 模型不支持 Function Calling，但只有非搜索类工具（如天气查询）开启
-    // 静默忽略这些工具，fallthrough 到纯文本发送
-    return ChatSendDispatchResult.NOT_HANDLED
+    await this.sendPlainMessage(
+      messageContent,
+      currentProvider,
+      effectiveApiKey,
+      attachmentsToSend
+    )
   }
 
   isCurrentModelSupportsTools(currentProvider: ModelProvider | null, currentModelId: string): boolean {
@@ -171,35 +186,64 @@ export class ChatSendFlow {
     return false
   }
 
-  buildEnabledToolIds(
-    webSearchEnabled: boolean,
-    weatherQueryEnabled: boolean,
-    extraToolIds: string[] = []
-  ): string[] {
+  buildEnabledToolIds(extraToolIds: string[] = []): string[] {
     const ids: string[] = []
-
-    if (webSearchEnabled && this.deps.toolRegistry.isToolRegistered('web_search')) {
-      appendUniqueToolId(ids, 'web_search')
-    }
-
-    if (weatherQueryEnabled && this.deps.toolRegistry.isToolRegistered('weather_query')) {
-      appendUniqueToolId(ids, 'weather_query')
-    }
 
     for (let i = 0; i < extraToolIds.length; i++) {
       const toolId = extraToolIds[i]
-      if (toolId === 'web_search' && !webSearchEnabled) {
-        continue
-      }
-      if (toolId === 'weather_query' && !weatherQueryEnabled) {
-        continue
-      }
       if (this.deps.toolRegistry.isToolRegistered(toolId)) {
         appendUniqueToolId(ids, toolId)
       }
     }
 
     return ids
+  }
+
+  private buildExecutionPlan(
+    messageContent: string,
+    currentProvider: ModelProvider,
+    forcedToolIds: string[],
+    executionMode: ChatExecutionMode,
+    currentModelId: string
+  ): ChatExecutionPlan {
+    const enabledToolIds = this.buildEnabledToolIds(forcedToolIds)
+    if (enabledToolIds.length > 0) {
+      if (this.isCurrentModelSupportsTools(currentProvider, currentModelId)) {
+        return new ChatExecutionPlan(ChatExecutionPlanKind.TOOLS, enabledToolIds)
+      }
+      if (this.hasWebSearchTool(enabledToolIds)) {
+        return new ChatExecutionPlan(ChatExecutionPlanKind.MANUAL_SEARCH)
+      }
+      return new ChatExecutionPlan(ChatExecutionPlanKind.PLAIN_DIRECT)
+    }
+
+    if (executionMode === ChatExecutionMode.WEB_SEARCH) {
+      const webSearchToolIds = this.getRegisteredWebSearchToolIds()
+      if (webSearchToolIds.length > 0 && this.isCurrentModelSupportsTools(currentProvider, currentModelId)) {
+        return new ChatExecutionPlan(ChatExecutionPlanKind.TOOLS, webSearchToolIds)
+      }
+
+      return new ChatExecutionPlan(ChatExecutionPlanKind.MANUAL_SEARCH)
+    }
+
+    return new ChatExecutionPlan(ChatExecutionPlanKind.PLAIN_DIRECT)
+  }
+
+  private getRegisteredWebSearchToolIds(): string[] {
+    const ids: string[] = []
+    if (this.deps.toolRegistry.isToolRegistered('web_search')) {
+      ids.push('web_search')
+    }
+    return ids
+  }
+
+  private hasWebSearchTool(toolIds: string[]): boolean {
+    for (let i = 0; i < toolIds.length; i++) {
+      if (toolIds[i] === 'web_search') {
+        return true
+      }
+    }
+    return false
   }
 
   private startTaskOrFail(messageContent: string): string {
@@ -219,12 +263,12 @@ export class ChatSendFlow {
 
   private prepareSendState(taskId: string): void {
     this.deps.onSetCurrentTaskId(taskId)
-    this.deps.onClearComposer()
     this.deps.onSetSending(true)
     this.deps.onBeforeSend()
   }
 
   private handleUserMessageAdded(userMessage: ChatMessage): void {
+    this.deps.onClearComposer()
     this.deps.messages.push(userMessage)
     this.deps.onSyncMessages()
     this.deps.onSetNewEmptySession(false)
@@ -239,11 +283,14 @@ export class ChatSendFlow {
   }
 
   private handleAIMessageUpdated(aiMessage: ChatMessage): void {
-    if (this.deps.messages.length > 0) {
-      this.deps.messages[this.deps.messages.length - 1] = aiMessage
-      this.deps.onSyncMessages()
-      this.deps.onScrollBottom()
+    const index = this.deps.messages.findIndex((message: ChatMessage) => message.id === aiMessage.id)
+    if (index < 0) {
+      console.warn('ChatSendFlow', `[handleAIMessageUpdated] message not found: ${aiMessage.id}`)
+      return
     }
+    this.deps.messages[index] = aiMessage
+    this.deps.onSyncMessages()
+    this.deps.onScrollBottom()
   }
 
   private handleTaskCompleted(taskId: string): void {
@@ -323,28 +370,21 @@ export class ChatSendFlow {
     currentProvider: ModelProvider,
     effectiveApiKey: string,
     attachmentsToSend: MessageAttachment[] = [],
-    extraToolIds: string[] = [],
-    webSearchEnabled: boolean = false,
-    weatherQueryEnabled: boolean = false
-  ): Promise<boolean> {
+    enabledToolIds: string[] = []
+  ): Promise<void> {
     const taskId = this.startTaskOrFail(messageContent)
     if (taskId === '') {
-      return true
+      return
     }
 
     this.prepareSendState(taskId)
     const modelId = this.deps.getCurrentModelId()
-    const enabledToolIds = this.buildEnabledToolIds(webSearchEnabled, weatherQueryEnabled, extraToolIds)
     const tools = this.deps.toolRegistry.getEnabledToolDefinitions(enabledToolIds)
 
     console.info('ChatSendFlow', `[Function Calling] 启用工具: ${enabledToolIds.join(', ')}`)
 
-    let lastAIMessage: ChatMessage | null = null
-    let hasToolCallActivity = false
-
     const toolCallbacks: ToolCallCallbacks = {
       onToolCallStarted: (toolCalls: ToolCall[]): void => {
-        hasToolCallActivity = true
         console.info('ChatSendFlow', `[Function Calling] 工具调用开始: ${toolCalls.length} 个`)
         for (let i = 0; i < toolCalls.length; i++) {
           console.info('ChatSendFlow', `  - ${toolCalls[i].functionName}: ${toolCalls[i].arguments}`)
@@ -373,11 +413,9 @@ export class ChatSendFlow {
           this.handleUserMessageAdded(userMessage)
         },
         (aiMessage: ChatMessage): void => {
-          lastAIMessage = aiMessage
           this.handleAIMessageAdded(aiMessage)
         },
         (aiMessage: ChatMessage): void => {
-          lastAIMessage = aiMessage
           this.handleAIMessageUpdated(aiMessage)
         },
         (): void => {
@@ -396,69 +434,6 @@ export class ChatSendFlow {
     } catch (error) {
       const message = `发送失败: ${JSON.stringify(error)}`
       this.handleTaskFailed(taskId, message, true)
-      return true
-    }
-
-    if (hasToolCallActivity) {
-      return true
-    }
-    return this.hasAIMessageContent(lastAIMessage)
-  }
-
-  private hasAIMessageContent(aiMessage: ChatMessage | null): boolean {
-    if (aiMessage === null) {
-      return false
-    }
-    if (aiMessage.content.trim() !== '' && aiMessage.content !== '[模型未返回内容]') {
-      return true
-    }
-    if (aiMessage.reasoningContent.trim() !== '') {
-      return true
-    }
-    if (aiMessage.attachments.length > 0) {
-      return true
-    }
-    if (aiMessage.toolCalls.length > 0 || aiMessage.toolResults.length > 0) {
-      return true
-    }
-    return false
-  }
-
-  private async retryWithoutTools(
-    messageContent: string,
-    currentProvider: ModelProvider,
-    effectiveApiKey: string,
-    attachmentsToSend: MessageAttachment[]
-  ): Promise<void> {
-    await this.removeLastRoundMessages()
-    this.deps.onSyncMessages()
-
-    await this.sendPlainMessage(
-      messageContent,
-      currentProvider,
-      effectiveApiKey,
-      attachmentsToSend
-    )
-  }
-
-  private async removeLastRoundMessages(): Promise<void> {
-    const messages = this.deps.getMessages()
-    if (messages.length < 2) {
-      return
-    }
-    const lastMsg = messages[messages.length - 1]
-    const secondLastMsg = messages[messages.length - 2]
-    if (lastMsg.role === MessageRole.ASSISTANT && secondLastMsg.role === MessageRole.USER) {
-      const idsToDelete = [lastMsg.id, secondLastMsg.id]
-      const idx1 = this.deps.messages.findIndex(m => m.id === lastMsg.id)
-      if (idx1 >= 0) {
-        this.deps.messages.splice(idx1, 1)
-      }
-      const idx2 = this.deps.messages.findIndex(m => m.id === secondLastMsg.id)
-      if (idx2 >= 0) {
-        this.deps.messages.splice(idx2, 1)
-      }
-      await this.deps.chatViewModel.deleteMessagesFromIndex(idsToDelete)
     }
   }
 }

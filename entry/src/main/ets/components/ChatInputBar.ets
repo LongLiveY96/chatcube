@@ -25,9 +25,9 @@ export struct ChatInputBar {
   @Local modelBtnPressed: boolean = false
   @Local attachBtnPressed: boolean = false
   @Param inputText: string = ''
-  @Event $inputText: (value: string) => void = () => {}
+  @Event onInputTextChange: (value: string) => void = (_value: string): void => {}
   @Param attachments: MessageAttachment[] = []
-  @Event $attachments: (value: MessageAttachment[]) => void = () => {}
+  @Event onAttachmentsChange: (value: MessageAttachment[]) => void = (_value: MessageAttachment[]): void => {}
   @Param isSending: boolean = false
   // isSending 为 true 且 AI 尚未开始输出时，pause 显示轻微呼吸感
   @Param isAwaitingResponse: boolean = false
@@ -219,7 +219,7 @@ export struct ChatInputBar {
             bottom: 10
           })
           .onChange((value: string) => {
-            this.$inputText(value)
+            this.onInputTextChange(value)
           })
           .onFocus(() => {
             this.onInputFocus()
@@ -422,7 +422,7 @@ export struct ChatInputBar {
   private removeAttachment(index: number): void {
     const newAttachments = [...this.attachments]
     newAttachments.splice(index, 1)
-    this.$attachments([...newAttachments])
+    this.onAttachmentsChange([...newAttachments])
   }
 
   // ========== 最近截图相关方法 ==========
@@ -431,8 +431,8 @@ export struct ChatInputBar {
   private initRecentPhotoOptions(): void {
     // 只监听图片类型
     this.recentPhotoOptions.MIMEType = photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE
-    // 时间范围：5分钟（300秒），适合刚截图的场景
-    this.recentPhotoOptions.period = 300
+    // 时间范围：1分钟（60秒），适合刚截图的场景
+    this.recentPhotoOptions.period = 60
     // 只监听截图来源
     this.recentPhotoOptions.photoSource = PhotoSource.SCREENSHOT
     console.info('ChatInputBar', 'RecentPhoto options initialized')

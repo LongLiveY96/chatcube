@@ -16,6 +16,7 @@ import { getAppUiState } from '../state/AppUiState'
 @ComponentV2
 export struct ModelSelectorContent {
   @Param currentModelId: string = ''
+  @Param currentProviderId: string = ''
   @Param providers: ModelProvider[] = []
   @Param showEditEntry: boolean = true
   @Param showFavoriteActions: boolean = true
@@ -39,6 +40,12 @@ export struct ModelSelectorContent {
   private get isDarkMode(): boolean {
     return getAppUiState().isDarkMode
   }
+  private get favoriteAccentColor(): Resource {
+    return $r('app.color.status_error')
+  }
+  private get favoriteFilterActiveBackground(): string {
+    return this.isDarkMode ? 'rgba(239, 68, 68, 0.20)' : 'rgba(239, 68, 68, 0.10)'
+  }
   @Event onSelectModel: (providerId: string, modelId: string, modelName: string) => void =
     (_providerId: string, _modelId: string, _modelName: string): void => {}
   @Event onLongPressModel: (model: ModelInfo, provider: ModelProvider) => void =
@@ -47,8 +54,14 @@ export struct ModelSelectorContent {
 
   private favoriteService: FavoriteModelsService = getFavoriteModelsService()
   @Local private rows: ModelSelectorRow[] = []
-  private favoriteKeySet: Set<string> = new Set<string>()
+  @Local private favoriteKeySet: Set<string> = new Set<string>()
   private iconRenderCache: Map<string, ModelIconRenderData> = new Map<string, ModelIconRenderData>()
+  private favoriteLoadRequestId: number = 0
+  private favoriteMutationVersion: number = 0
+
+  private isModelFavorite(providerId: string, modelId: string): boolean {
+    return this.favoriteKeySet.has(`${providerId}::${modelId}`)
+  }
 
   aboutToAppear(): void {
     if (!this.showFavoriteFilter) {
@@ -67,26 +80,49 @@ export struct ModelSelectorContent {
   }
 
   private async loadFavorites(): Promise<void> {
+    const requestId = this.favoriteLoadRequestId + 1
+    this.favoriteLoadRequestId = requestId
+    const mutationVersionAtStart = this.favoriteMutationVersion
     await this.favoriteService.load()
-    this.favoriteKeySet = new Set<string>(this.favoriteService.getFavoriteKeys())
-    this.rebuildRows()
+    if (requestId !== this.favoriteLoadRequestId) {
+      return
+    }
+    if (mutationVersionAtStart !== this.favoriteMutationVersion) {
+      return
+    }
+    this.syncFavoriteKeysFromService()
   }
 
   private async toggleFavorite(model: ModelInfo, provider: ModelProvider): Promise<void> {
-    const isFavorite = await this.favoriteService.toggleFavorite(
-      model.id,
-      provider.id,
-      model.name,
-      provider.name
-    )
+    this.favoriteMutationVersion = this.favoriteMutationVersion + 1
     const key = this.favoriteService.getFavoriteKey(provider.id, model.id)
+    const previousSet = this.favoriteKeySet
     const nextSet = new Set<string>(this.favoriteKeySet)
-    if (isFavorite) {
+    const willFavorite = !nextSet.has(key)
+    if (willFavorite) {
       nextSet.add(key)
     } else {
       nextSet.delete(key)
     }
     this.favoriteKeySet = nextSet
+    this.rebuildRows()
+
+    try {
+      if (willFavorite) {
+        await this.favoriteService.addFavorite(model.id, provider.id, model.name, provider.name)
+      } else {
+        await this.favoriteService.removeFavorite(model.id, provider.id)
+      }
+      this.syncFavoriteKeysFromService()
+    } catch (error) {
+      console.error('ModelSelectorContent', `[toggleFavorite] failed: ${JSON.stringify(error)}`)
+      this.favoriteKeySet = previousSet
+      this.rebuildRows()
+    }
+  }
+
+  private syncFavoriteKeysFromService(): void {
+    this.favoriteKeySet = new Set<string>(this.favoriteService.getFavoriteKeys())
     this.rebuildRows()
   }
 
@@ -138,7 +174,10 @@ export struct ModelSelectorContent {
   }
 
   private isSelectedModel(row: ModelSelectorModelRow): boolean {
-    return row.model.id === this.currentModelId
+    if (row.model.id !== this.currentModelId) {
+      return false
+    }
+    return this.currentProviderId === '' || row.provider.id === this.currentProviderId
   }
 
   private getRowModelDisplayName(row: ModelSelectorModelRow): string {
@@ -175,21 +214,21 @@ export struct ModelSelectorContent {
           Row() {
             SymbolGlyph(this.showFavoritesOnly ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
               .fontSize(14)
-              .fontColor([this.showFavoritesOnly ? this.themePrimary : $r('app.color.text_secondary')])
+              .fontColor([this.showFavoritesOnly ? this.favoriteAccentColor : $r('app.color.text_secondary')])
 
             Text($r('app.string.menu_favorite'))
               .fontSize(12)
-              .fontColor(this.showFavoritesOnly ? this.themePrimary : $r('app.color.text_secondary'))
+              .fontColor(this.showFavoritesOnly ? this.favoriteAccentColor : $r('app.color.text_secondary'))
               .margin({ left: 4 })
           }
         }
         .height(32)
         .padding({ left: 10, right: 10 })
         .margin({ left: 8 })
-        .backgroundColor(this.showFavoritesOnly ? this.themePrimaryLight : $r('app.color.surface'))
+        .backgroundColor(this.showFavoritesOnly ? this.favoriteFilterActiveBackground : $r('app.color.surface'))
         .border({
           width: this.showFavoritesOnly ? 1 : 0.5,
-          color: this.showFavoritesOnly ? this.themePrimary : $r('app.color.divider')
+          color: this.showFavoritesOnly ? this.favoriteAccentColor : $r('app.color.divider')
         })
         .onClick(() => {
           this.showFavoritesOnly = !this.showFavoritesOnly
@@ -242,7 +281,6 @@ export struct ModelSelectorContent {
             }
           })
           .key((row: ModelSelectorRow) => row.key)
-          .virtualScroll({ totalCount: this.rows.length })
 
         ListItem() {
           Column().height(20)
@@ -252,7 +290,6 @@ export struct ModelSelectorContent {
       .layoutWeight(1)
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .cachedCount(8)
       .padding({ bottom: 12 })
       .nestedScroll({
         scrollForward: NestedScrollMode.SELF_FIRST,
@@ -292,67 +329,80 @@ export struct ModelSelectorContent {
   ModelRow(row: ModelSelectorModelRow) {
     Column() {
       Row() {
-        Column() {
-          if (this.getRowModelIconRenderData(row).hasIcon()) {
-            if (this.getRowModelIconRenderData(row).isRawfile()) {
-              Image($rawfile(this.getRowModelIconRenderData(row).resourcePath))
-                .width(20)
-                .height(20)
-                .objectFit(ImageFit.Contain)
+        Row() {
+          Column() {
+            if (this.getRowModelIconRenderData(row).hasIcon()) {
+              if (this.getRowModelIconRenderData(row).isRawfile()) {
+                Image($rawfile(this.getRowModelIconRenderData(row).resourcePath))
+                  .width(20)
+                  .height(20)
+                  .objectFit(ImageFit.Contain)
+              } else {
+                Image(this.getRowModelIconRenderData(row).resourcePath)
+                  .width(20)
+                  .height(20)
+                  .objectFit(ImageFit.Contain)
+              }
             } else {
-              Image(this.getRowModelIconRenderData(row).resourcePath)
-                .width(20)
-                .height(20)
-                .objectFit(ImageFit.Contain)
-            }
-          } else {
-            ProviderIcon({
-              iconType: row.provider.iconType,
-              iconPath: row.provider.iconPath,
-              textIcon: row.provider.textIcon,
-              textIconBgColor: row.provider.textIconBgColor,
-              customImagePath: row.provider.customImagePath,
-              iconSize: 20,
-              radius: 6,
-              bgColor: row.provider.brandColor,
-              brandColor: row.provider.brandColor,
-              fallbackSymbol: $r('sys.symbol.ai_edit'),
-              fallbackColor: $r('app.color.text_tertiary')
-            })
-          }
-        }
-        .width(32)
-        .height(32)
-        .borderRadius(8)
-        .backgroundColor($r('app.color.model_icon_bg'))
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-
-        Column() {
-          Text(this.getRowModelDisplayName(row))
-            .fontSize(15)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.text_primary'))
-
-          Row() {
-            if (row.model.capabilities.supportsReasoning) {
-              this.CapabilityIcon('sys.symbol.AI_deep_thinking')
-            }
-            if (row.model.capabilities.supportsVision) {
-              this.CapabilityIcon('sys.symbol.ohos_photo')
-            }
-            if (row.model.capabilities.supportsTools) {
-              this.CapabilityIcon('sys.symbol.wrench_and_screwdriver')
-            }
-            if (row.model.capabilities.supportsWebSearch) {
-              this.CapabilityIcon('sys.symbol.ohos_wifi')
+              ProviderIcon({
+                iconType: row.provider.iconType,
+                iconPath: row.provider.iconPath,
+                textIcon: row.provider.textIcon,
+                textIconBgColor: row.provider.textIconBgColor,
+                customImagePath: row.provider.customImagePath,
+                iconSize: 20,
+                radius: 6,
+                bgColor: row.provider.brandColor,
+                brandColor: row.provider.brandColor,
+                fallbackSymbol: $r('sys.symbol.ai_edit'),
+                fallbackColor: $r('app.color.text_tertiary')
+              })
             }
           }
-          .margin({ top: 4 })
+          .width(32)
+          .height(32)
+          .borderRadius(8)
+          .backgroundColor($r('app.color.model_icon_bg'))
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+
+          Column() {
+            Text(this.getRowModelDisplayName(row))
+              .fontSize(15)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.text_primary'))
+
+            Row() {
+              if (row.model.capabilities.supportsReasoning) {
+                this.CapabilityIcon('sys.symbol.AI_deep_thinking')
+              }
+              if (row.model.capabilities.supportsVision) {
+                this.CapabilityIcon('sys.symbol.ohos_photo')
+              }
+              if (row.model.capabilities.supportsTools) {
+                this.CapabilityIcon('sys.symbol.wrench_and_screwdriver')
+              }
+              if (row.model.capabilities.supportsWebSearch) {
+                this.CapabilityIcon('sys.symbol.ohos_wifi')
+              }
+            }
+            .margin({ top: 4 })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .margin({ left: 10 })
+          .layoutWeight(1)
         }
-        .alignItems(HorizontalAlign.Start)
-        .margin({ left: 10 })
         .layoutWeight(1)
+        .alignItems(VerticalAlign.Center)
+        .onClick(() => {
+          this.onSelectModel(row.provider.id, row.model.id, this.getRowModelDisplayName(row))
+        })
+        .gesture(LongPressGesture({ duration: 500 })
+          .onAction(() => {
+            if (this.showEditEntry) {
+              this.onLongPressModel(row.model, row.provider)
+            }
+          }))
 
         if (this.showEditEntry) {
           Button() {
@@ -363,7 +413,9 @@ export struct ModelSelectorContent {
           .type(ButtonType.Circle)
           .width(32)
           .height(32)
+          .stateEffect(false)
           .backgroundColor(Color.Transparent)
+          .hitTestBehavior(HitTestMode.Block)
           .onClick(() => {
             this.onLongPressModel(row.model, row.provider)
           })
@@ -371,14 +423,16 @@ export struct ModelSelectorContent {
 
         if (this.showFavoriteActions) {
           Button() {
-            SymbolGlyph(row.isFavorite ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
+            SymbolGlyph(this.isModelFavorite(row.provider.id, row.model.id) ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
               .fontSize(18)
-              .fontColor([row.isFavorite ? $r('app.color.status_error') : $r('app.color.text_tertiary')])
+              .fontColor([this.isModelFavorite(row.provider.id, row.model.id) ? $r('app.color.status_error') : $r('app.color.text_tertiary')])
           }
           .type(ButtonType.Circle)
           .width(32)
           .height(32)
+          .stateEffect(false)
           .backgroundColor(Color.Transparent)
+          .hitTestBehavior(HitTestMode.Block)
           .onClick(() => {
             this.toggleFavorite(row.model, row.provider)
           })
@@ -394,15 +448,6 @@ export struct ModelSelectorContent {
       .padding({ left: 12, right: 12, top: 10, bottom: 10 })
       .backgroundColor(this.isSelectedModel(row) ? this.themePrimaryLight : $r('app.color.surface'))
       .borderRadius(this.buildRowRadius(row.groupPosition))
-      .onClick(() => {
-        this.onSelectModel(row.provider.id, row.model.id, this.getRowModelDisplayName(row))
-      })
-      .gesture(LongPressGesture({ duration: 500 })
-        .onAction(() => {
-          if (this.showEditEntry) {
-            this.onLongPressModel(row.model, row.provider)
-          }
-        }))
 
       if (row.groupPosition === ModelRowGroupPosition.FIRST || row.groupPosition === ModelRowGroupPosition.MIDDLE) {
         Divider()

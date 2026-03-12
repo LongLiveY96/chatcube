@@ -8,7 +8,7 @@ import { AppStorageKeys } from '../config/AppStorageKeys'
 @ComponentV2
 export struct ScreenshotBanner {
   @Param attachments: MessageAttachment[] = []
-  @Event $attachments: (value: MessageAttachment[]) => void = () => {}
+  @Event onAttachmentsChange: (value: MessageAttachment[]) => void = (_value: MessageAttachment[]): void => {}
   @Param hasRecentPhoto: boolean = false
   @Local dismissed: boolean = false
   @Local bannerHeight: number = 0
@@ -16,13 +16,13 @@ export struct ScreenshotBanner {
 
   aboutToAppear(): void {
     this.recentPhotoOptions.MIMEType = photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE
-    this.recentPhotoOptions.period = 300
+    this.recentPhotoOptions.period = 60
     this.recentPhotoOptions.photoSource = PhotoSource.SCREENSHOT
 
     // 检查是否在检测周期内已忽略过截图
     const dismissedTs = AppStorage.get<number>(AppStorageKeys.SCREENSHOT_DISMISSED_TS)
     const now = Date.now()
-    if (dismissedTs !== undefined && (now - dismissedTs) < 300 * 1000) {
+    if (dismissedTs !== undefined && (now - dismissedTs) < 60 * 1000) {
       this.dismissed = true
     }
   }
@@ -125,7 +125,7 @@ export struct ScreenshotBanner {
       const filePath = await storageService.saveAttachment(attachment)
       attachment.filePath = filePath
 
-      this.$attachments([...this.attachments, attachment])
+      this.onAttachmentsChange([...this.attachments, attachment])
       this.dismiss()
     } catch (error) {
       console.error('ScreenshotBanner', `Failed to add screenshot: ${JSON.stringify(error)}`)

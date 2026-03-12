@@ -16,6 +16,7 @@ import {
   SearchRuntimeConfigSnapshot,
   WebSearchExecutionOptions
 } from '../../services/WebSearchService'
+import { ChatTaskOrchestratorService } from '../../services/ChatTaskOrchestratorService'
 import { DefaultModelService } from '../../services/DefaultModelService'
 import { PreferenceKeys, PreferencesService } from '../../services/PreferencesService'
 import { AppStateManager } from '../../viewmodels/AppStateManager'
@@ -32,12 +33,17 @@ import {
 
 export interface ChatManualSearchFlowDependencies {
   chatViewModel: ChatViewModel
+  chatTaskOrchestrator: ChatTaskOrchestratorService
   providerViewModel: ProviderViewModel
   webSearchService: WebSearchService
   defaultModelService: DefaultModelService
   preferencesService: PreferencesService
   appStateManager: AppStateManager
   messages: ChatMessage[]
+  getSessionId: () => string
+  getSessionTitle: () => string
+  getCurrentTaskId: () => string
+  onSetCurrentTaskId: (taskId: string) => void
   getCurrentProvider: () => ModelProvider | null
   getCurrentModelId: () => string
   getCurrentModelName: () => string
@@ -95,14 +101,50 @@ export class ChatManualSearchFlow {
     }
   }
 
-  startManualSearchFallback(messageContent: string, attachmentsToSend: MessageAttachment[] = []): void {
+  private startTaskOrFail(messageContent: string): string {
+    const taskId = this.deps.chatTaskOrchestrator.startTask(
+      this.deps.getSessionId(),
+      this.deps.getSessionTitle(),
+      messageContent,
+      this.deps.chatViewModel
+    )
+    if (taskId === '') {
+      this.deps.onShowToast($r('app.string.task_parallel_limit_reached'))
+      this.deps.onMarkAutoTaskFailed('并行任务已达上限')
+      return ''
+    }
+    return taskId
+  }
+
+  private completeTask(taskId: string): void {
+    this.deps.chatTaskOrchestrator.completeTask(taskId)
+    if (this.deps.getCurrentTaskId() === taskId) {
+      this.deps.onSetCurrentTaskId('')
+    }
+    this.deps.onMarkAutoTaskCompleted()
+  }
+
+  private failTask(taskId: string, errorMessage: string): void {
+    this.deps.chatTaskOrchestrator.failTask(taskId, errorMessage)
+    if (this.deps.getCurrentTaskId() === taskId) {
+      this.deps.onSetCurrentTaskId('')
+    }
+    this.deps.onMarkAutoTaskFailed(errorMessage)
+  }
+
+  async startManualSearchFallback(messageContent: string, attachmentsToSend: MessageAttachment[] = []): Promise<void> {
     this.cancelCurrentSearchRequest()
+    const taskId = this.startTaskOrFail(messageContent)
+    if (taskId === '') {
+      return
+    }
     const requestId = this.createManualSearchRequestId()
     this.currentSearchRequestId = requestId
 
     const extractedUrl = this.deps.webSearchService.extractUrl(messageContent)
     const isPureUrl = extractedUrl !== null && extractedUrl === messageContent.trim()
 
+    this.deps.onSetCurrentTaskId(taskId)
     this.deps.onClearComposer()
     this.deps.onSetSending(true)
     this.deps.onSetSearchCancelled(false)
@@ -111,10 +153,10 @@ export class ChatManualSearchFlow {
     const userMessage = this.createPendingUserMessage(messageContent, attachmentsToSend)
 
     if (isPureUrl && extractedUrl !== null) {
-      this.performUrlFetchAsync(extractedUrl, messageContent, userMessage, attachmentsToSend, requestId)
+      await this.performUrlFetchAsync(extractedUrl, messageContent, userMessage, attachmentsToSend, requestId, taskId)
       return
     }
-    this.performBingSearchAsync(messageContent, userMessage, attachmentsToSend, requestId)
+    await this.performBingSearchAsync(messageContent, userMessage, attachmentsToSend, requestId, taskId)
   }
 
   private generateId(): string {
@@ -164,7 +206,8 @@ export class ChatManualSearchFlow {
 
   async performBingSearchAsync(query: string, userMessage: ChatMessage,
     attachmentsToSend: MessageAttachment[] = [],
-    requestId: string = ''): Promise<void> {
+    requestId: string = '',
+    taskId: string = ''): Promise<void> {
     const searchingAIMessage = this.createSearchingAIMessage()
 
     try {
@@ -288,7 +331,7 @@ export class ChatManualSearchFlow {
       if (!searchResult.success) {
         this.deps.onShowToast($r('app.string.web_search_failed'))
         this.deps.onSetSending(false)
-        this.deps.onMarkAutoTaskFailed(searchResult.errorMessage)
+        this.failTask(taskId, searchResult.errorMessage)
         return
       }
 
@@ -299,13 +342,13 @@ export class ChatManualSearchFlow {
       }
       this.deps.onSyncMessages()
 
-      await this.sendSearchResultMessage(query, searchResult, attachmentsToSend)
+      await this.sendSearchResultMessage(query, searchResult, attachmentsToSend, taskId)
     } catch (error) {
       this.removeSearchingAIMessage(searchingAIMessage)
       console.error('ChatPage', `[performBingSearchAsync] 搜索异常: ${JSON.stringify(error)}`)
       this.deps.onShowToast($r('app.string.web_search_failed'))
       this.deps.onSetSending(false)
-      this.deps.onMarkAutoTaskFailed('联网搜索失败')
+      this.failTask(taskId, '联网搜索失败')
     } finally {
       this.finishSearchRequest(requestId)
     }
@@ -313,7 +356,8 @@ export class ChatManualSearchFlow {
 
   async performUrlFetchAsync(url: string, _originalInput: string, userMessage: ChatMessage,
     attachmentsToSend: MessageAttachment[] = [],
-    requestId: string = ''): Promise<void> {
+    requestId: string = '',
+    taskId: string = ''): Promise<void> {
     const searchingAIMessage = this.createSearchingAIMessage()
 
     try {
@@ -339,7 +383,7 @@ export class ChatManualSearchFlow {
         console.error('ChatPage', `[performUrlFetchAsync] 网页获取失败: ${webResult.errorMessage}`)
         this.deps.onShowToast($r('app.string.url_fetch_failed'))
         this.deps.onSetSending(false)
-        this.deps.onMarkAutoTaskFailed(webResult.errorMessage)
+        this.failTask(taskId, webResult.errorMessage)
         return
       }
 
@@ -364,25 +408,26 @@ export class ChatManualSearchFlow {
       }
       this.deps.onSyncMessages()
 
-      await this.sendSearchResultMessage('请分析这个网页', searchResult, attachmentsToSend)
+      await this.sendSearchResultMessage('请分析这个网页', searchResult, attachmentsToSend, taskId)
     } catch (error) {
       this.removeSearchingAIMessage(searchingAIMessage)
       console.error('ChatPage', `[performUrlFetchAsync] 网页获取异常: ${JSON.stringify(error)}`)
       this.deps.onShowToast($r('app.string.url_fetch_failed'))
       this.deps.onSetSending(false)
-      this.deps.onMarkAutoTaskFailed('网页抓取失败')
+      this.failTask(taskId, '网页抓取失败')
     } finally {
       this.finishSearchRequest(requestId)
     }
   }
 
   private async sendSearchResultMessage(userQuery: string, searchResult: SearchResult,
-    attachmentsToSend: MessageAttachment[] = []): Promise<void> {
+    attachmentsToSend: MessageAttachment[] = [],
+    taskId: string = ''): Promise<void> {
     const currentProvider = this.deps.getCurrentProvider()
     if (currentProvider === null) {
       this.deps.onShowError($r('app.string.provider_required_before_chat'))
       this.deps.onSetSending(false)
-      this.deps.onMarkAutoTaskFailed('未配置可用服务商')
+      this.failTask(taskId, '未配置可用服务商')
       return
     }
 
@@ -390,7 +435,7 @@ export class ChatManualSearchFlow {
     if (effectiveApiKey === '' && currentProvider.type !== ProviderType.OLLAMA) {
       this.deps.onShowError($r('app.string.api_key_required'))
       this.deps.onSetSending(false)
-      this.deps.onMarkAutoTaskFailed('缺少 API Key')
+      this.failTask(taskId, '缺少 API Key')
       return
     }
 
@@ -429,19 +474,22 @@ export class ChatManualSearchFlow {
         this.deps.onScrollBottom()
       },
       (aiMessage: ChatMessage): void => {
-        if (this.deps.messages.length > 0) {
-          this.deps.messages[this.deps.messages.length - 1] = aiMessage
-          this.deps.onSyncMessages()
-          this.deps.onScrollBottom()
+        const index = this.deps.messages.findIndex((message: ChatMessage) => message.id === aiMessage.id)
+        if (index < 0) {
+          console.warn('ChatManualSearchFlow', `[sendSearchResultMessage] ai message not found: ${aiMessage.id}`)
+          return
         }
+        this.deps.messages[index] = aiMessage
+        this.deps.onSyncMessages()
+        this.deps.onScrollBottom()
       },
       (): void => {
         this.deps.onSetSending(false)
-        this.deps.onMarkAutoTaskCompleted()
+        this.completeTask(taskId)
       },
       (error: string): void => {
         this.deps.onSetSending(false)
-        this.deps.onMarkAutoTaskFailed(error)
+        this.failTask(taskId, error)
         this.deps.onShowError(error)
       },
       this.deps.getReasoningLevel(),

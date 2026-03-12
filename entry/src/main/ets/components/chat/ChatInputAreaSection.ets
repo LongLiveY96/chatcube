@@ -6,9 +6,9 @@ import { ScreenshotBanner } from '../ScreenshotBanner'
 @ComponentV2
 export struct ChatInputAreaSection {
   @Param inputText: string = ''
-  @Event $inputText: (value: string) => void = () => {}
+  @Event onInputTextChange: (value: string) => void = (_value: string): void => {}
   @Param attachments: MessageAttachment[] = []
-  @Event $attachments: (value: MessageAttachment[]) => void = () => {}
+  @Event onAttachmentsChange: (value: MessageAttachment[]) => void = (_value: MessageAttachment[]): void => {}
   @Param isSending: boolean = false
   @Param isAwaitingResponse: boolean = false
   @Param currentModelId: string = ''
@@ -24,9 +24,10 @@ export struct ChatInputAreaSection {
   @Param isEditing: boolean = false
   @Param webSearchAvailable: boolean = false
   @Param webSearchEnabled: boolean = false
-  @Event $webSearchEnabled: (value: boolean) => void = () => {}
+  @Event onWebSearchEnabledChange: (value: boolean) => void = (_value: boolean): void => {}
+  @Param reasoningAvailable: boolean = false
   @Param reasoningLevel: ReasoningLevel = ReasoningLevel.OFF
-  @Event $reasoningLevel: (value: ReasoningLevel) => void = () => {}
+  @Event onReasoningLevelChange: (value: ReasoningLevel) => void = (_value: ReasoningLevel): void => {}
   @Param hasRecentScreenshot: boolean = false
   @Param bottomAvoidHeight: number = 0
   @Param contentMaxWidth: number = 99999
@@ -49,8 +50,11 @@ export struct ChatInputAreaSection {
       Column() {
         Row() {
           ScreenshotBanner({
-            attachments: this.attachments!!,
-            hasRecentPhoto: this.hasRecentScreenshot
+            attachments: this.attachments,
+            hasRecentPhoto: this.hasRecentScreenshot,
+            onAttachmentsChange: (value: MessageAttachment[]): void => {
+              this.onAttachmentsChange(value)
+            }
           })
         }
         .width('100%')
@@ -59,13 +63,26 @@ export struct ChatInputAreaSection {
 
         ChatToolbar({
           webSearchAvailable: this.webSearchAvailable,
-          webSearchEnabled: this.webSearchEnabled!!,
-          reasoningLevel: this.reasoningLevel!!
+          webSearchEnabled: this.webSearchEnabled,
+          onWebSearchEnabledChange: (value: boolean): void => {
+            this.onWebSearchEnabledChange(value)
+          },
+          reasoningAvailable: this.reasoningAvailable,
+          reasoningLevel: this.reasoningLevel,
+          onReasoningLevelChange: (value: ReasoningLevel): void => {
+            this.onReasoningLevelChange(value)
+          }
         })
 
         ChatInputBar({
-          inputText: this.inputText!!,
-          attachments: this.attachments!!,
+          inputText: this.inputText,
+          onInputTextChange: (value: string): void => {
+            this.onInputTextChange(value)
+          },
+          attachments: this.attachments,
+          onAttachmentsChange: (value: MessageAttachment[]): void => {
+            this.onAttachmentsChange(value)
+          },
           isSending: this.isSending,
           isAwaitingResponse: this.isAwaitingResponse,
           currentModelId: this.currentModelId,

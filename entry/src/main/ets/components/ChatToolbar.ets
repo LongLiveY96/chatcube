@@ -13,10 +13,12 @@ export struct ChatToolbar {
   @Param webSearchAvailable: boolean = false
   // 联网查询本会话开关状态（聊天页面控制）
   @Param webSearchEnabled: boolean = false
-  @Event $webSearchEnabled: (value: boolean) => void = () => {}
+  @Event onWebSearchEnabledChange: (value: boolean) => void = (_value: boolean): void => {}
+  // 当前模型是否支持推理
+  @Param reasoningAvailable: boolean = false
   // 推理级别状态
   @Param reasoningLevel: ReasoningLevel = ReasoningLevel.OFF
-  @Event $reasoningLevel: (value: ReasoningLevel) => void = () => {}
+  @Event onReasoningLevelChange: (value: ReasoningLevel) => void = (_value: ReasoningLevel): void => {}
 
   // 主题颜色
   private get themePrimary(): string {
@@ -50,38 +52,40 @@ export struct ChatToolbar {
         .animation({ duration: 200, curve: Curve.EaseOut })
         .onClick(() => {
           const newValue = !this.webSearchEnabled
-          this.$webSearchEnabled(newValue)
+          this.onWebSearchEnabledChange(newValue)
           const prefsService = getPreferencesService()
           prefsService.setBoolean(PreferenceKeys.SEARCH_CONVERSATION_ENABLED, newValue)
         })
       }
 
-      // 推理级别按钮
-      Button({ type: ButtonType.Capsule, stateEffect: false }) {
-        Row() {
-          SymbolGlyph($r('sys.symbol.lightbulb'))
-            .fontSize(16)
-            .fontColor([this.reasoningLevel !== ReasoningLevel.OFF ? Color.White : $r('app.color.text_secondary')])
+      if (this.reasoningAvailable) {
+        // 推理级别按钮
+        Button({ type: ButtonType.Capsule, stateEffect: false }) {
+          Row() {
+            SymbolGlyph($r('sys.symbol.lightbulb'))
+              .fontSize(16)
+              .fontColor([this.reasoningLevel !== ReasoningLevel.OFF ? Color.White : $r('app.color.text_secondary')])
 
-          Text(this.getReasoningLevelText())
-            .fontSize(14)
-            .fontColor(this.reasoningLevel !== ReasoningLevel.OFF ? Color.White : $r('app.color.text_secondary'))
-            .margin({ left: 4 })
+            Text(this.getReasoningLevelText())
+              .fontSize(14)
+              .fontColor(this.reasoningLevel !== ReasoningLevel.OFF ? Color.White : $r('app.color.text_secondary'))
+              .margin({ left: 4 })
+          }
         }
+        .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+        .clip(true)
+        .backgroundColor(this.reasoningLevel !== ReasoningLevel.OFF ? this.themePrimary : $r('app.color.surface'))
+        .margin({ left: this.webSearchAvailable ? 8 : 0 })
+        .border(this.reasoningLevel !== ReasoningLevel.OFF ? undefined : {
+          width: 0.5,
+          color: $r('app.color.divider')
+        })
+        // 背景色过渡动画
+        .animation({ duration: 200, curve: Curve.EaseOut })
+        .bindMenu(this.ReasoningMenuBuilder(), {
+          placement: Placement.TopLeft
+        })
       }
-      .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-      .clip(true)
-      .backgroundColor(this.reasoningLevel !== ReasoningLevel.OFF ? this.themePrimary : $r('app.color.surface'))
-      .margin({ left: this.webSearchAvailable ? 8 : 0 })
-      .border(this.reasoningLevel !== ReasoningLevel.OFF ? undefined : {
-        width: 0.5,
-        color: $r('app.color.divider')
-      })
-      // 背景色过渡动画
-      .animation({ duration: 200, curve: Curve.EaseOut })
-      .bindMenu(this.ReasoningMenuBuilder(), {
-        placement: Placement.TopLeft
-      })
 
       Blank()
     }
@@ -147,7 +151,7 @@ export struct ChatToolbar {
     .height(44)
     .padding({ left: 16, right: 16 })
     .onClick(() => {
-      this.$reasoningLevel(level)
+      this.onReasoningLevelChange(level)
     })
   }
 }

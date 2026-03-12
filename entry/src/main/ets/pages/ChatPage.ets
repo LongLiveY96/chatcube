@@ -5,6 +5,7 @@ import {
   MessageRole,
   ModelProvider,
   ModelInfo,
+  ModelInfoExtendedJson,
   MessageAttachment,
   ReasoningLevel,
   ModelRole
@@ -41,7 +42,7 @@ import {
 } from './chat/ChatPageUiHelper'
 import { parseToolIdsFromRouteRaw } from './chat/ChatToolIdHelper'
 import { ChatManualSearchFlow, ChatManualSearchFlowDependencies } from './chat/ChatManualSearchFlow'
-import { ChatSendFlow, ChatSendFlowDependencies, ChatSendDispatchResult } from './chat/ChatSendFlow'
+import { ChatSendFlow, ChatSendFlowDependencies, ChatExecutionMode } from './chat/ChatSendFlow'
 import { ChatStopFlow, ChatStopFlowDependencies } from './chat/ChatStopFlow'
 import { ChatInlineEditFlow, ChatInlineEditFlowDependencies } from './chat/ChatInlineEditFlow'
 import { ChatSelectionFlow, ChatSelectionFlowDependencies } from './chat/ChatSelectionFlow'
@@ -57,6 +58,7 @@ import {
 import { ChatPageRouteParams } from './chat/ChatPageRouteTypes'
 import { getChatContentMaxWidth, LayoutSizeClass } from '../config/LayoutProfile'
 import { getAppUiState, observeAppUiState, setAppUiStateValue } from '../state/AppUiState'
+import { applyModelDraft } from '../utils/ModelDraftUtils'
 
 const DOMAIN = 0x0003
 const TAG = 'ChatPage'
@@ -127,8 +129,6 @@ export struct ChatPage {
   @Local webSearchAvailable: boolean = false
   // 联网查询本会话开关状态（聊天页控制）
   @Local webSearchEnabled: boolean = false
-  // 天气查询状态
-  @Local weatherQueryEnabled: boolean = false
   // 推理级别状态
   @Local reasoningLevel: ReasoningLevel = ReasoningLevel.OFF
   // 最近截图检测状态（由 ChatInputBar 回调设置，ScreenshotBanner 独立渲染）
@@ -200,9 +200,11 @@ export struct ChatPage {
   private initialPromptAutoSent: boolean = false
   private forcedToolIdsOnce: string[] = []
   private currentTaskId: string = ''
+  private isSendDispatching: boolean = false
   private lastHandledAlertTimestamp: number = 0
   private isPageVisible: boolean = false
-  private streamSyncTimerId: number = -1
+  // 兜底 watcher：页面切换时可能错过一次任务完成事件，这里只负责回收发送态，不碰消息内容同步
+  private runtimeStateWatchdogTimerId: number = -1
   private manualSearchFlow: ChatManualSearchFlow | null = null
   private sendFlow: ChatSendFlow | null = null
   private stopFlow: ChatStopFlow | null = null
@@ -276,9 +278,13 @@ export struct ChatPage {
 
   // 修复页面恢复时可能的不一致状态
   private fixInconsistentState(): void {
+    const hasActiveRequestForCurrentSession = this.sessionId !== '' &&
+      this.chatViewModel.hasActiveRequestForSession(this.sessionId)
+
     // 如果 isSending 为 true 但没有活跃请求，重置状态
-    if (this.isSending && !this.chatViewModel.hasActiveRequest()) {
+    if (this.isSending && !hasActiveRequestForCurrentSession) {
       this.isSending = false
+      this.currentTaskId = ''
       console.info('ChatPage', '[fixInconsistentState] 重置 isSending 状态')
     }
 
@@ -287,12 +293,12 @@ export struct ChatPage {
       const lastMessage = this.messages[this.messages.length - 1]
       if (lastMessage.role === MessageRole.ASSISTANT) {
         // 如果没有活跃请求，重置生成状态
-        if (lastMessage.isGenerating && !this.chatViewModel.hasActiveRequest()) {
+        if (lastMessage.isGenerating && !hasActiveRequestForCurrentSession) {
           lastMessage.isGenerating = false
           console.info('ChatPage', '[fixInconsistentState] 重置最后一条消息的 isGenerating 状态')
         }
         // 如果没有活跃请求，重置搜索状态
-        if (lastMessage.isSearching && !this.chatViewModel.hasActiveRequest()) {
+        if (lastMessage.isSearching && !hasActiveRequestForCurrentSession) {
           lastMessage.isSearching = false
           console.info('ChatPage', '[fixInconsistentState] 重置最后一条消息的 isSearching 状态')
         }
@@ -304,12 +310,12 @@ export struct ChatPage {
     this.isPageVisible = false
     // 释放TTS资源
     this.ttsService.destroy()
-    this.clearStreamSyncTimer()
+    this.clearRuntimeStateWatchdog()
     this.flushDraftAutosave(true).catch((error: Error): void => {
       console.error('ChatPage', `Failed to flush draft on disappear: ${JSON.stringify(error)}`)
     })
     this.unregisterAppUiStateObservers()
-    setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, '')
+    this.syncActiveSessionBinding()
 
     if (this.shouldDeleteEmptySessionOnDisappear()) {
       this.chatViewModel.deleteSession(this.sessionId)
@@ -341,10 +347,9 @@ export struct ChatPage {
 
     this.webSearchAvailable = loadResult.webSearchEnabled
     this.webSearchEnabled = this.webSearchAvailable && loadResult.webSearchConversationEnabled
-    this.weatherQueryEnabled = loadResult.weatherQueryEnabled
     console.info(
       'ChatPage',
-      `[loadData] 联网可用=${this.webSearchAvailable}, 联网会话开关=${this.webSearchEnabled}, 天气查询=${this.weatherQueryEnabled}`
+      `[loadData] 联网可用=${this.webSearchAvailable}, 联网会话开关=${this.webSearchEnabled}`
     )
 
     this.applyLoadedProviders(loadResult.providers)
@@ -372,6 +377,14 @@ export struct ChatPage {
     this.validateAndSetCurrentModel()
   }
 
+  private replaceMessages(nextMessages: ChatMessage[]): void {
+    this.messages.splice(0, this.messages.length, ...nextMessages)
+  }
+
+  private clearMessages(): void {
+    this.messages.splice(0, this.messages.length)
+  }
+
   private applyLoadedSessionData(loadResult: ChatPageLoadResult): void {
     this.pendingInitialPrompt = loadResult.pendingInitialPrompt
     this.pendingInitialToolIds = loadResult.pendingInitialToolIds
@@ -384,12 +397,12 @@ export struct ChatPage {
     this.isNewEmptySession = loadResult.isNewEmptySession
 
     if (!this.isNewChatTransition) {
-      this.messages = [...loadResult.messages]
+      this.replaceMessages(loadResult.messages)
       hilog.info(DOMAIN, TAG, '📨 加载会话消息: %{public}d 条', this.messages.length)
       return
     }
 
-    this.messages = []
+    this.clearMessages()
   }
 
   private triggerPostLoadActions(): void {
@@ -418,6 +431,15 @@ export struct ChatPage {
     this.getTaskAlertFlow().handleOpenSessionPayload(this.openSessionPayload)
   }
 
+  onTaskEventTickChanged(): void {
+    if (!this.isPageVisible || this.sessionId === '') {
+      return
+    }
+    this.syncSendingStateFromRuntime()
+    this.fixInconsistentState()
+    this.updateRuntimeStateWatchdog()
+  }
+
   private registerAppUiStateObservers(): void {
     if (this.appUiStateDisposers.length > 0) {
       return
@@ -425,7 +447,8 @@ export struct ChatPage {
     this.appUiStateDisposers = [
       observeAppUiState(AppStorageKeys.TASK_UNREAD_BY_SESSION, (): void => this.onTaskUnreadBySessionChanged()),
       observeAppUiState(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, (): void => this.onInAppTaskAlertPayloadChanged()),
-      observeAppUiState(AppStorageKeys.OPEN_SESSION_PAYLOAD, (): void => this.onOpenSessionPayloadChanged())
+      observeAppUiState(AppStorageKeys.OPEN_SESSION_PAYLOAD, (): void => this.onOpenSessionPayloadChanged()),
+      observeAppUiState(AppStorageKeys.TASK_EVENT_TICK, (): void => this.onTaskEventTickChanged())
     ]
   }
 
@@ -436,8 +459,14 @@ export struct ChatPage {
     this.appUiStateDisposers = []
   }
 
+  private syncActiveSessionBinding(): void {
+    const activeSessionId = this.isPageVisible && this.sessionId !== '' ? this.sessionId : ''
+    setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, activeSessionId)
+  }
+
   private handlePageShown(): void {
     this.isPageVisible = true
+    this.syncActiveSessionBinding()
     if (this.isLoading || this.sessionId === '') {
       return
     }
@@ -445,20 +474,22 @@ export struct ChatPage {
     this.syncSendingStateFromRuntime()
     this.fixInconsistentState()
     this.refreshProviders()
-    setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, this.sessionId)
     this.chatTaskOrchestrator.markSessionRead(this.sessionId)
     this.getTaskAlertFlow().refreshOtherSessionUnreadCount()
-    this.updateStreamSyncTimer()
+    this.updateRuntimeStateWatchdog()
+    // 检查在页面切换间隙到达的 in-app alert
+    this.getTaskAlertFlow().handleInAppTaskAlertPayload(this.inAppTaskAlertPayload)
   }
 
   private activateCurrentSessionRuntimeState(): void {
-    setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, this.sessionId)
+    this.syncActiveSessionBinding()
     this.chatTaskOrchestrator.markSessionRead(this.sessionId)
     this.getTaskAlertFlow().refreshOtherSessionUnreadCount()
     this.syncSendingStateFromRuntime()
+    this.fixInconsistentState()
     this.getTaskAlertFlow().handleOpenSessionPayload(this.openSessionPayload)
     this.getTaskAlertFlow().handleInAppTaskAlertPayload(this.inAppTaskAlertPayload)
-    this.updateStreamSyncTimer()
+    this.updateRuntimeStateWatchdog()
   }
 
   private refreshToolAvailabilityOnShown(): void {
@@ -467,12 +498,27 @@ export struct ChatPage {
     })
   }
 
+  private supportsReasoningForCurrentModel(): boolean {
+    if (this.currentProvider === null || this.currentModelId === '') {
+      return false
+    }
+    for (let i = 0; i < this.currentProvider.models.length; i++) {
+      const model = this.currentProvider.models[i]
+      if (model.id === this.currentModelId) {
+        return model.capabilities.supportsReasoning
+      }
+    }
+    return false
+  }
+
+  private syncReasoningAvailabilityWithCurrentModel(): void {
+    if (!this.supportsReasoningForCurrentModel()) {
+      this.reasoningLevel = ReasoningLevel.OFF
+    }
+  }
+
   private async refreshToolAvailabilityFromPreferences(syncConversationSwitch: boolean): Promise<void> {
     const webSearchAvailable = await this.preferencesService.getBoolean(PreferenceKeys.SEARCH_SERVICE_ENABLED, false)
-    const weatherQueryEnabled = await this.preferencesService.getBoolean(
-      PreferenceKeys.WEATHER_QUERY_ENABLED,
-      webSearchAvailable
-    )
     let webSearchConversationEnabled = this.webSearchEnabled
     if (syncConversationSwitch) {
       webSearchConversationEnabled = await this.preferencesService.getBoolean(
@@ -486,56 +532,50 @@ export struct ChatPage {
     } else {
       this.webSearchEnabled = webSearchConversationEnabled
     }
-    this.weatherQueryEnabled = weatherQueryEnabled
   }
 
   private syncSendingStateFromRuntime(): void {
     if (this.sessionId === '') {
       this.isSending = false
+      this.currentTaskId = ''
       return
     }
     this.isSending = this.chatViewModel.hasActiveRequestForSession(this.sessionId)
-  }
-
-  private hasStreamingAssistantMessage(): boolean {
-    const total = this.messages.length
-    if (total <= 0) {
-      return false
+    if (!this.isSending) {
+      this.currentTaskId = ''
     }
-    const lastMessage = this.messages[total - 1]
-    if (lastMessage.role !== MessageRole.ASSISTANT) {
-      return false
-    }
-    return lastMessage.isGenerating || lastMessage.isSearching
   }
 
-  private notifyStreamingMessageChanged(forceNotify: boolean): void {
-    // V2 + @ObservedV2/@Trace: @Trace 属性变化自动触发 Repeat 刷新，无需手动通知
-  }
-
-  private updateStreamSyncTimer(): void {
-    if (!this.chatViewModel.hasActiveRequest() || !this.hasStreamingAssistantMessage()) {
-      this.clearStreamSyncTimer()
+  private updateRuntimeStateWatchdog(): void {
+    const hasActiveRequestForCurrentSession = this.sessionId !== '' &&
+      this.chatViewModel.hasActiveRequestForSession(this.sessionId)
+    if (!this.isPageVisible || !hasActiveRequestForCurrentSession) {
+      this.clearRuntimeStateWatchdog()
       return
     }
-    if (this.streamSyncTimerId !== -1) {
+    if (this.runtimeStateWatchdogTimerId !== -1) {
       return
     }
-    this.streamSyncTimerId = setInterval(() => {
-      if (!this.chatViewModel.hasActiveRequest()) {
-        this.notifyStreamingMessageChanged(true)
-        this.clearStreamSyncTimer()
+    this.runtimeStateWatchdogTimerId = setInterval(() => {
+      if (!this.isPageVisible || this.sessionId === '') {
+        this.clearRuntimeStateWatchdog()
         return
       }
-      this.notifyStreamingMessageChanged(false)
-    }, 180)
+      if (this.chatViewModel.hasActiveRequestForSession(this.sessionId)) {
+        return
+      }
+      this.syncSendingStateFromRuntime()
+      this.fixInconsistentState()
+      this.clearRuntimeStateWatchdog()
+    }, 220)
   }
 
-  private clearStreamSyncTimer(): void {
-    if (this.streamSyncTimerId !== -1) {
-      clearInterval(this.streamSyncTimerId)
-      this.streamSyncTimerId = -1
+  private clearRuntimeStateWatchdog(): void {
+    if (this.runtimeStateWatchdogTimerId === -1) {
+      return
     }
+    clearInterval(this.runtimeStateWatchdogTimerId)
+    this.runtimeStateWatchdogTimerId = -1
   }
 
   private parseToolIdsFromRoute(raw: string): string[] {
@@ -558,6 +598,10 @@ export struct ChatPage {
       getCurrentModelName: (): string => this.currentModel,
       getMessages: (): ChatMessage[] => this.messages,
       getReasoningLevel: (): ReasoningLevel => this.reasoningLevel,
+      executeManualSearch: async (messageContent: string, attachmentsToSend: MessageAttachment[]): Promise<void> => {
+        console.info('ChatPage', '[联网查询] 显式联网模式，使用手动搜索执行链路')
+        await this.getManualSearchFlow().startManualSearchFallback(messageContent, attachmentsToSend)
+      },
       onClearComposer: (): void => {
         this.clearDraftAutosaveTimer()
         this.inputText = ''
@@ -652,12 +696,19 @@ export struct ChatPage {
     }
     const deps: ChatManualSearchFlowDependencies = {
       chatViewModel: this.chatViewModel,
+      chatTaskOrchestrator: this.chatTaskOrchestrator,
       providerViewModel: this.providerViewModel,
       webSearchService: this.webSearchService,
       defaultModelService: this.defaultModelService,
       preferencesService: this.preferencesService,
       appStateManager: this.appStateManager,
       messages: this.messages,
+      getSessionId: (): string => this.sessionId,
+      getSessionTitle: (): string => this.sessionTitle,
+      getCurrentTaskId: (): string => this.currentTaskId,
+      onSetCurrentTaskId: (taskId: string): void => {
+        this.currentTaskId = taskId
+      },
       getCurrentProvider: (): ModelProvider | null => this.currentProvider,
       getCurrentModelId: (): string => this.currentModelId,
       getCurrentModelName: (): string => this.currentModel,
@@ -717,7 +768,7 @@ export struct ChatPage {
     }
     const deps: ChatInlineEditFlowDependencies = {
       chatViewModel: this.chatViewModel,
-      messages: this.messages,
+      getMessages: (): ChatMessage[] => this.messages,
       onSyncMessages: (): void => {
       },
       onResetEditState: (): void => {
@@ -735,15 +786,21 @@ export struct ChatPage {
         reasoningLevel: ReasoningLevel
       ): void => {
         this.inputText = content
-        this.pendingAttachments = attachments
+        this.pendingAttachments = [...attachments]
         this.webSearchEnabled = webSearchEnabled
         this.reasoningLevel = reasoningLevel
       },
-      onSetSending: (value: boolean): void => {
-        this.isSending = value
-      },
-      onTriggerSend: (): void => {
-        this.handleSend()
+      onTriggerSend: async (
+        content: string,
+        attachments: MessageAttachment[],
+        webSearchEnabled: boolean,
+        reasoningLevel: ReasoningLevel
+      ): Promise<void> => {
+        this.inputText = content
+        this.pendingAttachments = [...attachments]
+        this.webSearchEnabled = webSearchEnabled
+        this.reasoningLevel = reasoningLevel
+        await this.sendMessage()
       },
       onShowToast: (message: string | Resource): void => {
         this.showChatSnack(message)
@@ -924,7 +981,10 @@ export struct ChatPage {
     // 如果保存的模型无效，自动选择第一个可用模型
     if (!isValid) {
       this.selectFirstAvailableModel()
+      return
     }
+
+    this.syncReasoningAvailabilityWithCurrentModel()
   }
 
   // 选择第一个可用的模型（优先使用默认聊天模型）
@@ -946,6 +1006,7 @@ export struct ChatPage {
               this.currentModelId = model.id
               this.currentModel = model.name
               await this.appStateManager.setCurrentModel(model.id, model.name, provider.id)
+              this.syncReasoningAvailabilityWithCurrentModel()
               console.info('ChatPage', `Using default chat model: ${model.name} from ${provider.name}`)
               return
             }
@@ -967,6 +1028,7 @@ export struct ChatPage {
           this.currentModelId = model.id
           this.currentModel = model.name
           await this.appStateManager.setCurrentModel(model.id, model.name, provider.id)
+          this.syncReasoningAvailabilityWithCurrentModel()
           console.info('ChatPage', `Auto-selected fallback model: ${model.name} from ${provider.name}`)
           return
         }
@@ -977,6 +1039,7 @@ export struct ChatPage {
     this.currentProvider = null
     this.currentModelId = ''
     this.currentModel = ''
+    this.syncReasoningAvailabilityWithCurrentModel()
   }
 
   private async refreshProviders(): Promise<void> {
@@ -993,6 +1056,7 @@ export struct ChatPage {
       this.currentModel = ''
       this.currentModelId = ''
       this.currentProvider = null
+      this.syncReasoningAvailabilityWithCurrentModel()
     } else {
       // 验证并设置当前模型
       this.validateAndSetCurrentModel()
@@ -1191,8 +1255,14 @@ export struct ChatPage {
         // 底部输入栏容器（非多选模式时显示）
         if (!this.isMultiSelectMode) {
           ChatInputAreaSection({
-            inputText: this.inputText!!,
-            attachments: this.pendingAttachments!!,
+            inputText: this.inputText,
+            onInputTextChange: (value: string): void => {
+              this.inputText = value
+            },
+            attachments: this.pendingAttachments,
+            onAttachmentsChange: (value: MessageAttachment[]): void => {
+              this.pendingAttachments = [...value]
+            },
             isSending: this.isSending,
             isAwaitingResponse: this.calcIsAwaitingAiOutput(),
             currentModelId: this.currentModelId,
@@ -1207,8 +1277,15 @@ export struct ChatPage {
             autoFocus: this.autoFocusInput,
             isEditing: this.isEditingMessage,
             webSearchAvailable: this.webSearchAvailable,
-            webSearchEnabled: this.webSearchEnabled!!,
-            reasoningLevel: this.reasoningLevel!!,
+            webSearchEnabled: this.webSearchEnabled,
+            reasoningAvailable: this.supportsReasoningForCurrentModel(),
+            onWebSearchEnabledChange: (value: boolean): void => {
+              this.webSearchEnabled = value
+            },
+            reasoningLevel: this.reasoningLevel,
+            onReasoningLevelChange: (value: ReasoningLevel): void => {
+              this.reasoningLevel = value
+            },
             hasRecentScreenshot: this.hasRecentScreenshot,
             bottomAvoidHeight: this.px2vp(this.bottomAvoidHeight),
             contentMaxWidth: this.getChatContentMaxWidth(),
@@ -1352,6 +1429,10 @@ export struct ChatPage {
     .onShown(() => {
       this.handlePageShown()
     })
+    .onHidden(() => {
+      this.isPageVisible = false
+      this.syncActiveSessionBinding()
+    })
     .onBackPressed((): boolean => {
       if (this.showImagePreview) {
         this.showImagePreview = false
@@ -1410,6 +1491,7 @@ export struct ChatPage {
     ChatModelSelectorSheetContent({
       providers: this.providers,
       currentModelId: this.currentModelId,
+      currentProviderId: this.currentProvider?.id ?? '',
       activePanel: this.modelSheetActivePanel,
       editingModel: this.editingModel!!,
       onSelectModel: (providerId: string, modelId: string, modelName: string): void => {
@@ -1421,8 +1503,8 @@ export struct ChatPage {
         this.editingModelProvider = provider
         this.modelSheetActivePanel = 'edit'
       },
-      onSaveEdit: async (): Promise<void> => {
-        await this.saveModelEdit()
+      onSaveEdit: async (draft: ModelInfoExtendedJson): Promise<void> => {
+        await this.saveModelEdit(draft)
       },
       onCancelEdit: (): void => {
         this.modelSheetActivePanel = 'selector'
@@ -1432,30 +1514,39 @@ export struct ChatPage {
     })
   }
 
-  private async saveModelEdit(): Promise<void> {
+  private async saveModelEdit(draft: ModelInfoExtendedJson): Promise<void> {
+    const modelToSave = this.editingModel
     const providerToSave = this.editingModelProvider
-    if (providerToSave !== null) {
-      await this.providerViewModel.saveProvider(providerToSave)
-      const refreshedProviders = await this.providerViewModel.loadProviders()
-      this.providers = refreshedProviders
+    if (modelToSave === null || providerToSave === null) {
+      return
+    }
 
-      for (let i = 0; i < refreshedProviders.length; i++) {
-        const provider = refreshedProviders[i]
-        if (this.currentProvider !== null && provider.id === this.currentProvider.id) {
-          this.currentProvider = provider
-          for (let j = 0; j < provider.models.length; j++) {
-            const model = provider.models[j]
-            if (model.id === this.currentModelId) {
-              const modelName = model.name !== '' ? model.name : model.id
-              this.currentModel = modelName
-              await this.appStateManager.setCurrentModel(model.id, modelName, provider.id)
-              break
-            }
+    applyModelDraft(modelToSave, draft)
+    await this.providerViewModel.saveProvider(providerToSave)
+    const refreshedProviders = await this.providerViewModel.loadProviders()
+    this.providers = refreshedProviders
+
+    for (let i = 0; i < refreshedProviders.length; i++) {
+      const provider = refreshedProviders[i]
+      if (this.currentProvider !== null && provider.id === this.currentProvider.id) {
+        this.currentProvider = provider
+        for (let j = 0; j < provider.models.length; j++) {
+          const model = provider.models[j]
+          if (model.id === this.currentModelId) {
+            const modelName = model.name !== '' ? model.name : model.id
+            this.currentModel = modelName
+            await this.appStateManager.setCurrentModel(model.id, modelName, provider.id)
+            this.syncReasoningAvailabilityWithCurrentModel()
+            break
           }
-          break
         }
+        break
       }
     }
+
+    this.modelSheetActivePanel = 'selector'
+    this.editingModel = null
+    this.editingModelProvider = null
   }
 
   @Builder
@@ -1531,6 +1622,8 @@ export struct ChatPage {
   }
 
   private async handleBackAsync(): Promise<void> {
+    this.isPageVisible = false
+    this.syncActiveSessionBinding()
     await this.prepareCurrentSessionForTransition()
     this.navPathStack.pop()
   }
@@ -1604,7 +1697,7 @@ export struct ChatPage {
   }
 
   private scheduleDraftAutosave(): void {
-    if (this.isLoading || this.isEditingMessage || this.sessionId === '') {
+    if (this.isLoading || this.isEditingMessage) {
       return
     }
     this.clearDraftAutosaveTimer()
@@ -1618,14 +1711,14 @@ export struct ChatPage {
 
   private async flushDraftAutosave(immediate: boolean): Promise<void> {
     this.clearDraftAutosaveTimer()
-    if (!immediate || this.isLoading || this.isEditingMessage || this.sessionId === '') {
+    if (!immediate || this.isLoading || this.isEditingMessage) {
       return
     }
     await this.persistCurrentDraftState(this.inputText, this.pendingAttachments)
   }
 
   private async persistCurrentDraftState(content: string, attachments: MessageAttachment[]): Promise<void> {
-    if (this.isLoading || this.isEditingMessage || this.sessionId === '') {
+    if (this.isLoading || this.isEditingMessage) {
       return
     }
     const session = await this.chatViewModel.saveSessionDraft(content, attachments)
@@ -1634,7 +1727,7 @@ export struct ChatPage {
     }
     this.sessionId = session.id
     this.sessionTitle = session.title
-    setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, session.id)
+    this.syncActiveSessionBinding()
   }
 
   private async prepareCurrentSessionForTransition(): Promise<void> {
@@ -1653,7 +1746,7 @@ export struct ChatPage {
       this.sessionId = ''
       this.sessionTitle = ''
       this.isNewEmptySession = false
-      setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, '')
+      this.syncActiveSessionBinding()
     }
   }
 
@@ -1701,6 +1794,8 @@ export struct ChatPage {
       }
     }
 
+    this.syncReasoningAvailabilityWithCurrentModel()
+
     // 关闭模型选择器
     this.isModelSelectorVisible = false
 
@@ -1708,50 +1803,46 @@ export struct ChatPage {
   }
 
   async sendMessage(): Promise<void> {
-    const prepareResult = this.getSendFlow().prepareSendRequest(
-      this.inputText,
-      this.pendingAttachments.length,
-      this.isSending,
-      this.currentProvider,
-      this.chatTaskOrchestrator.canStartNewTask()
-    )
-    if (!prepareResult.shouldSend || prepareResult.currentProvider === null) {
+    if (this.isSendDispatching || this.isSending) {
       return
     }
-    const messageContent = prepareResult.messageContent
-    const currentProvider = prepareResult.currentProvider
-    const effectiveApiKey = prepareResult.effectiveApiKey
-
-    await this.refreshToolAvailabilityFromPreferences(false)
-
-    const attachmentsToSend = [...this.pendingAttachments]
-    const forcedToolIds = [...this.forcedToolIdsOnce]
-    const dispatchResult = await this.getSendFlow().trySendWithFunctionCalling(
-      messageContent,
-      currentProvider,
-      effectiveApiKey,
-      attachmentsToSend,
-      forcedToolIds,
-      this.webSearchAvailable && this.webSearchEnabled,
-      this.weatherQueryEnabled,
-      this.currentModelId,
-      (content: string, attachments: MessageAttachment[]): void => {
-        console.info('ChatPage', '[联网查询] 当前模型未启用/不支持 tools，使用手动搜索链路')
-        this.getManualSearchFlow().startManualSearchFallback(content, attachments)
+    this.isSendDispatching = true
+    try {
+      const prepareResult = this.getSendFlow().prepareSendRequest(
+        this.inputText,
+        this.pendingAttachments.length,
+        this.isSending,
+        this.currentProvider,
+        this.chatTaskOrchestrator.canStartNewTask()
+      )
+      if (!prepareResult.shouldSend || prepareResult.currentProvider === null) {
+        return
       }
-    )
-    if (dispatchResult !== ChatSendDispatchResult.NOT_HANDLED) {
-      this.forcedToolIdsOnce = []
-      return
-    }
+      const messageContent = prepareResult.messageContent
+      const currentProvider = prepareResult.currentProvider
+      const effectiveApiKey = prepareResult.effectiveApiKey
 
-    this.forcedToolIdsOnce = []
-    await this.getSendFlow().sendPlainMessage(
-      messageContent,
-      currentProvider,
-      effectiveApiKey,
-      attachmentsToSend
-    )
+      await this.refreshToolAvailabilityFromPreferences(false)
+
+      const attachmentsToSend = [...this.pendingAttachments]
+      const forcedToolIds = [...this.forcedToolIdsOnce]
+      await this.getSendFlow().executeSend(
+        messageContent,
+        currentProvider,
+        effectiveApiKey,
+        attachmentsToSend,
+        forcedToolIds,
+        this.webSearchAvailable && this.webSearchEnabled ? ChatExecutionMode.WEB_SEARCH : ChatExecutionMode.PLAIN,
+        this.currentModelId
+      )
+      this.forcedToolIdsOnce = []
+    } catch (error) {
+      console.error('ChatPage', `sendMessage failed: ${JSON.stringify(error)}`)
+      this.forcedToolIdsOnce = []
+      this.showError($r('app.string.action_failed_retry'))
+    } finally {
+      this.isSendDispatching = false
+    }
   }
 
   // 处理重新生成（支持非最后一条消息，支持用户消息和 AI 消息）
@@ -1849,7 +1940,7 @@ export struct ChatPage {
     this.inputText = ''
     this.pendingAttachments = []
     // 清空当前消息
-    this.messages = []
+    this.clearMessages()
     // 更新会话ID和标题
     this.sessionId = session.id
     this.sessionTitle = session.title
@@ -1858,7 +1949,7 @@ export struct ChatPage {
     this.titleGenerateFailed = false
     // 标记为新建的空会话（返回时需要删除）
     this.isNewEmptySession = true
-    setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, this.sessionId)
+    this.syncActiveSessionBinding()
 
     this.showChatSnack($r('app.string.chat_created'), 2000, SnackBarTone.SUCCESS)
   }

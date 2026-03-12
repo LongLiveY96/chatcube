@@ -497,7 +497,7 @@ interface StreamChunkResult {
 }
 
 // 工具调用增量（用于流式响应累积）
-interface ToolCallDelta {
+export interface ToolCallDelta {
   index: number
   id?: string
   functionName?: string
@@ -565,10 +565,6 @@ export class AIApiService {
     if (normalized === 'exa_search' || normalized === 'websearch' || normalized === 'search_web'
       || normalized === 'internet_search' || normalized === 'web_search_exa') {
       return 'web_search'
-    }
-    if (normalized === 'weather' || normalized === 'weather_search' || normalized === 'get_weather'
-      || normalized === 'query_weather' || normalized === 'weather_lookup') {
-      return 'weather_query'
     }
     return trimmed
   }

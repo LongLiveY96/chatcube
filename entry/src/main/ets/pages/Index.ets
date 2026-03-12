@@ -132,13 +132,29 @@ struct Index {
   private get taskEventTick(): number {
     return getAppUiState().taskEventTick
   }
-  private get inAppTaskAlertPayload(): string {
+  @Computed
+  get inAppTaskAlertPayload(): string {
     return getAppUiState().inAppTaskAlertPayload
+  }
+
+  @Monitor('inAppTaskAlertPayload')
+  onInAppAlertPayloadMonitor(): void {
+    const payload = this.inAppTaskAlertPayload
+    if (payload === '') {
+      return
+    }
+    this.handleInAppTaskAlertPayload(payload)
   }
   @Local unreadRenderTick: number = 0
   // 监听会话列表刷新信号（标题更新、创建、删除等）
-  private get sessionListRefreshAt(): number {
+  @Computed
+  get sessionListRefreshAt(): number {
     return getAppUiState().sessionListRefreshAt
+  }
+
+  @Monitor('sessionListRefreshAt')
+  onSessionListRefreshMonitor(): void {
+    this.onSessionListRefresh()
   }
   // 多选模式状态
   @Local isMultiSelectMode: boolean = false
@@ -164,6 +180,7 @@ struct Index {
   private unreadBySession: Map<string, number> = new Map()
   private holdingHandSubscribed: boolean = false
   private handAdaptiveLoadSeq: number = 0
+  private sessionLoadSeq: number = 0
   private appUiStateDisposers: Array<() => void> = []
   private holdingHandCallback: (status: motion.HoldingHandStatus) => void = (status: motion.HoldingHandStatus): void => {
     this.currentHoldingHand = status
@@ -376,10 +393,6 @@ struct Index {
     }
   }
 
-  onInAppTaskAlertPayloadChanged(): void {
-    this.handleInAppTaskAlertPayload(this.inAppTaskAlertPayload)
-  }
-
   onSessionListRefresh(): void {
     if (this.sessionListRefreshAt > 0) {
       this.loadSessions()
@@ -404,8 +417,6 @@ struct Index {
       observeAppUiState(AppStorageKeys.OPEN_SESSION_PAYLOAD, (): void => this.onOpenSessionPayloadChanged()),
       observeAppUiState(AppStorageKeys.TASK_UNREAD_BY_SESSION, (): void => this.onTaskUnreadBySessionChanged()),
       observeAppUiState(AppStorageKeys.TASK_EVENT_TICK, (): void => this.onTaskEventTickChanged()),
-      observeAppUiState(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, (): void => this.onInAppTaskAlertPayloadChanged()),
-      observeAppUiState(AppStorageKeys.SESSION_LIST_REFRESH_AT, (): void => this.onSessionListRefresh()),
       observeAppUiState(AppStorageKeys.SETTINGS_HAND_ADAPTIVE_CHANGED_AT,
         (): void => this.onHandAdaptiveSettingsTickChanged())
     ]
@@ -427,6 +438,8 @@ struct Index {
           // pop 完成，navPathStack.size() 已变为 0，loadSessions 不再跳过
           this.loadSessions()
           this.parseUnreadBySessionJson(this.taskUnreadBySessionJson)
+          // 补偿 pop 动画期间被 shouldHandleInAppTaskAlert 拦截的 alert（直接处理，不走守卫）
+          this.processInAppTaskAlertPayload(this.inAppTaskAlertPayload)
         }
       }
     })
@@ -436,6 +449,7 @@ struct Index {
         if (to === 'navBar' || this.tabletChatDetailPathStack.size() <= 0) {
           this.currentTabletDetailParams = null
           this.tabletDetailSessionId = ''
+          this.processInAppTaskAlertPayload(this.inAppTaskAlertPayload)
           return
         }
         const topParam = this.tabletChatDetailPathStack.getParamByIndex(
@@ -468,6 +482,7 @@ struct Index {
     this.parseUnreadBySessionJson(this.taskUnreadBySessionJson)
     this.refreshSettingsState()
     this.loadHandAdaptiveSettings()
+    this.processInAppTaskAlertPayload(this.inAppTaskAlertPayload)
   }
 
   aboutToDisappear(): void {
@@ -771,6 +786,17 @@ struct Index {
     if (payloadText === '') {
       return
     }
+    if (!this.shouldHandleInAppTaskAlert()) {
+      return
+    }
+    this.processInAppTaskAlertPayload(payloadText)
+  }
+
+  // 不含 shouldHandleInAppTaskAlert 守卫的处理逻辑，供 didShow 等确定可见的时机直接调用
+  private processInAppTaskAlertPayload(payloadText: string): void {
+    if (payloadText === '') {
+      return
+    }
     this.parseUnreadBySessionJson(this.taskUnreadBySessionJson)
     const payload = parseInAppTaskAlertPayload(payloadText)
     if (payload === null) {
@@ -788,6 +814,16 @@ struct Index {
     }
     showSnackBar(this.getUIContext(), opts)
     setAppUiStateValue(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, '')
+  }
+
+  private shouldHandleInAppTaskAlert(): boolean {
+    if (this.navPathStack.size() > 0) {
+      return false
+    }
+    if (this.tabletChatDetailPathStack.size() > 0) {
+      return false
+    }
+    return true
   }
 
   private openSettingsSheet(type: SettingsSheetType): void {
@@ -827,11 +863,16 @@ struct Index {
     if (this.navPathStack.size() > 0) {
       return
     }
+    this.sessionLoadSeq = this.sessionLoadSeq + 1
+    const loadSeq = this.sessionLoadSeq
     const isFirstLoad = this.sessions.length === 0 && !this.isLoading
     if (isFirstLoad) {
       this.isLoading = true
     }
     const newSessions = await this.chatViewModel.getAllSessions()
+    if (loadSeq !== this.sessionLoadSeq) {
+      return
+    }
     this.mergeSessions(newSessions)
     this.isLoading = false
   }
@@ -1307,196 +1348,197 @@ struct Index {
   }
 
   @Builder
-  ChatListPanel() {
-    Stack({ alignContent: Alignment.BottomEnd }) {
-      Column() {
-        if (!this.isExpandedLayout()) {
-          Column()
-            .width('100%')
-            .height(this.px2vp(this.topAvoidHeight))
-        }
-
-        if (!this.isMultiSelectMode) {
-          Row() {
-            if (!this.isSearchExpanded) {
-              Text($r('app.string.tab_chat'))
-                .fontSize(18)
-                .fontWeight(FontWeight.Bold)
-                .fontColor($r('app.color.text_primary'))
-                .layoutWeight(1)
-                .transition(TransitionEffect.OPACITY.animation({
-                  duration: 200,
-                  curve: Curve.EaseOut
-                }))
-            }
-
-            if (this.isSearchExpanded) {
-              Row() {
-                Row() {
-                  SymbolGlyph($r('sys.symbol.magnifyingglass'))
-                    .fontSize(18)
-                    .fontColor([$r('app.color.text_tertiary')])
-                }
-                .width(36)
-                .height(36)
-                .justifyContent(FlexAlign.Center)
-
-                TextInput({ text: this.searchText, placeholder: $r('app.string.search_sessions_placeholder') })
-                  .layoutWeight(1)
-                  .height(36)
-                  .backgroundColor(Color.Transparent)
-                  .padding({ left: 0, right: 8 })
-                  .caretColor(this.themePrimary)
-                  .placeholderColor($r('app.color.text_tertiary'))
-                  .onChange((value: string) => {
-                    this.searchText = value
-                  })
-                  .onSubmit(() => {
-                    if (this.searchText.trim() === '') {
-                      this.collapseSearch()
-                    }
-                  })
-              }
-              .layoutWeight(1)
-              .height(40)
-              .backgroundColor($r('app.color.surface'))
-              .borderRadius(20)
-              .geometryTransition('SEARCH_BAR_ID', { follow: true })
-              .transition(TransitionEffect.OPACITY)
-
-              Text($r('app.string.cancel'))
-                .fontSize(15)
-                .fontColor(this.themePrimary)
-                .margin({ left: 12 })
-                .onClick(() => {
-                  this.collapseSearch()
-                })
-                .transition(TransitionEffect.asymmetric(
-                  TransitionEffect.OPACITY.combine(TransitionEffect.translate({ x: 20 }))
-                    .animation({ duration: 250, curve: Curve.EaseOut }),
-                  TransitionEffect.OPACITY.animation({ duration: 150 })
-                ))
-            } else {
-              this.CollapsedSearchActionButton()
-            }
-          }
+  private ChatListPanelContent() {
+    Column() {
+      if (!this.isExpandedLayout()) {
+        Column()
           .width('100%')
-          .height(56)
-          .padding({ left: 8, right: 8 })
-          .alignItems(VerticalAlign.Center)
+          .height(this.px2vp(this.topAvoidHeight))
+      }
 
-          IndexFilterBar({
-            currentFilter: this.currentSessionFilter,
-            countText: this.getFilterCountText(),
-            onFilterChange: (filterType: SessionFilterType): void => {
-              this.currentSessionFilter = filterType
-            }
-          })
-        } else {
-          Row() {
-            Text($r('app.string.select_conversations'))
+      if (!this.isMultiSelectMode) {
+        Row() {
+          if (!this.isSearchExpanded) {
+            Text($r('app.string.tab_chat'))
               .fontSize(18)
               .fontWeight(FontWeight.Bold)
               .fontColor($r('app.color.text_primary'))
+              .layoutWeight(1)
+              .transition(TransitionEffect.OPACITY.animation({
+                duration: 200,
+                curve: Curve.EaseOut
+              }))
+          }
 
-            Blank()
+          if (this.isSearchExpanded) {
+            Row() {
+              Row() {
+                SymbolGlyph($r('sys.symbol.magnifyingglass'))
+                  .fontSize(18)
+                  .fontColor([$r('app.color.text_tertiary')])
+              }
+              .width(36)
+              .height(36)
+              .justifyContent(FlexAlign.Center)
+
+              TextInput({ text: this.searchText, placeholder: $r('app.string.search_sessions_placeholder') })
+                .layoutWeight(1)
+                .height(36)
+                .backgroundColor(Color.Transparent)
+                .padding({ left: 0, right: 8 })
+                .caretColor(this.themePrimary)
+                .placeholderColor($r('app.color.text_tertiary'))
+                .onChange((value: string) => {
+                  this.searchText = value
+                })
+                .onSubmit(() => {
+                  if (this.searchText.trim() === '') {
+                    this.collapseSearch()
+                  }
+                })
+          }
+            .layoutWeight(1)
+            .height(40)
+            .backgroundColor($r('app.color.surface'))
+            .borderRadius(20)
+            .geometryTransition('SEARCH_BAR_ID', { follow: true })
+            .transition(TransitionEffect.OPACITY)
 
             Text($r('app.string.cancel'))
               .fontSize(15)
               .fontColor(this.themePrimary)
+              .margin({ left: 12 })
               .onClick(() => {
-                this.handleExitMultiSelectMode()
+                this.collapseSearch()
               })
-          }
-          .width('100%')
-          .height(56)
-          .padding({ left: 8, right: 8 })
-          .alignItems(VerticalAlign.Center)
-        }
-
-        if (this.isLoading) {
-          Column() {
-            LoadingProgress()
-              .width(48)
-              .height(48)
-              .color(this.themePrimary)
-          }
-          .width('100%')
-          .layoutWeight(1)
-          .justifyContent(FlexAlign.Center)
-        } else if (this.sessions.length === 0) {
-            IndexEmptyStateCard({
-              icon: $r('sys.symbol.ellipsis_message'),
-              title: $r('app.string.no_sessions'),
-              description: $r('app.string.start_new_chat'),
-              showButton: true,
-              buttonText: $r('app.string.new_chat'),
-              onButtonClick: (): void => {
-                this.openChatRoute({} as ChatPageRouteParams)
-              }
-            })
-        } else {
-          if (this.getFilteredSessions().length === 0) {
-            if (this.searchText.trim() !== '') {
-              IndexEmptyStateCard({
-                icon: $r('sys.symbol.magnifyingglass'),
-                title: $r('app.string.no_search_results'),
-                description: $r('app.string.try_different_keyword')
-              })
-            } else {
-              IndexEmptyStateCard({
-                icon: $r('sys.symbol.heart'),
-                title: $r('app.string.no_favorite_sessions'),
-                description: $r('app.string.favorite_sessions_hint')
-              })
-            }
+              .transition(TransitionEffect.asymmetric(
+                TransitionEffect.OPACITY.combine(TransitionEffect.translate({ x: 20 }))
+                  .animation({ duration: 250, curve: Curve.EaseOut }),
+                TransitionEffect.OPACITY.animation({ duration: 150 })
+              ))
           } else {
-            IndexSessionListSection({
-              sessionGroups: this.getSessionGroups(),
-              isMultiSelectMode: this.isMultiSelectMode,
-              selectedSessionIds: this.selectedSessionIds,
-              activeSessionId: this.getActiveSessionIdForChatList(),
-              unreadRenderVersion: this.unreadRenderTick,
-              onGetUnreadCount: (sessionId: string): number => {
-                return this.getUnreadCountForSession(sessionId)
-              },
-              onGetGroupTitle: (groupKey: string): Resource => {
-                return this.getSessionGroupTitle(groupKey)
-              },
-              onGetGroupRenderKey: (group: SessionGroupData): string => {
-                return this.getGroupRenderKey(group)
-              },
-              onToggleSelection: (sessionId: string): void => {
-                this.handleSessionCardClick(sessionId)
-              },
-              onOpenSession: (sessionId: string): void => {
-                this.openChatRoute({ sessionId: sessionId } as ChatPageRouteParams)
-              },
-              onDeleteSession: (sessionId: string): void => {
-                this.deleteSession(sessionId)
-              },
-              onEnterMultiSelect: (sessionId: string): void => {
-                this.handleEnterMultiSelectMode(sessionId)
-              },
-              onShareSession: (session: ChatSession): void => {
-                this.handleShareSession(session)
-              },
-              onToggleFavorite: (session: ChatSession): void => {
-                this.handleToggleFavoriteSession(session)
-              }
-            })
+            this.CollapsedSearchActionButton()
           }
         }
-      }
-      .width('100%')
-      .height('100%')
-      .backgroundColor($r('app.color.background'))
+        .width('100%')
+        .height(56)
+        .padding({ left: 8, right: 8 })
+        .alignItems(VerticalAlign.Center)
 
-      if (!this.isMultiSelectMode) {
-        this.FloatingActionButton()
+        IndexFilterBar({
+          currentFilter: this.currentSessionFilter,
+          countText: this.getFilterCountText(),
+          onFilterChange: (filterType: SessionFilterType): void => {
+            this.currentSessionFilter = filterType
+          }
+        })
+      } else {
+        Row() {
+          Text($r('app.string.select_conversations'))
+            .fontSize(18)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.text_primary'))
+
+          Blank()
+
+          Text($r('app.string.cancel'))
+            .fontSize(15)
+            .fontColor(this.themePrimary)
+            .onClick(() => {
+              this.handleExitMultiSelectMode()
+            })
+        }
+        .width('100%')
+        .height(56)
+        .padding({ left: 8, right: 8 })
+        .alignItems(VerticalAlign.Center)
       }
 
-      if (this.isMultiSelectMode) {
+      if (this.isLoading) {
+        Column() {
+          LoadingProgress()
+            .width(48)
+            .height(48)
+            .color(this.themePrimary)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+      } else if (this.sessions.length === 0) {
+        IndexEmptyStateCard({
+          icon: $r('sys.symbol.ellipsis_message'),
+          title: $r('app.string.no_sessions'),
+          description: $r('app.string.start_new_chat'),
+          showButton: true,
+          buttonText: $r('app.string.new_chat'),
+          onButtonClick: (): void => {
+            this.openChatRoute({} as ChatPageRouteParams)
+          }
+        })
+      } else {
+        if (this.getFilteredSessions().length === 0) {
+          if (this.searchText.trim() !== '') {
+            IndexEmptyStateCard({
+              icon: $r('sys.symbol.magnifyingglass'),
+              title: $r('app.string.no_search_results'),
+              description: $r('app.string.try_different_keyword')
+            })
+          } else {
+            IndexEmptyStateCard({
+              icon: $r('sys.symbol.heart'),
+              title: $r('app.string.no_favorite_sessions'),
+              description: $r('app.string.favorite_sessions_hint')
+            })
+          }
+        } else {
+          IndexSessionListSection({
+            sessionGroups: this.getSessionGroups(),
+            isMultiSelectMode: this.isMultiSelectMode,
+            selectedSessionIds: this.selectedSessionIds,
+            activeSessionId: this.getActiveSessionIdForChatList(),
+            bottomSpacerHeight: this.isMultiSelectMode ? 16 : 100,
+            unreadRenderVersion: this.unreadRenderTick,
+            onGetUnreadCount: (sessionId: string): number => {
+              return this.getUnreadCountForSession(sessionId)
+            },
+            onGetGroupTitle: (groupKey: string): Resource => {
+              return this.getSessionGroupTitle(groupKey)
+            },
+            onGetGroupRenderKey: (group: SessionGroupData): string => {
+              return this.getGroupRenderKey(group)
+            },
+            onToggleSelection: (sessionId: string): void => {
+              this.handleSessionCardClick(sessionId)
+            },
+            onOpenSession: (sessionId: string): void => {
+              this.openChatRoute({ sessionId: sessionId } as ChatPageRouteParams)
+            },
+            onDeleteSession: (sessionId: string): void => {
+              this.deleteSession(sessionId)
+            },
+            onEnterMultiSelect: (sessionId: string): void => {
+              this.handleEnterMultiSelectMode(sessionId)
+            },
+            onShareSession: (session: ChatSession): void => {
+              this.handleShareSession(session)
+            },
+            onToggleFavorite: (session: ChatSession): void => {
+              this.handleToggleFavoriteSession(session)
+            }
+          })
+        }
+      }
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .backgroundColor($r('app.color.background'))
+  }
+
+  @Builder
+  ChatListPanel() {
+    if (this.isMultiSelectMode) {
+      Column() {
+        this.ChatListPanelContent()
         MultiSelectToolbar({
           selectedCount: this.selectedSessionIds.length,
           totalCount: this.getFilteredSessions().length,
@@ -1514,9 +1556,19 @@ struct Index {
           }
         })
       }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('app.color.background'))
+    } else {
+      Stack({ alignContent: Alignment.BottomEnd }) {
+        this.ChatListPanelContent()
+      if (!this.isMultiSelectMode) {
+        this.FloatingActionButton()
+      }
+      }
+      .width('100%')
+      .height('100%')
     }
-    .width('100%')
-    .height('100%')
   }
 
   @Builder

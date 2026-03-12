@@ -1,5 +1,12 @@
 import { getDatabaseService, DatabaseService } from '../services/DatabaseService'
-import { getAIApiService, AIApiService, AIApiConfig, RequestMessage, AIApiResult } from '../services/AIApiService'
+import {
+  getAIApiService,
+  AIApiService,
+  AIApiConfig,
+  RequestMessage,
+  AIApiResult,
+  ToolCallDelta
+} from '../services/AIApiService'
 import { getAppStateManager, AppStateManager } from './AppStateManager'
 import { getAITaskService, AITaskService } from '../services/AITaskService'
 import { getAttachmentStorageService, AttachmentStorageService } from '../services/AttachmentStorageService'
@@ -236,6 +243,18 @@ export class ChatViewModel {
     }
   }
 
+  private buildConversationRequestHistory(messages: ChatMessage[], contextStartIndex: number): RequestMessage[] {
+    const historyMessages: RequestMessage[] = []
+    for (let i = contextStartIndex; i < messages.length; i++) {
+      const msg = messages[i]
+      if (msg.role === MessageRole.SYSTEM) {
+        continue
+      }
+      historyMessages.push(new RequestMessage(msg.role, msg.content, msg.attachments))
+    }
+    return historyMessages
+  }
+
   // 判断待持久化消息是否包含有效内容（空占位消息不应跨会话残留）
   private hasMeaningfulPendingMessageContent(message: ChatMessage): boolean {
     if (message.content.trim() !== '') {
@@ -467,6 +486,7 @@ export class ChatViewModel {
     const snapshotSessionId = this.currentSession?.id ?? ''
     const snapshotSession = this.currentSession
     const shouldAutoGenerateTitle = this.isFirstRoundSession(snapshotSession)
+    const historyMessages = this.buildConversationRequestHistory(messages, contextStartIndex)
 
     // 创建用户消息
     const userMessage = new ChatMessage(
@@ -516,12 +536,8 @@ export class ChatViewModel {
     const requestMessages: RequestMessage[] = []
     const renderedSystemPrompt = await this.getRenderedSystemPrompt()
     requestMessages.push(new RequestMessage('system', renderedSystemPrompt))
-    for (let i = contextStartIndex; i < messages.length; i++) {
-      const msg = messages[i]
-      if (msg.role === MessageRole.SYSTEM) {
-        continue
-      }
-      requestMessages.push(new RequestMessage(msg.role, msg.content, msg.attachments))
+    for (let i = 0; i < historyMessages.length; i++) {
+      requestMessages.push(historyMessages[i])
     }
     requestMessages.push(new RequestMessage('user', content, attachments))
 
@@ -762,6 +778,7 @@ export class ChatViewModel {
     const snapshotSessionId = this.currentSession?.id ?? ''
     const snapshotSession = this.currentSession
     const shouldAutoGenerateTitle = this.isFirstRoundSession(snapshotSession)
+    const historyMessages = this.buildConversationRequestHistory(messages, contextStartIndex)
 
     // 构建系统提示（包含网页内容）
     const systemPrompt = `用户提供了以下网页内容供参考：
@@ -810,13 +827,8 @@ ${webContext.content}
     const renderedSystemPromptWeb = await this.getRenderedSystemPrompt()
     const finalSystemPromptWeb = `${renderedSystemPromptWeb}\n\n${systemPrompt}`
     requestMessages.push(new RequestMessage('system', finalSystemPromptWeb))
-
-    for (let i = contextStartIndex; i < messages.length; i++) {
-      const msg = messages[i]
-      if (msg.role === MessageRole.SYSTEM) {
-        continue
-      }
-      requestMessages.push(new RequestMessage(msg.role, msg.content, msg.attachments))
+    for (let i = 0; i < historyMessages.length; i++) {
+      requestMessages.push(historyMessages[i])
     }
     requestMessages.push(new RequestMessage('user', content, attachments))
 
@@ -1037,6 +1049,7 @@ ${webContext.content}
     const snapshotSessionId = this.currentSession?.id ?? ''
     const snapshotSession = this.currentSession
     const shouldAutoGenerateTitle = this.isFirstRoundSession(snapshotSession)
+    const historyMessages = this.buildConversationRequestHistory(messages, contextStartIndex)
 
     // 构建系统提示（包含搜索内容和当前时间）
     const currentTime = this.getCurrentTimeContext()
@@ -1113,13 +1126,8 @@ ${limitedSearchContext}
     const renderedSystemPromptSearch = await this.getRenderedSystemPrompt()
     const finalSystemPromptSearch = `${renderedSystemPromptSearch}\n\n${systemPrompt}`
     requestMessages.push(new RequestMessage('system', finalSystemPromptSearch))
-
-    for (let i = contextStartIndex; i < messages.length; i++) {
-      const msg = messages[i]
-      if (msg.role === MessageRole.SYSTEM) {
-        continue
-      }
-      requestMessages.push(new RequestMessage(msg.role, msg.content, msg.attachments))
+    for (let i = 0; i < historyMessages.length; i++) {
+      requestMessages.push(historyMessages[i])
     }
     requestMessages.push(new RequestMessage('user', content, attachments))
 
@@ -1344,6 +1352,7 @@ ${limitedSearchContext}
     const snapshotSessionId = this.currentSession?.id ?? ''
     const snapshotSession = this.currentSession
     const shouldAutoGenerateTitle = this.isFirstRoundSession(snapshotSession)
+    const historyMessages = this.buildConversationRequestHistory(messages, contextStartIndex)
 
     // 创建用户消息
     const userMessage = new ChatMessage(
@@ -1374,15 +1383,11 @@ ${limitedSearchContext}
 
     // 检测启用了哪些工具（用于构建 system prompt）
     let hasWebSearchTool = false
-    let hasWeatherQueryTool = false
     for (let i = 0; i < tools.length; i++) {
       if (tools[i].function.name === 'web_search') {
         hasWebSearchTool = true
       }
-      if (tools[i].function.name === 'weather_query') {
-        hasWeatherQueryTool = true
-      }
-      if (hasWebSearchTool && hasWeatherQueryTool) {
+      if (hasWebSearchTool) {
         break
       }
     }
@@ -1416,12 +1421,6 @@ ${limitedSearchContext}
 - 绝大多数问题不需要调用工具，请优先用自身知识直接回答。
 - 仅当用户问题明确需要实时数据（如今日天气、最新新闻、实时股价等）时才调用工具。
 - 编程、写作、翻译、数学、创意等任务绝对不要调用任何工具，直接回答即可。`
-    if (hasWeatherQueryTool) {
-      toolUsageSystemPrompt += `
-- 当用户询问天气/气温/降雨/风力/AQI 等信息时，优先调用 weather_query。
-- 调用 weather_query 时: location 只填地点名称，days 取 1-7，unit 仅用 celsius/fahrenheit。
-- 回答天气相关问题时请优先提取并明确给出具体数值（如温度、降水概率、湿度、风速、AQI）。`
-    }
     if (hasWebSearchTool) {
       toolUsageSystemPrompt += `
 - 针对同一个用户问题，最多调用 web_search 5 次;超过 5 次后不再调用，根据已获取的内容整理并返回结果。
@@ -1433,12 +1432,8 @@ ${limitedSearchContext}
     const renderedSystemPromptTools = await this.getRenderedSystemPrompt()
     const finalToolUsageSystemPrompt = `${renderedSystemPromptTools}\n\n${toolUsageSystemPrompt}`
     requestMessages.push(new RequestMessage('system', finalToolUsageSystemPrompt))
-    for (let i = contextStartIndex; i < messages.length; i++) {
-      const msg = messages[i]
-      if (msg.role === MessageRole.SYSTEM) {
-        continue
-      }
-      requestMessages.push(new RequestMessage(msg.role, msg.content, msg.attachments))
+    for (let i = 0; i < historyMessages.length; i++) {
+      requestMessages.push(historyMessages[i])
     }
     requestMessages.push(new RequestMessage('user', content, attachments))
 
@@ -1547,6 +1542,34 @@ ${limitedSearchContext}
     }
   }
 
+  private async finalizeAIMessage(
+    aiMessage: ChatMessage,
+    onAIMessageUpdated: (message: ChatMessage) => void,
+    onComplete: () => void,
+    snapshotSessionId: string,
+    snapshotSession: ChatSession | null,
+    shouldAutoGenerateTitle: boolean,
+    requestId: string
+  ): Promise<void> {
+    this.fillFallbackFromSearchSummaryIfNeeded(aiMessage)
+    this.fillEmptyAIContentPlaceholder(aiMessage)
+    aiMessage.isGenerating = false
+    aiMessage.isSearching = false
+    onAIMessageUpdated(aiMessage)
+
+    if (snapshotSession !== null) {
+      await this.databaseService.addMessage(snapshotSessionId, aiMessage)
+      this.appendMessageToSessionIfMissing(snapshotSession, aiMessage)
+      this.markPendingAIMessagePersisted(aiMessage.id)
+      this.clearPendingAIMessageIfMatches(aiMessage.id)
+      if (shouldAutoGenerateTitle) {
+        this.generateSmartTitle(snapshotSession)
+      }
+    }
+    this.unregisterActiveRequest(requestId)
+    onComplete()
+  }
+
   // 工具调用循环
   private async executeToolCallLoop(
     apiConfig: AIApiConfig,
@@ -1584,6 +1607,71 @@ ${limitedSearchContext}
     }
 
     console.info('ChatViewModel', `Tool call loop iteration ${iteration + 1}`)
+    let roundContentBuffer = ''
+    let roundReasoningBuffer = ''
+    let roundHasToolCallDelta = false
+    let streamedContentLength = 0
+    let streamedReasoningLength = 0
+
+    const rollbackStreamedRoundOutput = (): void => {
+      if (streamedContentLength > 0 && aiMessage.content.length >= streamedContentLength) {
+        aiMessage.content = aiMessage.content.substring(0, aiMessage.content.length - streamedContentLength)
+        streamedContentLength = 0
+      }
+      if (streamedReasoningLength > 0 && aiMessage.reasoningContent.length >= streamedReasoningLength) {
+        aiMessage.reasoningContent = aiMessage.reasoningContent.substring(
+          0,
+          aiMessage.reasoningContent.length - streamedReasoningLength
+        )
+        streamedReasoningLength = 0
+      }
+    }
+
+    const markCurrentRoundAsToolCall = (): void => {
+      if (roundHasToolCallDelta) {
+        return
+      }
+      roundHasToolCallDelta = true
+      rollbackStreamedRoundOutput()
+      onAIMessageUpdated(aiMessage)
+    }
+
+    const appendRoundContent = (content: string): void => {
+      if (content === '') {
+        return
+      }
+      if (roundHasToolCallDelta) {
+        roundContentBuffer += content
+        return
+      }
+      aiMessage.content += content
+      streamedContentLength += content.length
+      onAIMessageUpdated(aiMessage)
+    }
+
+    const appendRoundReasoning = (content: string): void => {
+      if (content === '') {
+        return
+      }
+      if (roundHasToolCallDelta) {
+        roundReasoningBuffer += content
+        return
+      }
+      aiMessage.reasoningContent += content
+      streamedReasoningLength += content.length
+      onAIMessageUpdated(aiMessage)
+    }
+
+    const flushBufferedRoundOutput = (): void => {
+      if (roundContentBuffer !== '') {
+        aiMessage.content += roundContentBuffer
+        roundContentBuffer = ''
+      }
+      if (roundReasoningBuffer !== '') {
+        aiMessage.reasoningContent += roundReasoningBuffer
+        roundReasoningBuffer = ''
+      }
+    }
 
     // 检查是否已取消
     if (isToolCancelledFn()) {
@@ -1611,8 +1699,7 @@ ${limitedSearchContext}
             if (isCancelledFn()) {
               return
             }
-            aiMessage.content += throttledContent
-            onAIMessageUpdated(aiMessage)
+            appendRoundContent(throttledContent)
             setHasReceivedFirstChunk(true)
           })
         } else {
@@ -1620,8 +1707,7 @@ ${limitedSearchContext}
             if (isCancelledFn()) {
               return
             }
-            aiMessage.content += throttledContent
-            onAIMessageUpdated(aiMessage)
+            appendRoundContent(throttledContent)
           })
         }
       },
@@ -1634,28 +1720,19 @@ ${limitedSearchContext}
           if (isCancelledFn()) {
             return
           }
-          if (throttledContent !== '') {
-            aiMessage.content += throttledContent
-            onAIMessageUpdated(aiMessage)
-          }
+          appendRoundContent(throttledContent)
         })
         localReasoningThrottle.flush((throttledReasoning: string) => {
           if (isCancelledFn()) {
             return
           }
-          if (throttledReasoning !== '') {
-            aiMessage.reasoningContent += throttledReasoning
-            onAIMessageUpdated(aiMessage)
-          }
+          appendRoundReasoning(throttledReasoning)
         })
         localFirstChunkThrottle.flush((throttledContent: string) => {
           if (isCancelledFn()) {
             return
           }
-          if (throttledContent !== '') {
-            aiMessage.content += throttledContent
-            onAIMessageUpdated(aiMessage)
-          }
+          appendRoundContent(throttledContent)
         })
         setHasReceivedFirstChunk(false)
 
@@ -1663,6 +1740,11 @@ ${limitedSearchContext}
         if (toolCalls.length > 0 && toolsEnabledInThisRound) {
           console.info('ChatViewModel', `[Function Calling] Received ${toolCalls.length} tool calls`)
           const latestUserQuery = this.getLatestUserQueryFromRequestMessages(requestMessages)
+          markCurrentRoundAsToolCall()
+
+          // tools 回合的正文是中间态，不应展示成一条正式回答。
+          roundContentBuffer = ''
+          roundReasoningBuffer = ''
 
           // 保存工具调用到 AI 消息
           for (let i = 0; i < toolCalls.length; i++) {
@@ -1830,23 +1912,16 @@ ${limitedSearchContext}
             console.warn('ChatViewModel', `Ignored ${toolCalls.length} tool calls because tool round limit is reached`)
           }
           // 没有工具调用，完成
-          this.fillFallbackFromSearchSummaryIfNeeded(aiMessage)
-          this.fillEmptyAIContentPlaceholder(aiMessage)
-          aiMessage.isGenerating = false
-          aiMessage.isSearching = false
-          onAIMessageUpdated(aiMessage)
-
-          if (snapshotSession !== null) {
-            await this.databaseService.addMessage(snapshotSessionId, aiMessage)
-            this.appendMessageToSessionIfMissing(snapshotSession, aiMessage)
-            this.markPendingAIMessagePersisted(aiMessage.id)
-            this.clearPendingAIMessageIfMatches(aiMessage.id)
-            if (shouldAutoGenerateTitle) {
-              this.generateSmartTitle(snapshotSession)
-            }
-          }
-          this.unregisterActiveRequest(requestId)
-          onComplete()
+          flushBufferedRoundOutput()
+          await this.finalizeAIMessage(
+            aiMessage,
+            onAIMessageUpdated,
+            onComplete,
+            snapshotSessionId,
+            snapshotSession,
+            shouldAutoGenerateTitle,
+            requestId
+          )
         }
       },
       (error: string) => {
@@ -1857,29 +1932,21 @@ ${limitedSearchContext}
           if (isCancelledFn()) {
             return
           }
-          if (throttledContent !== '') {
-            aiMessage.content += throttledContent
-            onAIMessageUpdated(aiMessage)
-          }
+          appendRoundContent(throttledContent)
         })
         localReasoningThrottle.flush((throttledReasoning: string) => {
           if (isCancelledFn()) {
             return
           }
-          if (throttledReasoning !== '') {
-            aiMessage.reasoningContent += throttledReasoning
-            onAIMessageUpdated(aiMessage)
-          }
+          appendRoundReasoning(throttledReasoning)
         })
         localFirstChunkThrottle.flush((throttledContent: string) => {
           if (isCancelledFn()) {
             return
           }
-          if (throttledContent !== '') {
-            aiMessage.content += throttledContent
-            onAIMessageUpdated(aiMessage)
-          }
+          appendRoundContent(throttledContent)
         })
+        flushBufferedRoundOutput()
         this.fillEmptyAIContentPlaceholder(aiMessage, error)
         aiMessage.isGenerating = false
         aiMessage.isSearching = false
@@ -1905,8 +1972,7 @@ ${limitedSearchContext}
           if (isCancelledFn()) {
             return
           }
-          aiMessage.reasoningContent += throttledContent
-          onAIMessageUpdated(aiMessage)
+          appendRoundReasoning(throttledContent)
         })
       },
       async (base64Data: string, mimeType: string) => {
@@ -1921,7 +1987,13 @@ ${limitedSearchContext}
       },
       reasoningLevel,
       toolsEnabledInThisRound ? tools : undefined,
-      toolsEnabledInThisRound ? 'auto' : undefined
+      toolsEnabledInThisRound ? 'auto' : undefined,
+      (toolCallDeltas: ToolCallDelta[]) => {
+        if (isCancelledFn() || !toolsEnabledInThisRound || toolCallDeltas.length <= 0) {
+          return
+        }
+        markCurrentRoundAsToolCall()
+      }
     )
 
     // 更新活跃请求中的 httpRequest 引用（每轮循环可能创建新的 httpRequest）
@@ -2062,6 +2134,7 @@ ${limitedSearchContext}
     if (this.currentSession !== null) {
       // 从 currentSession.messages 中移除这些消息
       for (let i = 0; i < messageIds.length; i++) {
+        this.clearPendingAIMessageIfMatches(messageIds[i])
         const index = this.currentSession.messages.findIndex((m: ChatMessage) => m.id === messageIds[i])
         if (index >= 0) {
           this.currentSession.messages.splice(index, 1)
@@ -2145,12 +2218,9 @@ ${limitedSearchContext}
     if (sessionId === '') {
       return false
     }
-    if (this.activeRequests.size === 0) {
-      return false
-    }
     let found = false
     this.pendingAIMessages.forEach((info: PendingAIMessageInfo) => {
-      if (info.sessionId === sessionId) {
+      if (info.sessionId === sessionId && (info.message.isGenerating || info.message.isSearching)) {
         found = true
       }
     })
