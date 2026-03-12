@@ -155,3 +155,19 @@ entry/src/main/ets/
 ## 许可证
 
 [MIT](./LICENSE) — 随便用，开心就好。
+
+## 捐赠支持
+
+如果 ChatCube 对你有帮助，欢迎自愿捐赠支持开发。
+
+你的支持将主要用于：
+
+- 购买模型 token
+- 联调和测试不同服务商能力
+- 持续迭代和打磨 ChatCube
+
+微信赞赏码如下：
+
+<p align="center">
+  <img src="assets/wechat-pay.png" width="280" alt="ChatCube 微信赞赏码" />
+</p>

@@ -409,8 +409,12 @@
       "value": "About ChatCube"
     },
     {
-      "name": "settings_version",
-      "value": "Version 1.0.0"
+      "name": "settings_support_development",
+      "value": "Support Development"
+    },
+    {
+      "name": "settings_support_development_desc",
+      "value": "WeChat support for token costs and ongoing development"
     },
     {
       "name": "settings_privacy_policy",
@@ -575,10 +579,6 @@
     {
       "name": "web_search",
       "value": "Web Search"
-    },
-    {
-      "name": "weather_query",
-      "value": "Weather Query"
     },
     {
       "name": "chat_toolbar_web_search",
@@ -1729,12 +1729,44 @@
       "value": "Save QR Code"
     },
     {
+      "name": "about_join_qq_group",
+      "value": "Open QQ to Join"
+    },
+    {
       "name": "about_qrcode_saved",
       "value": "QR code saved to album"
     },
     {
       "name": "about_qrcode_save_failed",
       "value": "Failed to save QR code"
+    },
+    {
+      "name": "about_open_qq_group_failed",
+      "value": "Unable to open QQ or the invite link. Please use the QR code to join."
+    },
+    {
+      "name": "about_wechat_support",
+      "value": "WeChat Support"
+    },
+    {
+      "name": "about_wechat_support_desc",
+      "value": "Optional support for token costs and development"
+    },
+    {
+      "name": "about_wechat_pay_note",
+      "value": "If ChatCube helps you, optional support is appreciated. Your transfer will mainly be used for model token costs, integration testing, and ongoing development."
+    },
+    {
+      "name": "about_save_payment_code",
+      "value": "Save Payment Code"
+    },
+    {
+      "name": "about_payment_code_saved",
+      "value": "Payment code saved to album"
+    },
+    {
+      "name": "about_payment_code_save_failed",
+      "value": "Failed to save payment code"
     },
     {
       "name": "about_open_source",

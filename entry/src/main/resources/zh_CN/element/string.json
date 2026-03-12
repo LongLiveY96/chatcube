@@ -409,8 +409,12 @@
       "value": "关于 ChatCube"
     },
     {
-      "name": "settings_version",
-      "value": "版本 1.0.0"
+      "name": "settings_support_development",
+      "value": "支持开发"
+    },
+    {
+      "name": "settings_support_development_desc",
+      "value": "微信赞赏，支持 token 与持续开发"
     },
     {
       "name": "settings_privacy_policy",
@@ -575,10 +579,6 @@
     {
       "name": "web_search",
       "value": "联网搜索"
-    },
-    {
-      "name": "weather_query",
-      "value": "天气查询"
     },
     {
       "name": "chat_toolbar_web_search",
@@ -1729,12 +1729,44 @@
       "value": "保存二维码"
     },
     {
+      "name": "about_join_qq_group",
+      "value": "直接进群"
+    },
+    {
       "name": "about_qrcode_saved",
       "value": "二维码已保存到相册"
     },
     {
       "name": "about_qrcode_save_failed",
       "value": "二维码保存失败"
+    },
+    {
+      "name": "about_open_qq_group_failed",
+      "value": "无法打开 QQ 或群邀请链接，请使用二维码进群"
+    },
+    {
+      "name": "about_wechat_support",
+      "value": "微信赞赏"
+    },
+    {
+      "name": "about_wechat_support_desc",
+      "value": "自愿支持开发，用于购买 token"
+    },
+    {
+      "name": "about_wechat_pay_note",
+      "value": "如果 ChatCube 对你有帮助，欢迎自愿赞赏支持开发。你的转账将主要用于购买模型 token、接口测试和持续迭代。"
+    },
+    {
+      "name": "about_save_payment_code",
+      "value": "保存收款码"
+    },
+    {
+      "name": "about_payment_code_saved",
+      "value": "收款码已保存到相册"
+    },
+    {
+      "name": "about_payment_code_save_failed",
+      "value": "收款码保存失败"
     },
     {
       "name": "about_open_source",

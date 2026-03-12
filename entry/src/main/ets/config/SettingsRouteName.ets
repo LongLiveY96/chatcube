@@ -11,5 +11,6 @@ export enum SettingsRouteName {
   FONT_SIZE = 'FontSizeSettingsPage',
   EXPORT_DATA = 'ExportDataPage',
   IMPORT_DATA = 'ImportDataPage',
-  ABOUT = 'AboutPage'
+  ABOUT = 'AboutPage',
+  SUPPORT_DEVELOPMENT = 'SupportDevelopmentPage'
 }

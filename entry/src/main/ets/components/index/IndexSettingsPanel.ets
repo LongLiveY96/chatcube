@@ -70,6 +70,7 @@ export struct IndexSettingsPanel {
   @Event onOpenExportData: () => void = () => {}
   @Event onOpenImportData: () => void = () => {}
   @Event onOpenAbout: () => void = () => {}
+  @Event onOpenSupportDevelopment: () => void = () => {}
   @Event onOpenPrivacy: () => void = () => {}
 
   aboutToAppear(): void {
@@ -79,7 +80,7 @@ export struct IndexSettingsPanel {
       this.versionName = info.versionName
     } catch (err) {
       console.error('IndexSettingsPanel', `Get version failed: ${JSON.stringify(err)}`)
-      this.versionName = '1.0.6'
+      this.versionName = '1.0.7'
     }
   }
 
@@ -309,6 +310,13 @@ export struct IndexSettingsPanel {
             icon: $r('sys.symbol.doc_text'),
             title: $r('app.string.settings_privacy_policy'),
             action: null
+          } as SettingsListItemModel,
+          {
+            key: SettingsRouteName.SUPPORT_DEVELOPMENT,
+            icon: $r('sys.symbol.heart_fill'),
+            title: $r('app.string.settings_support_development'),
+            subtitle: $r('app.string.settings_support_development_desc'),
+            action: (): void => { this.onOpenSupportDevelopment() }
           } as SettingsListItemModel
         ]
       } as SettingsGroupModel

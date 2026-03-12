@@ -1,6 +1,4 @@
-import { photoAccessHelper } from '@kit.MediaLibraryKit'
-import { fileIo, fileUri } from '@kit.CoreFileKit'
-import { common } from '@kit.AbilityKit'
+import { Want, common } from '@kit.AbilityKit'
 import { pasteboard } from '@kit.BasicServicesKit'
 import { bundleManager } from '@kit.AbilityKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
@@ -11,9 +9,13 @@ import { LayoutSizeClass } from '../config/LayoutProfile'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 import { getAppUiState } from '../state/AppUiState'
+import { saveRawfileImageToAlbum } from '../utils/RawfileImageSaveUtil'
 
 const TAG = 'AboutPage'
 const GITHUB_URL = 'https://github.com/LongLiveY96/chatcube'
+const QQ_GROUP_NUMBER = '752237762'
+const QQ_GROUP_DEEP_LINK = `mqqapi://card/show_pslcard?card_type=group&uin=${QQ_GROUP_NUMBER}`
+const QQ_GROUP_INVITE_URL = 'https://qm.qq.com/q/LtqdPMezoQ'
 
 @Entry
 @ComponentV2
@@ -36,8 +38,9 @@ struct AboutPage {
   private get settingsDetailPresentationMode(): string {
     return getAppUiState().settingsDetailPresentationMode
   }
-  @Local showQrSheet: boolean = false
+  @Local showQqGroupSheet: boolean = false
   @Local isSaving: boolean = false
+  @Local isOpeningGroup: boolean = false
   @Local versionName: string = ''
 
   aboutToAppear(): void {
@@ -46,7 +49,7 @@ struct AboutPage {
       this.versionName = info.versionName
     } catch (err) {
       hilog.error(0x0000, TAG, 'Get version failed: %{public}s', JSON.stringify(err))
-      this.versionName = '1.0.6'
+      this.versionName = '1.0.7'
     }
   }
 
@@ -136,7 +139,7 @@ struct AboutPage {
             .padding({ left: 16, right: 16 })
             .alignItems(VerticalAlign.Center)
             .onClick(() => {
-              this.showQrSheet = true
+              this.showQqGroupSheet = true
             })
 
             Divider().color($r('app.color.divider')).margin({ left: 64 })
@@ -260,7 +263,7 @@ struct AboutPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.background'))
-    .bindSheet($$this.showQrSheet, this.QrCodeSheetBuilder(), {
+    .bindSheet($$this.showQqGroupSheet, this.QqGroupSheetBuilder(), {
       height: SheetSize.FIT_CONTENT,
       showClose: true,
       dragBar: true,
@@ -269,7 +272,7 @@ struct AboutPage {
   }
 
   @Builder
-  QrCodeSheetBuilder() {
+  QqGroupSheetBuilder() {
     Column({ space: 16 }) {
       Text($r('app.string.about_qq_group'))
         .fontSize(18)
@@ -285,18 +288,34 @@ struct AboutPage {
         .objectFit(ImageFit.Contain)
         .borderRadius(12)
 
-      Button($r('app.string.about_save_qrcode'))
-        .width('70%')
-        .height(44)
-        .fontSize(15)
-        .fontWeight(FontWeight.Medium)
-        .type(ButtonType.Capsule)
-        .backgroundColor(this.themePrimary)
-        .fontColor(Color.White)
-        .enabled(!this.isSaving)
-        .onClick(() => {
-          this.saveQrCode()
-        })
+      Row({ space: 12 }) {
+        Button($r('app.string.about_join_qq_group'))
+          .layoutWeight(1)
+          .height(44)
+          .fontSize(15)
+          .fontWeight(FontWeight.Medium)
+          .type(ButtonType.Capsule)
+          .backgroundColor(this.themePrimary)
+          .fontColor(Color.White)
+          .enabled(!this.isOpeningGroup && !this.isSaving)
+          .onClick(() => {
+            this.openQqGroup()
+          })
+
+        Button($r('app.string.about_save_qrcode'))
+          .layoutWeight(1)
+          .height(44)
+          .fontSize(15)
+          .fontWeight(FontWeight.Medium)
+          .type(ButtonType.Capsule)
+          .backgroundColor(this.themePrimaryLight)
+          .fontColor(this.themePrimary)
+          .enabled(!this.isSaving && !this.isOpeningGroup)
+          .onClick(() => {
+            this.saveQqGroupQrCode()
+          })
+      }
+      .width('70%')
     }
     .width('100%')
     .padding({ top: 16, bottom: 32, left: 24, right: 24 })
@@ -314,7 +333,14 @@ struct AboutPage {
     }
   }
 
-  private async saveQrCode(): Promise<void> {
+  private async saveQqGroupQrCode(): Promise<void> {
+    await this.saveRawfileImage(
+      $r('app.string.about_qrcode_saved'),
+      $r('app.string.about_qrcode_save_failed')
+    )
+  }
+
+  private async saveRawfileImage(successMessage: string | Resource, failMessage: string | Resource): Promise<void> {
     if (this.isSaving) {
       return
     }
@@ -324,52 +350,58 @@ struct AboutPage {
       if (!hostContext) {
         throw new Error('UI context unavailable')
       }
-      const context = hostContext as common.UIAbilityContext
-
-      // Copy rawfile to cache temp file
-      const rawFileData = context.resourceManager.getRawFileContentSync('qq_group_qrcode.jpg')
-      const tempPath = `${context.cacheDir}/temp_qrcode_${Date.now()}.jpg`
-      const tempFile = fileIo.openSync(tempPath, fileIo.OpenMode.CREATE | fileIo.OpenMode.WRITE_ONLY)
-      fileIo.writeSync(tempFile.fd, rawFileData.buffer)
-      fileIo.closeSync(tempFile)
-
-      // Use photoAccessHelper to save
-      const tempUriStr = fileUri.getUriFromPath(tempPath)
-      const config: photoAccessHelper.PhotoCreationConfig = {
-        title: `ChatCube_QQ_Group_${Date.now()}`,
-        fileNameExtension: 'jpg',
-        photoType: photoAccessHelper.PhotoType.IMAGE,
-        subtype: photoAccessHelper.PhotoSubtype.DEFAULT
-      }
-      const phAccessHelper = photoAccessHelper.getPhotoAccessHelper(context)
-      const desFileUris = await phAccessHelper.showAssetsCreationDialog([tempUriStr], [config])
-      if (desFileUris.length === 0) {
-        throw new Error('User cancelled save')
-      }
-
-      const srcFile = fileIo.openSync(tempUriStr, fileIo.OpenMode.READ_ONLY)
-      const desFile = fileIo.openSync(desFileUris[0], fileIo.OpenMode.WRITE_ONLY)
-      fileIo.copyFileSync(srcFile.fd, desFile.fd)
-      fileIo.closeSync(srcFile)
-      fileIo.closeSync(desFile)
-
-      this.pageToast($r('app.string.about_qrcode_saved'))
-
-      // Cleanup
-      try {
-        fileIo.unlinkSync(tempPath)
-      } catch (_) {
-        // ignore cleanup error
-      }
+      await saveRawfileImageToAlbum(hostContext as common.UIAbilityContext, 'qq_group_qrcode.jpg', 'ChatCube_QQ_Group')
+      this.pageToast(successMessage)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       hilog.error(0x0000, TAG, 'Save QR code failed: %{public}s', msg)
       if (!msg.includes('cancelled') && !msg.includes('cancel')) {
-        this.pageToast($r('app.string.about_qrcode_save_failed'))
+        this.pageToast(failMessage)
       }
     } finally {
       this.isSaving = false
     }
+  }
+
+  private async openQqGroup(): Promise<void> {
+    if (this.isOpeningGroup) {
+      return
+    }
+    this.isOpeningGroup = true
+    try {
+      const hostContext = this.getUIContext().getHostContext()
+      if (!hostContext) {
+        throw new Error('UI context unavailable')
+      }
+      const context = hostContext as common.UIAbilityContext
+
+      let canOpen = false
+      try {
+        canOpen = bundleManager.canOpenLink(QQ_GROUP_DEEP_LINK)
+      } catch (err) {
+        hilog.error(0x0000, TAG, 'Check QQ deep link failed: %{public}s', JSON.stringify(err))
+      }
+
+      if (canOpen) {
+        await context.openLink(QQ_GROUP_DEEP_LINK)
+        return
+      }
+      await this.startBrowsableAbility(context, QQ_GROUP_INVITE_URL)
+    } catch (err) {
+      hilog.error(0x0000, TAG, 'Open QQ group failed: %{public}s', JSON.stringify(err))
+      this.pageToast($r('app.string.about_open_qq_group_failed'))
+    } finally {
+      this.isOpeningGroup = false
+    }
+  }
+
+  private async startBrowsableAbility(context: common.UIAbilityContext, url: string): Promise<void> {
+    const want: Want = {
+      action: 'ohos.want.action.viewData',
+      entities: ['entity.system.browsable'],
+      uri: url
+    }
+    await context.startAbility(want)
   }
 }
 
