@@ -1,16 +1,18 @@
 import { picker, fileIo } from '@kit.CoreFileKit'
-import { getImportExportService, ImportOptions, ImportPreview, ImportResult } from '../services/ImportExportService'
+import { getImportExportService, ImportOptions, ImportPreview } from '../services/ImportExportService'
 import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
-import { AppStorageKeys } from '../config/AppStorageKeys'
-import { LayoutSizeClass } from '../config/LayoutProfile'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 import { getAppUiState } from '../state/AppUiState'
 
+let importDataPathStack: NavPathStack | null = null
+
 @Entry
 @ComponentV2
 struct ImportDataPage {
+  private get topAvoidHeight(): number {
+    return getAppUiState().topAvoidHeight
+  }
   private get bottomAvoidHeight(): number {
     return getAppUiState().bottomAvoidHeight
   }
@@ -60,6 +62,12 @@ struct ImportDataPage {
     options.duration = duration
     options.tone = tone
     showSnackBar(this.getUIContext(), options)
+  }
+
+  private handleBack(): void {
+    if (importDataPathStack !== null && importDataPathStack.size() > 0) {
+      importDataPathStack.pop()
+    }
   }
 
   async selectFile(): Promise<void> {
@@ -180,7 +188,7 @@ struct ImportDataPage {
       }
       const summaryMessage = summaryParts.length > 0 ? summaryParts.join('，') : '导入完成'
       this.showImportToast(summaryMessage, 3000, SnackBarTone.SUCCESS)
-      this.getUIContext().getRouter().back()
+      this.handleBack()
     } catch (error) {
       console.error('ImportDataPage', `Import failed: ${JSON.stringify(error)}`)
       this.showImportToast($r('app.string.import_failed'), 2000, SnackBarTone.ERROR)
@@ -371,7 +379,7 @@ struct ImportDataPage {
       }
     }
     .width('100%')
-    .height('100%')
+    .layoutWeight(1)
   }
 
   @Builder
@@ -394,6 +402,49 @@ struct ImportDataPage {
     .border({ width: { bottom: 1 }, color: $r('app.color.divider') })
   }
 
+  @Builder
+  private CompactPageHeader() {
+    Column() {
+      Column()
+        .width('100%')
+        .height(this.px2vp(this.topAvoidHeight))
+
+      Row({ space: 4 }) {
+        Button() {
+          SymbolGlyph($r('sys.symbol.chevron_left'))
+            .fontSize(20)
+            .fontColor([$r('app.color.text_primary')])
+        }
+        .type(ButtonType.Normal)
+        .stateEffect(false)
+        .width(40)
+        .height(40)
+        .borderRadius(20)
+        .backgroundColor(Color.Transparent)
+        .onClick(() => {
+          this.handleBack()
+        })
+
+        Text($r('app.string.import_title'))
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+          .margin({ left: 4 })
+
+        Column()
+          .width(40)
+          .height(40)
+      }
+      .width('100%')
+      .height(56)
+      .padding({ left: 8, right: 8 })
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .backgroundColor($r('app.color.background'))
+  }
+
   build() {
     Column() {
       if (this.isDetailPaneMode()) {
@@ -404,24 +455,13 @@ struct ImportDataPage {
         .width('100%')
         .layoutWeight(1)
       } else {
-        HdsNavigation() {
+        Column() {
+          this.CompactPageHeader()
           this.PageContent()
         }
         .width('100%')
         .layoutWeight(1)
         .backgroundColor($r('app.color.background'))
-        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
-        .mode(NavigationMode.Stack)
-        .titleMode(HdsNavigationTitleMode.MINI)
-        .titleBar({
-          avoidLayoutSafeArea: true,
-          enableComponentSafeArea: true,
-          content: {
-            title: {
-              mainTitle: $r('app.string.import_title')
-            }
-          }
-        })
       }
     }
     .width('100%')
@@ -504,5 +544,14 @@ export function ImportDataPageBuilder(name: string, param: Object) {
   }
   .hideTitleBar(true)
   .hideBackButton(true)
+  .onReady((context: NavDestinationContext) => {
+    importDataPathStack = context.pathStack
+  })
+  .onBackPressed((): boolean => {
+    if (importDataPathStack !== null && importDataPathStack.size() > 0) {
+      importDataPathStack.pop()
+    }
+    return true
+  })
 }
 

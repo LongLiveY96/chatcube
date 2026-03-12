@@ -5,17 +5,22 @@ import { DefaultModelConfig, ModelRole, ModelProvider } from '../models/ChatMode
 import { DefaultPrompts } from '../config/DefaultPrompts'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { DefaultModelSelectSheetContent } from '../components/defaultmodel/DefaultModelSelectSheetContent'
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
+import { SettingsCompactPageHeader } from '../components/settings/SettingsCompactPageHeader'
 import { AppStorageKeys } from '../config/AppStorageKeys'
 import { LayoutSizeClass } from '../config/LayoutProfile'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getSettingsPageContentMaxWidth, isSettingsPageExpandedLayout } from '../utils/SettingsPageLayoutHelper'
 import { getAppUiState } from '../state/AppUiState'
 
+let defaultModelPagePathStack: NavPathStack | null = null
+
 @Entry
 @ComponentV2
 struct DefaultModelPage {
   // 主题颜色
+  private get topAvoidHeight(): number {
+    return getAppUiState().topAvoidHeight
+  }
   private get themePrimary(): string {
     return getAppUiState().themePrimary
   }
@@ -59,6 +64,12 @@ struct DefaultModelPage {
 
   private isDetailPaneMode(): boolean {
     return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
+  }
+
+  private handleBack(): void {
+    if (defaultModelPagePathStack !== null && defaultModelPagePathStack.size() > 0) {
+      defaultModelPagePathStack.pop()
+    }
   }
 
   aboutToAppear(): void {
@@ -136,24 +147,19 @@ struct DefaultModelPage {
         .width('100%')
         .layoutWeight(1)
       } else {
-        HdsNavigation() {
+        Column() {
+          SettingsCompactPageHeader({
+            title: $r('app.string.settings_default_model'),
+            topAvoidHeight: this.topAvoidHeight,
+            onBack: () => {
+              this.handleBack()
+            }
+          })
           this.PageContent()
         }
         .width('100%')
         .layoutWeight(1)
         .backgroundColor($r('app.color.background'))
-        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
-        .mode(NavigationMode.Stack)
-        .titleMode(HdsNavigationTitleMode.MINI)
-        .titleBar({
-          avoidLayoutSafeArea: true,
-          enableComponentSafeArea: true,
-          content: {
-            title: {
-              mainTitle: $r('app.string.settings_default_model')
-            }
-          }
-        })
       }
 
       Column()
@@ -677,5 +683,14 @@ export function DefaultModelPageBuilder(name: string, param: Object) {
   }
   .hideTitleBar(true)
   .hideBackButton(true)
+  .onReady((context: NavDestinationContext) => {
+    defaultModelPagePathStack = context.pathStack
+  })
+  .onBackPressed((): boolean => {
+    if (defaultModelPagePathStack !== null && defaultModelPagePathStack.size() > 0) {
+      defaultModelPagePathStack.pop()
+    }
+    return true
+  })
 }
 

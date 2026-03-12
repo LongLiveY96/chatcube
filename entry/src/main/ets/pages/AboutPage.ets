@@ -2,7 +2,7 @@ import { Want, common } from '@kit.AbilityKit'
 import { pasteboard } from '@kit.BasicServicesKit'
 import { bundleManager } from '@kit.AbilityKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
+import { SettingsCompactPageHeader } from '../components/settings/SettingsCompactPageHeader'
 import { showToast } from '../utils/ToastUtil'
 import { AppStorageKeys } from '../config/AppStorageKeys'
 import { LayoutSizeClass } from '../config/LayoutProfile'
@@ -17,9 +17,14 @@ const QQ_GROUP_NUMBER = '752237762'
 const QQ_GROUP_DEEP_LINK = `mqqapi://card/show_pslcard?card_type=group&uin=${QQ_GROUP_NUMBER}`
 const QQ_GROUP_INVITE_URL = 'https://qm.qq.com/q/LtqdPMezoQ'
 
+let aboutPagePathStack: NavPathStack | null = null
+
 @Entry
 @ComponentV2
 struct AboutPage {
+  private get topAvoidHeight(): number {
+    return getAppUiState().topAvoidHeight
+  }
   private get themePrimary(): string {
     return getAppUiState().themePrimary
   }
@@ -64,6 +69,12 @@ struct AboutPage {
 
   private isDetailPaneMode(): boolean {
     return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
+  }
+
+  private handleBack(): void {
+    if (aboutPagePathStack !== null && aboutPagePathStack.size() > 0) {
+      aboutPagePathStack.pop()
+    }
   }
 
   @Builder
@@ -206,7 +217,7 @@ struct AboutPage {
       .padding({ left: 16, right: 16 })
     }
     .width('100%')
-    .height('100%')
+    .layoutWeight(1)
     .scrollBar(BarState.Off)
   }
 
@@ -240,24 +251,19 @@ struct AboutPage {
         .width('100%')
         .layoutWeight(1)
       } else {
-        HdsNavigation() {
+        Column() {
+          SettingsCompactPageHeader({
+            title: $r('app.string.settings_about'),
+            topAvoidHeight: this.topAvoidHeight,
+            onBack: () => {
+              this.handleBack()
+            }
+          })
           this.PageContent()
         }
         .width('100%')
         .layoutWeight(1)
         .backgroundColor($r('app.color.background'))
-        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
-        .mode(NavigationMode.Stack)
-        .titleMode(HdsNavigationTitleMode.MINI)
-        .titleBar({
-          avoidLayoutSafeArea: true,
-          enableComponentSafeArea: true,
-          content: {
-            title: {
-              mainTitle: $r('app.string.settings_about')
-            }
-          }
-        })
       }
     }
     .width('100%')
@@ -412,5 +418,14 @@ export function AboutPageBuilder(name: string, param: Object) {
   }
   .hideTitleBar(true)
   .hideBackButton(true)
+  .onReady((context: NavDestinationContext) => {
+    aboutPagePathStack = context.pathStack
+  })
+  .onBackPressed((): boolean => {
+    if (aboutPagePathStack !== null && aboutPagePathStack.size() > 0) {
+      aboutPagePathStack.pop()
+    }
+    return true
+  })
 }
 

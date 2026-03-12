@@ -13,6 +13,7 @@ import {
   ChatMessage,
   ModelProvider,
   ModelInfo,
+  ModelInfoExtendedJson,
   ProviderType,
   ApiStyle,
   ProviderIconType,
@@ -213,15 +214,6 @@ interface AttachmentMetadata {
   size: number
 }
 
-// 模型 JSON 数据（用于解析供应商的模型列表）
-interface ModelJsonData {
-  id: string
-  name: string
-  contextLength: number
-  isEnabled: boolean
-  isRecommended: boolean
-}
-
 // 导入文件数据
 interface ImportFileData {
   manifest: ManifestData
@@ -268,7 +260,10 @@ export class ImportExportService {
       }
 
       const sessions = await this.collectSessions(options)
-      const messages = await this.collectMessages(sessions)
+      if (onProgress) {
+        onProgress(15)
+      }
+      const messages = await this.collectMessages(sessions, onProgress)
       const attachments = this.collectAttachments(messages, options)
       const providers = options.includeProviders ? await this.collectProviders(options) : []
       const preferences = options.includePreferences ? await this.collectPreferences(options) : []
@@ -328,11 +323,26 @@ export class ImportExportService {
     return allSessions
   }
 
-  private async collectMessages(sessions: ChatSession[]): Promise<Map<string, ChatMessage[]>> {
+  private async collectMessages(
+    sessions: ChatSession[],
+    onProgress?: (progress: number) => void
+  ): Promise<Map<string, ChatMessage[]>> {
     const messages = new Map<string, ChatMessage[]>()
-    for (const session of sessions) {
+    if (sessions.length === 0) {
+      if (onProgress) {
+        onProgress(25)
+      }
+      return messages
+    }
+
+    for (let i = 0; i < sessions.length; i++) {
+      const session = sessions[i]
       const sessionMessages = await this.dbService.getMessages(session.id)
       messages.set(session.id, sessionMessages)
+      if (onProgress) {
+        const progress = 15 + Math.floor(((i + 1) / sessions.length) * 10)
+        onProgress(progress > 25 ? 25 : progress)
+      }
     }
     return messages
   }
@@ -994,12 +1004,9 @@ export class ImportExportService {
     // 解析 modelsJson 为 ModelInfo 数组
     let models: ModelInfo[] = []
     try {
-      const modelsArray = JSON.parse(providerData.modelsJson) as ModelJsonData[]
+      const modelsArray = JSON.parse(providerData.modelsJson) as ModelInfoExtendedJson[]
       for (const m of modelsArray) {
-        const modelInfo = new ModelInfo(m.id, m.name, m.contextLength)
-        modelInfo.isEnabled = m.isEnabled
-        modelInfo.isRecommended = m.isRecommended
-        models.push(modelInfo)
+        models.push(ModelInfo.fromExtendedJson(m))
       }
     } catch (e) {
       console.warn('ImportExportService', `Failed to parse models for provider ${providerData.id}`)

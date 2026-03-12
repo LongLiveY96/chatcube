@@ -1,7 +1,7 @@
 import { common } from '@kit.AbilityKit'
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { showToast } from '../utils/ToastUtil'
+import { SettingsCompactPageHeader } from '../components/settings/SettingsCompactPageHeader'
 import { LayoutSizeClass } from '../config/LayoutProfile'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
@@ -9,10 +9,14 @@ import { getAppUiState } from '../state/AppUiState'
 import { saveRawfileImageToAlbum } from '../utils/RawfileImageSaveUtil'
 
 const TAG = 'SupportDevelopmentPage'
+let supportDevelopmentPathStack: NavPathStack | null = null
 
 @Entry
 @ComponentV2
 struct SupportDevelopmentPage {
+  private get topAvoidHeight(): number {
+    return getAppUiState().topAvoidHeight
+  }
   private get themePrimary(): string {
     return getAppUiState().themePrimary
   }
@@ -42,6 +46,12 @@ struct SupportDevelopmentPage {
 
   private isDetailPaneMode(): boolean {
     return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
+  }
+
+  private handleBack(): void {
+    if (supportDevelopmentPathStack !== null && supportDevelopmentPathStack.size() > 0) {
+      supportDevelopmentPathStack.pop()
+    }
   }
 
   @Builder
@@ -91,7 +101,7 @@ struct SupportDevelopmentPage {
       .padding({ left: 16, right: 16 })
     }
     .width('100%')
-    .height('100%')
+    .layoutWeight(1)
     .scrollBar(BarState.Off)
   }
 
@@ -125,24 +135,19 @@ struct SupportDevelopmentPage {
         .width('100%')
         .layoutWeight(1)
       } else {
-        HdsNavigation() {
+        Column() {
+          SettingsCompactPageHeader({
+            title: $r('app.string.settings_support_development'),
+            topAvoidHeight: this.topAvoidHeight,
+            onBack: () => {
+              this.handleBack()
+            }
+          })
           this.PageContent()
         }
         .width('100%')
         .layoutWeight(1)
         .backgroundColor($r('app.color.background'))
-        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
-        .mode(NavigationMode.Stack)
-        .titleMode(HdsNavigationTitleMode.MINI)
-        .titleBar({
-          avoidLayoutSafeArea: true,
-          enableComponentSafeArea: true,
-          content: {
-            title: {
-              mainTitle: $r('app.string.settings_support_development')
-            }
-          }
-        })
       }
     }
     .width('100%')
@@ -181,4 +186,13 @@ export function SupportDevelopmentPageBuilder(name: string, param: Object) {
   }
   .hideTitleBar(true)
   .hideBackButton(true)
+  .onReady((context: NavDestinationContext) => {
+    supportDevelopmentPathStack = context.pathStack
+  })
+  .onBackPressed((): boolean => {
+    if (supportDevelopmentPathStack !== null && supportDevelopmentPathStack.size() > 0) {
+      supportDevelopmentPathStack.pop()
+    }
+    return true
+  })
 }

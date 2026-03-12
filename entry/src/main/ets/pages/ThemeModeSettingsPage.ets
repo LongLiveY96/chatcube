@@ -1,15 +1,20 @@
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
 import { AppStorageKeys } from '../config/AppStorageKeys'
 import { LayoutSizeClass } from '../config/LayoutProfile'
 import { ALL_THEMES, ColorTheme, getThemeColors, ThemeColorConfig, ThemeInfo } from '../models/ThemeColors'
 import { ThemeMode } from '../services/PreferencesService'
 import { ServiceRegistry } from '../services/ServiceRegistry'
+import { SettingsCompactPageHeader } from '../components/settings/SettingsCompactPageHeader'
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getAppUiState } from '../state/AppUiState'
 
+let themeModeSettingsPathStack: NavPathStack | null = null
+
 @ComponentV2
 export struct ThemeAppearanceSettingsView {
+  private get topAvoidHeight(): number {
+    return getAppUiState().topAvoidHeight
+  }
   private get layoutSizeClass(): string {
     return getAppUiState().layoutSizeClass
   }
@@ -31,6 +36,9 @@ export struct ThemeAppearanceSettingsView {
   private get isDarkMode(): boolean {
     return getAppUiState().isDarkMode
   }
+
+  @Param compactTitle: string | Resource = $r('app.string.settings_appearance')
+  @Event onCompactBack: () => void = () => {}
 
   @Local currentThemeMode: ThemeMode = ThemeMode.SYSTEM
   @Local currentColorTheme: ColorTheme = ColorTheme.DEFAULT
@@ -540,24 +548,17 @@ export struct ThemeAppearanceSettingsView {
         .width('100%')
         .layoutWeight(1)
       } else {
-        HdsNavigation() {
+        Column() {
+          SettingsCompactPageHeader({
+            title: this.compactTitle,
+            topAvoidHeight: this.topAvoidHeight,
+            onBack: this.onCompactBack
+          })
           this.PageContent()
         }
         .width('100%')
         .layoutWeight(1)
         .backgroundColor($r('app.color.background'))
-        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
-        .mode(NavigationMode.Stack)
-        .titleMode(HdsNavigationTitleMode.MINI)
-        .titleBar({
-          avoidLayoutSafeArea: true,
-          enableComponentSafeArea: true,
-          content: {
-            title: {
-              mainTitle: $r('app.string.settings_appearance')
-            }
-          }
-        })
       }
     }
     .width('100%')
@@ -569,9 +570,20 @@ export struct ThemeAppearanceSettingsView {
 @Entry
 @ComponentV2
 struct ThemeModeSettingsPage {
+  private handleBack(): void {
+    if (themeModeSettingsPathStack !== null && themeModeSettingsPathStack.size() > 0) {
+      themeModeSettingsPathStack.pop()
+    }
+  }
+
   build() {
     Column() {
-      ThemeAppearanceSettingsView()
+      ThemeAppearanceSettingsView({
+        compactTitle: $r('app.string.settings_appearance'),
+        onCompactBack: () => {
+          this.handleBack()
+        }
+      })
     }
     .width('100%')
     .height('100%')
@@ -585,5 +597,14 @@ export function ThemeModeSettingsPageBuilder(name: string, param: Object) {
   }
   .hideTitleBar(true)
   .hideBackButton(true)
+  .onReady((context: NavDestinationContext) => {
+    themeModeSettingsPathStack = context.pathStack
+  })
+  .onBackPressed((): boolean => {
+    if (themeModeSettingsPathStack !== null && themeModeSettingsPathStack.size() > 0) {
+      themeModeSettingsPathStack.pop()
+    }
+    return true
+  })
 }
 

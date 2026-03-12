@@ -886,7 +886,12 @@ export class DatabaseService {
 
   // 获取所有会话
   async getAllSessions(): Promise<ChatSession[]> {
-    await this.waitForInitialization()
+    try {
+      await this.waitForInitialization()
+    } catch (error) {
+      console.error('DatabaseService', `Failed to wait for database initialization: ${JSON.stringify(error)}`)
+      return []
+    }
     if (this.rdbStore === null) {
       return []
     }
@@ -1158,6 +1163,48 @@ export class DatabaseService {
     return attachments
   }
 
+  private async getAttachmentsByMessageIds(messageIds: string[]): Promise<Map<string, MessageAttachment[]>> {
+    const attachmentsMap = new Map<string, MessageAttachment[]>()
+    if (this.rdbStore === null || messageIds.length === 0) {
+      return attachmentsMap
+    }
+
+    const chunkSize = 200
+    for (let start = 0; start < messageIds.length; start += chunkSize) {
+      const chunk = messageIds.slice(start, start + chunkSize)
+      const predicates = new relationalStore.RdbPredicates(TableNames.ATTACHMENTS)
+      predicates.in('message_id', chunk)
+
+      try {
+        const resultSet = await this.rdbStore.query(predicates)
+        while (resultSet.goToNextRow()) {
+          const typeStr = resultSet.getString(resultSet.getColumnIndex('type'))
+          const attachmentType = typeStr === 'image' ? AttachmentType.IMAGE : AttachmentType.FILE
+          const messageId = resultSet.getString(resultSet.getColumnIndex('message_id'))
+          const attachment = new MessageAttachment(
+            resultSet.getString(resultSet.getColumnIndex('id')),
+            attachmentType,
+            resultSet.getString(resultSet.getColumnIndex('name')),
+            resultSet.getString(resultSet.getColumnIndex('file_path')),
+            resultSet.getString(resultSet.getColumnIndex('mime_type')),
+            resultSet.getLong(resultSet.getColumnIndex('size'))
+          )
+          const existing = attachmentsMap.get(messageId)
+          if (existing !== undefined) {
+            existing.push(attachment)
+          } else {
+            attachmentsMap.set(messageId, [attachment])
+          }
+        }
+        resultSet.close()
+      } catch (error) {
+        console.error('DatabaseService', `Failed to batch get attachments: ${JSON.stringify(error)}`)
+      }
+    }
+
+    return attachmentsMap
+  }
+
   // 获取会话的所有消息
   async getMessages(sessionId: string): Promise<ChatMessage[]> {
     await this.waitForInitialization()
@@ -1239,10 +1286,14 @@ export class DatabaseService {
       }
       resultSet.close()
 
-      // 加载每条消息的附件
+      const messageIds: string[] = []
       for (let i = 0; i < messages.length; i++) {
-        const attachments = await this.getAttachments(messages[i].id)
-        messages[i].attachments = attachments
+        messageIds.push(messages[i].id)
+      }
+      const attachmentsMap = await this.getAttachmentsByMessageIds(messageIds)
+      for (let i = 0; i < messages.length; i++) {
+        const attachments = attachmentsMap.get(messages[i].id)
+        messages[i].attachments = attachments !== undefined ? attachments : []
       }
     } catch (error) {
       console.error('DatabaseService', `Failed to get messages: ${JSON.stringify(error)}`)

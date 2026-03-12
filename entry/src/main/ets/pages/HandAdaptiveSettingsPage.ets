@@ -1,21 +1,26 @@
 import { motion } from '@kit.MultimodalAwarenessKit'
 import { BusinessError } from '@kit.BasicServicesKit'
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
 import { AppStorageKeys } from '../config/AppStorageKeys'
 import { setAppUiStateValue } from '../state/AppUiState'
 import { LayoutSizeClass } from '../config/LayoutProfile'
 import { PreferenceKeys } from '../services/PreferencesService'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { IndexSettingsSheetContent } from '../components/index/IndexSettingsSheetContent'
+import { SettingsCompactPageHeader } from '../components/settings/SettingsCompactPageHeader'
 import { IndexSettingsSheetActionCallbacks } from './index/IndexSettingsSheetCoordinator'
 import { SettingsSheetType } from './index/IndexPageTypes'
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getAppUiState } from '../state/AppUiState'
 
+let handAdaptiveSettingsPathStack: NavPathStack | null = null
+
 @Entry
 @ComponentV2
 struct HandAdaptiveSettingsPage {
+  private get topAvoidHeight(): number {
+    return getAppUiState().topAvoidHeight
+  }
   private get layoutSizeClass(): string {
     return getAppUiState().layoutSizeClass
   }
@@ -47,6 +52,12 @@ struct HandAdaptiveSettingsPage {
 
   private isDetailPaneMode(): boolean {
     return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
+  }
+
+  private handleBack(): void {
+    if (handAdaptiveSettingsPathStack !== null && handAdaptiveSettingsPathStack.size() > 0) {
+      handAdaptiveSettingsPathStack.pop()
+    }
   }
 
   private async loadSettings(): Promise<void> {
@@ -166,24 +177,19 @@ struct HandAdaptiveSettingsPage {
         .width('100%')
         .layoutWeight(1)
       } else {
-        HdsNavigation() {
+        Column() {
+          SettingsCompactPageHeader({
+            title: $r('app.string.hand_adaptive_title'),
+            topAvoidHeight: this.topAvoidHeight,
+            onBack: () => {
+              this.handleBack()
+            }
+          })
           this.PageContent()
         }
         .width('100%')
         .layoutWeight(1)
         .backgroundColor($r('app.color.background'))
-        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
-        .mode(NavigationMode.Stack)
-        .titleMode(HdsNavigationTitleMode.MINI)
-        .titleBar({
-          avoidLayoutSafeArea: true,
-          enableComponentSafeArea: true,
-          content: {
-            title: {
-              mainTitle: $r('app.string.hand_adaptive_title')
-            }
-          }
-        })
       }
     }
     .width('100%')
@@ -199,5 +205,14 @@ export function HandAdaptiveSettingsPageBuilder(name: string, param: Object) {
   }
   .hideTitleBar(true)
   .hideBackButton(true)
+  .onReady((context: NavDestinationContext) => {
+    handAdaptiveSettingsPathStack = context.pathStack
+  })
+  .onBackPressed((): boolean => {
+    if (handAdaptiveSettingsPathStack !== null && handAdaptiveSettingsPathStack.size() > 0) {
+      handAdaptiveSettingsPathStack.pop()
+    }
+    return true
+  })
 }
 

@@ -869,12 +869,19 @@ struct Index {
     if (isFirstLoad) {
       this.isLoading = true
     }
-    const newSessions = await this.chatViewModel.getAllSessions()
-    if (loadSeq !== this.sessionLoadSeq) {
-      return
+    try {
+      const newSessions = await this.chatViewModel.getAllSessions()
+      if (loadSeq !== this.sessionLoadSeq) {
+        return
+      }
+      this.mergeSessions(newSessions)
+    } catch (error) {
+      console.error('Index', `Failed to load sessions: ${JSON.stringify(error)}`)
+    } finally {
+      if (loadSeq === this.sessionLoadSeq) {
+        this.isLoading = false
+      }
     }
-    this.mergeSessions(newSessions)
-    this.isLoading = false
   }
 
   /**
@@ -1085,7 +1092,7 @@ struct Index {
       .width('100%')
       .layoutWeight(1)
       .barMode(BarMode.Fixed)
-      .barHeight(56 + this.px2vp(this.bottomAvoidHeight))
+      .barHeight(this.getCompactTabsBarHeight())
       .barBackgroundBlurStyle(BlurStyle.COMPONENT_THICK)
       .scrollable(false)
       .onChange((index: number) => {
@@ -1805,6 +1812,17 @@ struct Index {
 
   private shouldIgnoreCompactSettingsTopSafeArea(): boolean {
     return true
+  }
+
+  private shouldHideCompactBottomTabs(): boolean {
+    return this.currentTabIndex === 2 && !this.isSettingsSplitMode() && this.currentSettingsRouteName !== ''
+  }
+
+  private getCompactTabsBarHeight(): number {
+    if (this.shouldHideCompactBottomTabs()) {
+      return 0
+    }
+    return 56 + this.px2vp(this.bottomAvoidHeight)
   }
 
   @Builder

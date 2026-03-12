@@ -1,14 +1,19 @@
 import { ToolsCenterPanel } from '../components/ToolsCenterPanel'
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
+import { SettingsCompactPageHeader } from '../components/settings/SettingsCompactPageHeader'
 import { AppStorageKeys } from '../config/AppStorageKeys'
 import { LayoutSizeClass } from '../config/LayoutProfile'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 import { getAppUiState } from '../state/AppUiState'
 
+let toolsCenterPagePathStack: NavPathStack | null = null
+
 @Entry
 @ComponentV2
 struct ToolsCenterPage {
+  private get topAvoidHeight(): number {
+    return getAppUiState().topAvoidHeight
+  }
   private get layoutSizeClass(): string {
     return getAppUiState().layoutSizeClass
   }
@@ -31,6 +36,12 @@ struct ToolsCenterPage {
     return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
   }
 
+  private handleBack(): void {
+    if (toolsCenterPagePathStack !== null && toolsCenterPagePathStack.size() > 0) {
+      toolsCenterPagePathStack.pop()
+    }
+  }
+
   @Builder
   private PageContent() {
     Row() {
@@ -41,7 +52,7 @@ struct ToolsCenterPage {
       .constraintSize({ maxWidth: this.getContentMaxWidth() })
     }
     .width('100%')
-    .height('100%')
+    .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
     .padding({ left: 16, right: 16 })
   }
@@ -76,24 +87,19 @@ struct ToolsCenterPage {
         .width('100%')
         .layoutWeight(1)
       } else {
-        HdsNavigation() {
+        Column() {
+          SettingsCompactPageHeader({
+            title: $r('app.string.tools_center_title'),
+            topAvoidHeight: this.topAvoidHeight,
+            onBack: () => {
+              this.handleBack()
+            }
+          })
           this.PageContent()
         }
         .width('100%')
         .layoutWeight(1)
         .backgroundColor($r('app.color.background'))
-        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
-        .mode(NavigationMode.Stack)
-        .titleMode(HdsNavigationTitleMode.MINI)
-        .titleBar({
-          avoidLayoutSafeArea: true,
-          enableComponentSafeArea: true,
-          content: {
-            title: {
-              mainTitle: $r('app.string.tools_center_title')
-            }
-          }
-        })
       }
     }
     .width('100%')
@@ -109,5 +115,14 @@ export function ToolsCenterPageBuilder(name: string, param: Object) {
   }
   .hideTitleBar(true)
   .hideBackButton(true)
+  .onReady((context: NavDestinationContext) => {
+    toolsCenterPagePathStack = context.pathStack
+  })
+  .onBackPressed((): boolean => {
+    if (toolsCenterPagePathStack !== null && toolsCenterPagePathStack.size() > 0) {
+      toolsCenterPagePathStack.pop()
+    }
+    return true
+  })
 }
 

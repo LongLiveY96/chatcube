@@ -1,10 +1,10 @@
 import { common } from '@kit.AbilityKit'
 import { notificationManager } from '@kit.NotificationKit'
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
 import { AppStorageKeys } from '../config/AppStorageKeys'
 import { LayoutSizeClass } from '../config/LayoutProfile'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { IndexSettingsSheetContent } from '../components/index/IndexSettingsSheetContent'
+import { SettingsCompactPageHeader } from '../components/settings/SettingsCompactPageHeader'
 import { IndexSettingsSheetActionCallbacks } from './index/IndexSettingsSheetCoordinator'
 import { SettingsSheetType } from './index/IndexPageTypes'
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
@@ -12,9 +12,14 @@ import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/Toa
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getAppUiState } from '../state/AppUiState'
 
+let notificationSettingsPathStack: NavPathStack | null = null
+
 @Entry
 @ComponentV2
 struct NotificationSettingsPage {
+  private get topAvoidHeight(): number {
+    return getAppUiState().topAvoidHeight
+  }
   private get layoutSizeClass(): string {
     return getAppUiState().layoutSizeClass
   }
@@ -51,6 +56,12 @@ struct NotificationSettingsPage {
 
   private isDetailPaneMode(): boolean {
     return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
+  }
+
+  private handleBack(): void {
+    if (notificationSettingsPathStack !== null && notificationSettingsPathStack.size() > 0) {
+      notificationSettingsPathStack.pop()
+    }
   }
 
   private buildCallbacks(): IndexSettingsSheetActionCallbacks {
@@ -157,24 +168,19 @@ struct NotificationSettingsPage {
         .width('100%')
         .layoutWeight(1)
       } else {
-        HdsNavigation() {
+        Column() {
+          SettingsCompactPageHeader({
+            title: $r('app.string.settings_notifications'),
+            topAvoidHeight: this.topAvoidHeight,
+            onBack: () => {
+              this.handleBack()
+            }
+          })
           this.PageContent()
         }
         .width('100%')
         .layoutWeight(1)
         .backgroundColor($r('app.color.background'))
-        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
-        .mode(NavigationMode.Stack)
-        .titleMode(HdsNavigationTitleMode.MINI)
-        .titleBar({
-          avoidLayoutSafeArea: true,
-          enableComponentSafeArea: true,
-          content: {
-            title: {
-              mainTitle: $r('app.string.settings_notifications')
-            }
-          }
-        })
       }
     }
     .width('100%')
@@ -190,5 +196,14 @@ export function NotificationSettingsPageBuilder(name: string, param: Object) {
   }
   .hideTitleBar(true)
   .hideBackButton(true)
+  .onReady((context: NavDestinationContext) => {
+    notificationSettingsPathStack = context.pathStack
+  })
+  .onBackPressed((): boolean => {
+    if (notificationSettingsPathStack !== null && notificationSettingsPathStack.size() > 0) {
+      notificationSettingsPathStack.pop()
+    }
+    return true
+  })
 }
 

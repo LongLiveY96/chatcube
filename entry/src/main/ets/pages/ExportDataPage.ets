@@ -4,16 +4,18 @@ import { ChatViewModel } from '../viewmodels/ChatViewModel'
 import { getImportExportService, ExportOptions } from '../services/ImportExportService'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit'
-import { AppStorageKeys } from '../config/AppStorageKeys'
-import { LayoutSizeClass } from '../config/LayoutProfile'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
 import { getAppUiState } from '../state/AppUiState'
 
+let exportDataPathStack: NavPathStack | null = null
+
 @Entry
 @ComponentV2
 struct ExportDataPage {
+  private get topAvoidHeight(): number {
+    return getAppUiState().topAvoidHeight
+  }
   private get bottomAvoidHeight(): number {
     return getAppUiState().bottomAvoidHeight
   }
@@ -65,6 +67,12 @@ struct ExportDataPage {
     options.duration = duration
     options.tone = tone
     showSnackBar(this.getUIContext(), options)
+  }
+
+  private handleBack(): void {
+    if (exportDataPathStack !== null && exportDataPathStack.size() > 0) {
+      exportDataPathStack.pop()
+    }
   }
 
   aboutToAppear(): void {
@@ -153,7 +161,7 @@ struct ExportDataPage {
           fileIo.unlinkSync(zipPath)
 
           this.showExportToast($r('app.string.export_success'), 2000, SnackBarTone.SUCCESS)
-          this.getUIContext().getRouter().back()
+          this.handleBack()
         }
       }
     } catch (error) {
@@ -319,7 +327,7 @@ struct ExportDataPage {
       }
     }
     .width('100%')
-    .height('100%')
+    .layoutWeight(1)
   }
 
   @Builder
@@ -342,6 +350,49 @@ struct ExportDataPage {
     .border({ width: { bottom: 1 }, color: $r('app.color.divider') })
   }
 
+  @Builder
+  private CompactPageHeader() {
+    Column() {
+      Column()
+        .width('100%')
+        .height(this.px2vp(this.topAvoidHeight))
+
+      Row({ space: 4 }) {
+        Button() {
+          SymbolGlyph($r('sys.symbol.chevron_left'))
+            .fontSize(20)
+            .fontColor([$r('app.color.text_primary')])
+        }
+        .type(ButtonType.Normal)
+        .stateEffect(false)
+        .width(40)
+        .height(40)
+        .borderRadius(20)
+        .backgroundColor(Color.Transparent)
+        .onClick(() => {
+          this.handleBack()
+        })
+
+        Text($r('app.string.export_title'))
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+          .margin({ left: 4 })
+
+        Column()
+          .width(40)
+          .height(40)
+      }
+      .width('100%')
+      .height(56)
+      .padding({ left: 8, right: 8 })
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .backgroundColor($r('app.color.background'))
+  }
+
   build() {
     Column() {
       if (this.isDetailPaneMode()) {
@@ -352,24 +403,13 @@ struct ExportDataPage {
         .width('100%')
         .layoutWeight(1)
       } else {
-        HdsNavigation() {
+        Column() {
+          this.CompactPageHeader()
           this.PageContent()
         }
         .width('100%')
         .layoutWeight(1)
         .backgroundColor($r('app.color.background'))
-        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
-        .mode(NavigationMode.Stack)
-        .titleMode(HdsNavigationTitleMode.MINI)
-        .titleBar({
-          avoidLayoutSafeArea: true,
-          enableComponentSafeArea: true,
-          content: {
-            title: {
-              mainTitle: $r('app.string.export_title')
-            }
-          }
-        })
       }
     }
     .width('100%')
@@ -424,5 +464,14 @@ export function ExportDataPageBuilder(name: string, param: Object) {
   }
   .hideTitleBar(true)
   .hideBackButton(true)
+  .onReady((context: NavDestinationContext) => {
+    exportDataPathStack = context.pathStack
+  })
+  .onBackPressed((): boolean => {
+    if (exportDataPathStack !== null && exportDataPathStack.size() > 0) {
+      exportDataPathStack.pop()
+    }
+    return true
+  })
 }
 

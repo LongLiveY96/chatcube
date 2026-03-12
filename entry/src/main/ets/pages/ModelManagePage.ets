@@ -7,16 +7,21 @@ import { ProviderIcon } from '../components/ProviderIcon'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { ModelCapabilityMatcher } from '../services/ModelCapabilityMatcher'
 import { IconDownloadCache } from '../services/IconDownloadCache'
-import { HdsNavigation, HdsNavigationTitleMode, HdsNavigationMenuItemOptions } from '@kit.UIDesignKit'
+import { HdsNavigationMenuItemOptions } from '@kit.UIDesignKit'
 import { AppStorageKeys } from '../config/AppStorageKeys'
 import { LayoutSizeClass } from '../config/LayoutProfile'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { isSettingsPageExpandedLayout } from '../utils/SettingsPageLayoutHelper'
 import { getAppUiState, observeAppUiState } from '../state/AppUiState'
 
+let modelManagePagePathStack: NavPathStack | null = null
+
 @Entry
 @ComponentV2
 struct ModelManagePage {
+  private get topAvoidHeight(): number {
+    return getAppUiState().topAvoidHeight
+  }
   @Local allProviders: ModelProvider[] = []
   @Local isLoading: boolean = false
   @Local searchKeywords: string = ''
@@ -49,6 +54,12 @@ struct ModelManagePage {
 
   private showManageToast(message: string | Resource, duration: number = 2000): void {
     showToast(this.getUIContext(), message, duration)
+  }
+
+  private handleBack(): void {
+    if (modelManagePagePathStack !== null && modelManagePagePathStack.size() > 0) {
+      modelManagePagePathStack.pop()
+    }
   }
 
   onLayoutSizeClassChanged(): void {
@@ -300,27 +311,13 @@ struct ModelManagePage {
         .width('100%')
         .layoutWeight(1)
       } else {
-        HdsNavigation() {
+        Column() {
+          this.CompactPageHeader()
           this.CompactManageBody()
         }
         .width('100%')
         .layoutWeight(1)
         .backgroundColor($r('app.color.background'))
-        .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
-        .mode(NavigationMode.Stack)
-        .titleMode(HdsNavigationTitleMode.MINI)
-        .titleBar({
-          avoidLayoutSafeArea: true,
-          enableComponentSafeArea: true,
-          content: {
-            title: {
-              mainTitle: $r('app.string.model_manage_title')
-            },
-            menu: {
-              value: this.getManageMenus()
-            }
-          }
-        })
       }
 
       // 单独的 Sheet 宿主，避免挂在动态重渲染主体上导致偶发收缩
@@ -389,12 +386,76 @@ struct ModelManagePage {
   }
 
   @Builder
+  private CompactPageHeader() {
+    Column() {
+      Column()
+        .width('100%')
+        .height(px2vp(this.topAvoidHeight))
+
+      Row({ space: 6 }) {
+        Button() {
+          SymbolGlyph($r('sys.symbol.chevron_left'))
+            .fontSize(20)
+            .fontColor([$r('app.color.text_primary')])
+        }
+        .type(ButtonType.Normal)
+        .stateEffect(false)
+        .width(40)
+        .height(40)
+        .borderRadius(20)
+        .backgroundColor(Color.Transparent)
+        .onClick(() => {
+          this.handleBack()
+        })
+
+        Text($r('app.string.model_manage_title'))
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+
+        Button() {
+          SymbolGlyph($r('sys.symbol.wand_and_stars'))
+            .fontSize(18)
+            .fontColor([$r('app.color.text_primary')])
+        }
+        .type(ButtonType.Circle)
+        .width(36)
+        .height(36)
+        .backgroundColor($r('app.color.divider'))
+        .onClick(() => {
+          this.matchAllIcons()
+        })
+
+        Button() {
+          SymbolGlyph($r('sys.symbol.plus_circle'))
+            .fontSize(18)
+            .fontColor([$r('app.color.text_primary')])
+        }
+        .type(ButtonType.Circle)
+        .width(36)
+        .height(36)
+        .backgroundColor($r('app.color.divider'))
+        .onClick(() => {
+          this.openCreateProvider()
+        })
+      }
+      .width('100%')
+      .height(56)
+      .padding({ left: 8, right: 12 })
+      .alignItems(VerticalAlign.Center)
+    }
+    .width('100%')
+    .backgroundColor($r('app.color.background'))
+  }
+
+  @Builder
   CompactManageBody() {
     Column() {
       this.ProviderListPane(false)
     }
     .width('100%')
-    .height('100%')
+    .layoutWeight(1)
     .backgroundColor($r('app.color.background'))
   }
 
@@ -825,5 +886,14 @@ export function ModelManagePageBuilder(name: string, param: Object) {
   }
   .hideTitleBar(true)
   .hideBackButton(true)
+  .onReady((context: NavDestinationContext) => {
+    modelManagePagePathStack = context.pathStack
+  })
+  .onBackPressed((): boolean => {
+    if (modelManagePagePathStack !== null && modelManagePagePathStack.size() > 0) {
+      modelManagePagePathStack.pop()
+    }
+    return true
+  })
 }
 
