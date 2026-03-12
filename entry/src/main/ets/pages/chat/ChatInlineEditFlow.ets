@@ -5,6 +5,12 @@ import { collectTailMessageIds, findMessageIndexById } from './ChatMessageAction
 export interface ChatInlineEditFlowDependencies {
   chatViewModel: ChatViewModel
   getMessages: () => ChatMessage[]
+  onValidateBeforeCommit: (
+    content: string,
+    attachments: MessageAttachment[],
+    webSearchEnabled: boolean,
+    reasoningLevel: ReasoningLevel
+  ) => boolean
   onSyncMessages: () => void
   onResetEditState: () => void
   onApplySavedDraft: (
@@ -60,6 +66,19 @@ export class ChatInlineEditFlow {
       const savedContent = inputText.trim()
       const savedWebSearch = editingWebSearchEnabled
       const savedReasoningLevel = editingReasoningLevel
+
+      // 在真正改写消息链之前，先复用正常发送链路做一次前置校验。
+      // 失败时保留原消息和当前编辑态，避免“内容没了但也没发出去”的烂体验。
+      const canCommit = this.deps.onValidateBeforeCommit(
+        savedContent,
+        savedAttachments,
+        savedWebSearch,
+        savedReasoningLevel
+      )
+      if (!canCommit) {
+        return
+      }
+
       const messageIdsToDelete = collectTailMessageIds(messages, messageIndex)
 
       await this.deps.chatViewModel.deleteMessagesFromIndex(messageIdsToDelete)

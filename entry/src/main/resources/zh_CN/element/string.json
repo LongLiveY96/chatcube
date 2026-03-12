@@ -977,6 +977,14 @@
       "value": "请输入 API Key"
     },
     {
+      "name": "provider_requires_api_key",
+      "value": "需要 API Key"
+    },
+    {
+      "name": "provider_requires_api_key_desc",
+      "value": "关闭后允许留空，适用于免密钥网关、本地服务或内网代理"
+    },
+    {
       "name": "provider_base_url_placeholder",
       "value": "例如: https://api.openai.com/v1"
     },

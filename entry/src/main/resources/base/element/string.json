@@ -977,6 +977,14 @@
       "value": "Please enter API Key"
     },
     {
+      "name": "provider_requires_api_key",
+      "value": "Require API Key"
+    },
+    {
+      "name": "provider_requires_api_key_desc",
+      "value": "Turn off to allow empty keys for keyless gateways, local services, or internal proxies"
+    },
+    {
       "name": "provider_base_url_placeholder",
       "value": "e.g. https://api.openai.com/v1"
     },

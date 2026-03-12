@@ -210,6 +210,7 @@ export class DatabaseService {
         type TEXT,
         api_style TEXT,
         api_key TEXT,
+        requires_api_key INTEGER DEFAULT 1,
         base_url TEXT,
         is_enabled INTEGER,
         models_json TEXT,
@@ -266,6 +267,7 @@ export class DatabaseService {
       // 尝试添加 is_preset 和 icon_path 字段（用于供应商图标管理）
       await this.addProviderIconColumnsIfNeeded()
       await this.addApiPathColumnIfNeeded()
+      await this.addProviderRequiresApiKeyColumnIfNeeded()
       // 尝试添加同步相关字段（为 WebDAV 同步预留）
       await this.addSyncColumnsIfNeeded()
       // 尝试添加会话元信息字段（用于会话列表增强）
@@ -365,11 +367,28 @@ export class DatabaseService {
 
       while (resultSet.goToNextRow()) {
         const id = resultSet.getString(resultSet.getColumnIndex('id'))
+        const type = resultSet.getString(resultSet.getColumnIndex('type'))
         let iconType = ''
         try {
           iconType = resultSet.getString(resultSet.getColumnIndex('icon_type'))
         } catch (e) {
           iconType = ''
+        }
+        let requiresApiKey = true
+        try {
+          requiresApiKey = resultSet.getLong(resultSet.getColumnIndex('requires_api_key')) === 1
+        } catch (e) {
+          requiresApiKey = true
+        }
+
+        if ((id === 'ollama' || type === 'ollama' || type === 'lmstudio') && requiresApiKey) {
+          const updatePredicates = new relationalStore.RdbPredicates(TableNames.PROVIDERS)
+          updatePredicates.equalTo('id', id)
+          const valueBucket: relationalStore.ValuesBucket = {
+            'requires_api_key': 0
+          }
+          await this.rdbStore.update(valueBucket, updatePredicates)
+          requiresApiKey = false
         }
 
         // 预设供应商：强制迁移为 TEXT 类型
@@ -430,6 +449,17 @@ export class DatabaseService {
       await this.rdbStore.executeSql(`ALTER TABLE ${TableNames.PROVIDERS} ADD COLUMN api_path TEXT DEFAULT ''`)
     } catch (error) {
       console.info('DatabaseService', 'api_path column may already exist')
+    }
+  }
+
+  private async addProviderRequiresApiKeyColumnIfNeeded(): Promise<void> {
+    if (this.rdbStore === null) {
+      return
+    }
+    try {
+      await this.rdbStore.executeSql(`ALTER TABLE ${TableNames.PROVIDERS} ADD COLUMN requires_api_key INTEGER DEFAULT 1`)
+    } catch (error) {
+      console.info('DatabaseService', 'requires_api_key column may already exist')
     }
   }
 
@@ -1469,6 +1499,7 @@ export class DatabaseService {
       type: provider.type,
       api_style: provider.apiStyle,
       api_key: provider.apiKey,
+      requires_api_key: provider.requiresApiKey ? 1 : 0,
       base_url: provider.baseUrl,
       is_enabled: provider.isConnected ? 1 : 0,
       models_json: modelsJson,
@@ -1583,6 +1614,12 @@ export class DatabaseService {
         } catch (e) {
           customImagePath = ''
         }
+        let requiresApiKey = true
+        try {
+          requiresApiKey = resultSet.getLong(resultSet.getColumnIndex('requires_api_key')) === 1
+        } catch (e) {
+          requiresApiKey = true
+        }
 
         const config: ProviderConfig = {
           id: resultSet.getString(resultSet.getColumnIndex('id')),
@@ -1590,6 +1627,7 @@ export class DatabaseService {
           type: resultSet.getString(resultSet.getColumnIndex('type')),
           apiStyle: resultSet.getString(resultSet.getColumnIndex('api_style')),
           apiKey: resultSet.getString(resultSet.getColumnIndex('api_key')),
+          requiresApiKey: requiresApiKey,
           baseUrl: resultSet.getString(resultSet.getColumnIndex('base_url')),
           isEnabled: resultSet.getLong(resultSet.getColumnIndex('is_enabled')) === 1,
           modelsJson: resultSet.getString(resultSet.getColumnIndex('models_json')),
@@ -1901,6 +1939,7 @@ export interface ProviderConfig {
   type: string
   apiStyle: string
   apiKey: string
+  requiresApiKey: boolean
   baseUrl: string
   isEnabled: boolean
   modelsJson: string

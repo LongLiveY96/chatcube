@@ -84,6 +84,7 @@ export interface ProviderExportData {
   type: string
   apiStyle: string
   apiKey: string
+  requiresApiKey: boolean
   baseUrl: string
   isEnabled: boolean
   modelsJson: string
@@ -380,6 +381,7 @@ export class ImportExportService {
         type: p.type,
         apiStyle: p.apiStyle,
         apiKey: options.includeApiKeys ? p.apiKey : '',
+        requiresApiKey: p.requiresApiKey,
         baseUrl: p.baseUrl,
         isEnabled: p.isEnabled,
         modelsJson: p.modelsJson,
@@ -1039,6 +1041,8 @@ export class ImportExportService {
       apiStyle
     )
     provider.apiKey = providerData.apiKey
+    provider.requiresApiKey = providerData.requiresApiKey !== undefined ? providerData.requiresApiKey :
+      (provider.type !== ProviderType.OLLAMA && provider.type !== ProviderType.LMSTUDIO)
     provider.isConnected = providerData.isEnabled
     provider.isPreset = providerData.isPreset
     provider.iconPath = providerData.iconPath

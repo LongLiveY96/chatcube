@@ -14,7 +14,13 @@ import {
   ModelParametersJson,
   ProviderIconType
 } from '../models/ChatModels'
-import { getPresetProviderIconPath, isPresetProvider, getEffectiveApiKey, getPresetProviderById } from '../config/PresetProviders'
+import {
+  getPresetProviderIconPath,
+  isPresetProvider,
+  getEffectiveApiKey,
+  getPresetProviderById,
+  isPresetProviderApiKeyRequired
+} from '../config/PresetProviders'
 
 // 服务商状态管理 - 单例模式
 export class ProviderViewModel {
@@ -175,6 +181,7 @@ export class ProviderViewModel {
     target.name = source.name
     target.isConnected = source.isConnected
     target.apiKey = source.apiKey
+    target.requiresApiKey = source.requiresApiKey
     target.baseUrl = source.baseUrl
     target.apiPath = source.apiPath
     target.apiStyle = source.apiStyle
@@ -231,6 +238,8 @@ export class ProviderViewModel {
       apiStyle
     )
     provider.apiKey = config.apiKey
+    provider.requiresApiKey = (providerType === ProviderType.OLLAMA || providerType === ProviderType.LMSTUDIO) ?
+      false : config.requiresApiKey
     provider.isConnected = config.isEnabled
 
     // 设置新字段
@@ -390,6 +399,7 @@ export class ProviderViewModel {
       ApiStyle.OPENAI
     )
     siliconflow.apiKey = ''  // 使用预设 API Key
+    siliconflow.requiresApiKey = isPresetProviderApiKeyRequired(siliconflow.id)
     siliconflow.isConnected = true
     siliconflow.isPreset = true
     siliconflow.iconPath = ''
@@ -432,6 +442,7 @@ export class ProviderViewModel {
             preset.apiStyle
           )
           provider.apiKey = ''
+          provider.requiresApiKey = isPresetProviderApiKeyRequired(preset.id)
           provider.isConnected = preset.id === 'siliconflow'  // 仅硅基流动默认启用
           provider.isPreset = true
           provider.iconPath = ''

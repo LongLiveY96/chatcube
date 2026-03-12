@@ -12,6 +12,7 @@ export interface PresetProviderConfig {
   type: ProviderType
   apiStyle: ApiStyle
   baseUrl: string
+  requiresApiKey?: boolean
   iconPath: string      // SVG 图标路径（已弃用，置空）
   brandColorHex: string // 品牌色（十六进制）
   presetApiKey?: string // 预设 API Key（可选，用户不填时使用）
@@ -170,6 +171,7 @@ const PRESET_PROVIDERS: PresetProviderConfig[] = [
     type: ProviderType.OLLAMA,
     apiStyle: ApiStyle.OPENAI,
     baseUrl: 'http://localhost:11434/v1',
+    requiresApiKey: false,
     iconPath: '',
     brandColorHex: '#FFFFFF',
     textIcon: '🦙',
@@ -250,6 +252,14 @@ export function getEffectiveApiKey(providerId: string, userApiKey: string): stri
     return preset.presetApiKey
   }
   return ''
+}
+
+export function isPresetProviderApiKeyRequired(providerId: string): boolean {
+  const preset = getPresetProviderById(providerId)
+  if (preset !== null && preset.requiresApiKey !== undefined) {
+    return preset.requiresApiKey
+  }
+  return true
 }
 
 /**

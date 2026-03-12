@@ -647,6 +647,7 @@ export class ModelProvider {
   @Trace type: ProviderType
   @Trace apiStyle: ApiStyle
   @Trace apiKey: string
+  @Trace requiresApiKey: boolean
   @Trace baseUrl: string
   @Trace isConnected: boolean
   @Trace isExpanded: boolean
@@ -677,6 +678,7 @@ export class ModelProvider {
     this.type = type
     this.apiStyle = apiStyle
     this.apiKey = ''
+    this.requiresApiKey = true
     this.baseUrl = baseUrl
     this.isConnected = false
     this.isExpanded = false

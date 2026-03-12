@@ -709,7 +709,7 @@ struct ModelManagePage {
     this.showManageToast(newStatus ? $r('app.string.provider_enabled') : $r('app.string.provider_disabled'))
   }
 
-  // 一键匹配所有模型图标
+  // 一键同步模型能力并匹配图标
   private async matchAllIcons(): Promise<void> {
     if (this.isMatchingIcons) {
       return
@@ -727,12 +727,16 @@ struct ModelManagePage {
 
     const iconCache = IconDownloadCache.getInstance()
     let matchedCount = 0
+    let capabilityMatchedCount = 0
     let totalModels = 0
     // 去重：同一 logoUrl 只下载一次
     const downloadedUrls = new Set<string>()
 
     for (let i = 0; i < this.allProviders.length; i++) {
       const provider = this.allProviders[i]
+      const providerCapabilityMatched = await matcher.applyCapabilitiesBatch(provider.models)
+      capabilityMatchedCount += providerCapabilityMatched
+
       for (let j = 0; j < provider.models.length; j++) {
         totalModels++
         const logoUrl = matcher.getLogoUrl(provider.models[j].id)
@@ -748,6 +752,10 @@ struct ModelManagePage {
           }
         }
       }
+
+      if (providerCapabilityMatched > 0) {
+        await this.providerViewModel.saveProvider(provider)
+      }
     }
 
     // 显式保存，确保冷启动后可直接恢复
@@ -755,7 +763,7 @@ struct ModelManagePage {
 
     // 触发 UI 刷新
     this.allProviders = [...this.allProviders]
-    this.showManageToast(`已匹配 ${matchedCount}/${totalModels} 个模型图标`)
+    this.showManageToast(`已同步 ${capabilityMatchedCount}/${totalModels} 个模型能力，匹配 ${matchedCount}/${totalModels} 个模型图标`)
     this.isMatchingIcons = false
   }
 }

@@ -769,6 +769,21 @@ export struct ChatPage {
     const deps: ChatInlineEditFlowDependencies = {
       chatViewModel: this.chatViewModel,
       getMessages: (): ChatMessage[] => this.messages,
+      onValidateBeforeCommit: (
+        content: string,
+        attachments: MessageAttachment[],
+        _webSearchEnabled: boolean,
+        _reasoningLevel: ReasoningLevel
+      ): boolean => {
+        const prepareResult = this.getSendFlow().prepareSendRequest(
+          content,
+          attachments.length,
+          this.isSending,
+          this.currentProvider,
+          this.chatTaskOrchestrator.canStartNewTask()
+        )
+        return prepareResult.shouldSend
+      },
       onSyncMessages: (): void => {
       },
       onResetEditState: (): void => {

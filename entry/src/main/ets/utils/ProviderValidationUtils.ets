@@ -3,7 +3,7 @@
  * 提取重复的服务商配置验证逻辑
  */
 
-import { ModelProvider, ProviderType } from '../models/ChatModels'
+import { ModelProvider } from '../models/ChatModels'
 import { getEffectiveApiKey } from '../config/PresetProviders'
 
 /**
@@ -35,8 +35,7 @@ export function validateProviderConfig(
   // 获取有效的 API Key（优先使用用户配置的，否则使用预设的）
   const effectiveApiKey = getEffectiveApiKey(provider.id, provider.apiKey)
 
-  // Ollama 不需要 API Key
-  if (effectiveApiKey === '' && provider.type !== ProviderType.OLLAMA) {
+  if (provider.requiresApiKey && effectiveApiKey === '') {
     return {
       isValid: false,
       errorMessage: '请先配置 API Key',
