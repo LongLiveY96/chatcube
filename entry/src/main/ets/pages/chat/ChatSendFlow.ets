@@ -3,7 +3,6 @@ import {
   ChatMessage,
   MessageAttachment,
   ModelProvider,
-  ProviderType,
   ReasoningLevel,
   ToolCall,
   ToolResult
@@ -81,6 +80,7 @@ export class ChatSendFlow {
     pendingAttachmentCount: number,
     isSending: boolean,
     currentProvider: ModelProvider | null,
+    currentModelId: string,
     canStartNewTask: boolean
   ): ChatSendPrepareResult {
     const result = new ChatSendPrepareResult()
@@ -97,13 +97,19 @@ export class ChatSendFlow {
       if (currentProvider === null) {
         this.deps.onShowError($r('app.string.provider_required_before_chat'))
         this.deps.onMarkAutoTaskFailed('未配置可用服务商')
-      } else if (providerValidation.effectiveApiKey === '' && currentProvider.type !== ProviderType.OLLAMA) {
+      } else if (currentProvider.requiresApiKey && providerValidation.effectiveApiKey === '') {
         this.deps.onShowError($r('app.string.api_key_required'))
         this.deps.onMarkAutoTaskFailed('缺少 API Key')
       } else {
         this.deps.onShowError(providerValidation.errorMessage)
         this.deps.onMarkAutoTaskFailed(providerValidation.errorMessage)
       }
+      return result
+    }
+
+    if (!this.isCurrentModelAvailable(currentProvider, currentModelId)) {
+      this.deps.onShowError('当前模型不可用，请重新选择模型')
+      this.deps.onMarkAutoTaskFailed('当前模型不可用')
       return result
     }
 
@@ -118,6 +124,19 @@ export class ChatSendFlow {
     result.effectiveApiKey = providerValidation.effectiveApiKey
     result.currentProvider = currentProvider
     return result
+  }
+
+  private isCurrentModelAvailable(currentProvider: ModelProvider, currentModelId: string): boolean {
+    if (currentModelId === '') {
+      return false
+    }
+    for (let i = 0; i < currentProvider.models.length; i++) {
+      const model = currentProvider.models[i]
+      if (model.id === currentModelId && model.isEnabled) {
+        return true
+      }
+    }
+    return false
   }
 
   async executeSend(

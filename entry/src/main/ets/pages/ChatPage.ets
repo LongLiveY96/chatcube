@@ -780,6 +780,7 @@ export struct ChatPage {
           attachments.length,
           this.isSending,
           this.currentProvider,
+          this.currentModelId,
           this.chatTaskOrchestrator.canStartNewTask()
         )
         return prepareResult.shouldSend
@@ -1828,6 +1829,7 @@ export struct ChatPage {
         this.pendingAttachments.length,
         this.isSending,
         this.currentProvider,
+        this.currentModelId,
         this.chatTaskOrchestrator.canStartNewTask()
       )
       if (!prepareResult.shouldSend || prepareResult.currentProvider === null) {
