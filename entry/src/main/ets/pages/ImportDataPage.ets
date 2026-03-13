@@ -87,17 +87,7 @@ struct ImportDataPage {
           console.info('ImportDataPage', `Copying to temp path: ${tempPath}`)
 
           try {
-            // 读取选中的文件
-            const srcFile = fileIo.openSync(uris[0], fileIo.OpenMode.READ_ONLY)
-            const stat = fileIo.statSync(srcFile.fd)
-            const buffer = new ArrayBuffer(stat.size)
-            fileIo.readSync(srcFile.fd, buffer)
-            fileIo.closeSync(srcFile)
-
-            // 写入到临时文件
-            const destFile = fileIo.openSync(tempPath, fileIo.OpenMode.CREATE | fileIo.OpenMode.WRITE_ONLY)
-            fileIo.writeSync(destFile.fd, buffer)
-            fileIo.closeSync(destFile)
+            await fileIo.copyFile(uris[0], tempPath)
 
             this.selectedFilePath = tempPath
             console.info('ImportDataPage', `File copied successfully to: ${tempPath}`)

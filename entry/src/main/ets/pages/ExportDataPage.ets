@@ -147,15 +147,7 @@ struct ExportDataPage {
 
         if (saveUris && saveUris.length > 0) {
           // 复制文件到用户选择的位置
-          const srcFile = fileIo.openSync(zipPath, fileIo.OpenMode.READ_ONLY)
-          const stat = fileIo.statSync(srcFile.fd)
-          const buffer = new ArrayBuffer(stat.size)
-          fileIo.readSync(srcFile.fd, buffer)
-          fileIo.closeSync(srcFile)
-
-          const destFile = fileIo.openSync(saveUris[0], fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
-          fileIo.writeSync(destFile.fd, buffer)
-          fileIo.closeSync(destFile)
+          await fileIo.copyFile(zipPath, saveUris[0])
 
           // 删除临时文件
           fileIo.unlinkSync(zipPath)

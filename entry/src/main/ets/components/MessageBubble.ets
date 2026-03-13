@@ -9,8 +9,7 @@ import { HtmlPreviewCard } from './HtmlPreviewCard'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { webview } from '@kit.ArkWeb'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
-import { AppStorageKeys } from '../config/AppStorageKeys'
-import { getAppUiState, observeAppUiState } from '../state/AppUiState'
+import { getAppUiState } from '../state/AppUiState'
 
 const DOMAIN = 0x0002
 const TAG = 'MessageBubble'
@@ -28,11 +27,17 @@ interface ContentSegment {
   content: string
 }
 
+interface ImageAttachmentEntry {
+  attachment: MessageAttachment
+  originalIndex: number
+}
+
 @ComponentV2
 export struct MessageBubble {
   @Param message: ChatMessage = new ChatMessage('', MessageRole.USER, '')
   @Param showHeader: boolean = true  // 是否显示消息头部（模型信息）
   @Param currentModelId: string = ''  // 当前会话的模型 ID（用于图标匹配回退）
+  @Param themeRenderKey: string = ''
   @Param isMultiSelectMode: boolean = false  // 是否处于多选模式
   @Param isSelected: boolean = false  // 是否被选中
   @Param isEditing: boolean = false  // 是否处于编辑状态（被编辑的消息高亮显示）
@@ -84,7 +89,8 @@ export struct MessageBubble {
   @Local dot2Scale: number = 0.6
   @Local dot3Scale: number = 0.6
   private dotAnimationTimer: number = -1
-  private themeObserverDisposer: (() => void) | null = null
+  private boundMessageId: string = ''
+  private translationRequestToken: number = 0
   private get speakingMessageId(): string {
     return getAppUiState().speakingMessageId
   }
@@ -148,20 +154,12 @@ export struct MessageBubble {
   }
 
   aboutToAppear(): void {
-    hilog.info(DOMAIN, TAG, '📝 MessageBubble 初始化 (消息ID: %{public}s, 角色: %{public}s)',
-      this.message.id, this.message.role === MessageRole.USER ? 'USER' : 'ASSISTANT')
-
+    this.syncMessageScopedState()
     // 翻译内容动态变化，使用新的 Controller
     this.translationMarkdownController = new MarkdownController()
 
     // 配置 Markdown 样式
     this.configureMarkdownStyles()
-    if (this.themeObserverDisposer === null) {
-      this.themeObserverDisposer = observeAppUiState([AppStorageKeys.COLOR_THEME, AppStorageKeys.IS_DARK_MODE],
-        (): void => {
-          this.onThemeColorChange()
-        })
-    }
 
     // 只在需要时启动跳动点动画（优化性能）
     if (this.shouldShowDotAnimation()) {
@@ -174,11 +172,33 @@ export struct MessageBubble {
   // 消息状态变化回调（优化跳动点动画性能）
   @Monitor('message')
   onMessageStateChange(): void {
+    this.syncMessageScopedState()
     if (this.shouldShowDotAnimation()) {
       this.startDotAnimation()
     } else {
       this.stopDotAnimation()
     }
+  }
+
+  private syncMessageScopedState(): void {
+    if (this.message.id === this.boundMessageId) {
+      return
+    }
+    this.boundMessageId = this.message.id
+    this.resetMessageScopedState()
+  }
+
+  private resetMessageScopedState(): void {
+    this.translationRequestToken++
+    this.isReasoningExpanded = false
+    this.translatedText = ''
+    this.isTranslating = false
+    this.showTranslation = false
+    this.isTranslationExpanded = true
+    this.currentTranslateLang = ''
+    this.showWebSheet = false
+    this.webSheetUrl = ''
+    this.webSheetTitle = ''
   }
 
   // 判断是否应该显示跳动点动画
@@ -309,28 +329,14 @@ export struct MessageBubble {
       })
   }
 
-  // 深色模式变化监听
-  onDarkModeChange(): void {
-    hilog.info(DOMAIN, TAG, '🎨 深色模式变化: %{public}s (消息ID: %{public}s)',
-      this.isDarkMode ? '深色' : '浅色', this.message.id)
-
-    // 重新配置 Markdown 样式
-    this.configureMarkdownStyles()
-
-    hilog.info(DOMAIN, TAG, '✅ Markdown 样式已更新')
-  }
-
-  // 主题颜色变化监听
-  onThemeColorChange(): void {
-    hilog.info(DOMAIN, TAG, '🎨 主题颜色变化 (消息ID: %{public}s)', this.message.id)
-    // 主题颜色变化时重新配置 Markdown 样式
+  @Monitor('themeRenderKey')
+  onThemeRenderKeyChange(): void {
     this.configureMarkdownStyles()
   }
 
   // 字体大小变化监听
   @Monitor('chatFontSize')
   onFontSizeChange(): void {
-    hilog.info(DOMAIN, TAG, '🔤 字体大小变化: %{public}d (消息ID: %{public}s)', this.chatFontSize, this.message.id)
     this.configureMarkdownStyles()
   }
 
@@ -340,10 +346,6 @@ export struct MessageBubble {
   }
 
   aboutToDisappear(): void {
-    if (this.themeObserverDisposer !== null) {
-      this.themeObserverDisposer()
-      this.themeObserverDisposer = null
-    }
     // 清理动画定时器
     this.stopDotAnimation()
   }
@@ -448,6 +450,8 @@ export struct MessageBubble {
     if (this.isTranslating) {
       return
     }
+    const requestToken = ++this.translationRequestToken
+    const requestMessageId = this.message.id
     this.isTranslating = true
     this.showTranslation = true
     this.isTranslationExpanded = true
@@ -455,6 +459,9 @@ export struct MessageBubble {
     this.currentTranslateLang = targetLang
 
     this.onTranslate(this.message.content, targetLang, (result: string, errorMessage: string) => {
+      if (requestToken !== this.translationRequestToken || this.message.id !== requestMessageId) {
+        return
+      }
       this.translatedText = result
       this.isTranslating = false
       if (result === '' && errorMessage !== '') {
@@ -528,15 +535,48 @@ export struct MessageBubble {
     return ''
   }
 
-  // 提取图片附件在原附件数组中的索引（用于正确映射预览索引）
-  private getImageAttachmentIndices(attachments: MessageAttachment[]): number[] {
-    const imageIndices: number[] = []
+  // 提取图片附件并保留原始索引（用于正确映射预览索引）
+  private buildImageAttachmentEntries(attachments: MessageAttachment[]): ImageAttachmentEntry[] {
+    const imageEntries: ImageAttachmentEntry[] = []
     for (let i = 0; i < attachments.length; i++) {
       if (attachments[i].type === AttachmentType.IMAGE) {
-        imageIndices.push(i)
+        imageEntries.push({
+          attachment: attachments[i],
+          originalIndex: i
+        })
       }
     }
-    return imageIndices
+    return imageEntries
+  }
+
+  private getFileAttachments(attachments: MessageAttachment[]): MessageAttachment[] {
+    const fileAttachments: MessageAttachment[] = []
+    for (let i = 0; i < attachments.length; i++) {
+      if (attachments[i].type === AttachmentType.FILE) {
+        fileAttachments.push(attachments[i])
+      }
+    }
+    return fileAttachments
+  }
+
+  private getPreviewImageEntries(): ImageAttachmentEntry[] {
+    return this.buildImageAttachmentEntries(this.previewAttachments)
+  }
+
+  private hasPreviewTextContent(): boolean {
+    return this.getDisplayContent().length > 0
+  }
+
+  private getMessageImageEntries(): ImageAttachmentEntry[] {
+    return this.buildImageAttachmentEntries(this.message.attachments)
+  }
+
+  private getMessageFileAttachments(): MessageAttachment[] {
+    return this.getFileAttachments(this.message.attachments)
+  }
+
+  private hasMessageTextContent(): boolean {
+    return this.message.content.length > 0
   }
 
   // 生成两列网格行索引
@@ -554,8 +594,11 @@ export struct MessageBubble {
 
   // 清空翻译
   private clearTranslation(): void {
+    this.translationRequestToken++
     this.showTranslation = false
     this.translatedText = ''
+    this.isTranslating = false
+    this.isTranslationExpanded = true
     this.currentTranslateLang = ''
   }
 
@@ -733,23 +776,19 @@ export struct MessageBubble {
   @Builder
   PreviewAttachments() {
     Column() {
-      if (this.getImageAttachmentIndices(this.previewAttachments).length === 1) {
+      if (this.getPreviewImageEntries().length === 1) {
         this.CompactPreviewSingleImage(
-          this.previewAttachments[this.getImageAttachmentIndices(this.previewAttachments)[0]],
-          this.getDisplayContent().length > 0 ? 6 : 0
+          this.getPreviewImageEntries()[0].attachment,
+          this.hasPreviewTextContent() ? 6 : 0
         )
-      } else if (this.getImageAttachmentIndices(this.previewAttachments).length > 1) {
+      } else if (this.getPreviewImageEntries().length > 1) {
         Column({ space: this.compactImageGap }) {
-          ForEach(this.buildImageGridRows(this.getImageAttachmentIndices(this.previewAttachments).length), (rowIndex: number) => {
+          ForEach(this.buildImageGridRows(this.getPreviewImageEntries().length), (rowIndex: number) => {
             Row({ space: this.compactImageGap }) {
-              this.CompactPreviewGridImage(
-                this.previewAttachments[this.getImageAttachmentIndices(this.previewAttachments)[rowIndex * 2]]
-              )
+              this.CompactPreviewGridImage(this.getPreviewImageEntries()[rowIndex * 2].attachment)
 
-              if (rowIndex * 2 + 1 < this.getImageAttachmentIndices(this.previewAttachments).length) {
-                this.CompactPreviewGridImage(
-                  this.previewAttachments[this.getImageAttachmentIndices(this.previewAttachments)[rowIndex * 2 + 1]]
-                )
+              if (rowIndex * 2 + 1 < this.getPreviewImageEntries().length) {
+                this.CompactPreviewGridImage(this.getPreviewImageEntries()[rowIndex * 2 + 1].attachment)
               } else {
                 Blank()
                   .layoutWeight(1)
@@ -758,7 +797,7 @@ export struct MessageBubble {
             .width(this.compactImageContainerWidth)
           }, (rowIndex: number) => rowIndex.toString())
         }
-        .margin({ bottom: this.getDisplayContent().length > 0 ? 6 : 0 })
+        .margin({ bottom: this.hasPreviewTextContent() ? 6 : 0 })
       }
     }
   }
@@ -803,7 +842,6 @@ export struct MessageBubble {
         .gesture(
           TapGesture({ count: 1 })
             .onAction(() => {
-              hilog.info(DOMAIN, TAG, '🖼️ 图片点击 (index: %{public}d, msgId: %{public}s)', attachmentIndex, this.message.id)
               this.handleImagePreview(attachmentIndex)
             })
         )
@@ -824,7 +862,6 @@ export struct MessageBubble {
         .gesture(
           TapGesture({ count: 1 })
             .onAction(() => {
-              hilog.info(DOMAIN, TAG, '🖼️ 图片点击 (index: %{public}d, msgId: %{public}s)', attachmentIndex, this.message.id)
               this.handleImagePreview(attachmentIndex)
             })
         )
@@ -834,25 +871,25 @@ export struct MessageBubble {
   @Builder
   UserAttachments() {
     Column() {
-      if (this.getImageAttachmentIndices(this.message.attachments).length === 1) {
+      if (this.getMessageImageEntries().length === 1) {
         this.CompactSingleImage(
-          this.message.attachments[this.getImageAttachmentIndices(this.message.attachments)[0]],
-          this.getImageAttachmentIndices(this.message.attachments)[0],
-          this.message.content.length > 0 ? 6 : 0
+          this.getMessageImageEntries()[0].attachment,
+          this.getMessageImageEntries()[0].originalIndex,
+          this.hasMessageTextContent() ? 6 : 0
         )
-      } else if (this.getImageAttachmentIndices(this.message.attachments).length > 1) {
+      } else if (this.getMessageImageEntries().length > 1) {
         Column({ space: this.compactImageGap }) {
-          ForEach(this.buildImageGridRows(this.getImageAttachmentIndices(this.message.attachments).length), (rowIndex: number) => {
+          ForEach(this.buildImageGridRows(this.getMessageImageEntries().length), (rowIndex: number) => {
             Row({ space: this.compactImageGap }) {
               this.CompactGridImage(
-                this.message.attachments[this.getImageAttachmentIndices(this.message.attachments)[rowIndex * 2]],
-                this.getImageAttachmentIndices(this.message.attachments)[rowIndex * 2]
+                this.getMessageImageEntries()[rowIndex * 2].attachment,
+                this.getMessageImageEntries()[rowIndex * 2].originalIndex
               )
 
-              if (rowIndex * 2 + 1 < this.getImageAttachmentIndices(this.message.attachments).length) {
+              if (rowIndex * 2 + 1 < this.getMessageImageEntries().length) {
                 this.CompactGridImage(
-                  this.message.attachments[this.getImageAttachmentIndices(this.message.attachments)[rowIndex * 2 + 1]],
-                  this.getImageAttachmentIndices(this.message.attachments)[rowIndex * 2 + 1]
+                  this.getMessageImageEntries()[rowIndex * 2 + 1].attachment,
+                  this.getMessageImageEntries()[rowIndex * 2 + 1].originalIndex
                 )
               } else {
                 Blank()
@@ -862,30 +899,27 @@ export struct MessageBubble {
             .width(this.compactImageContainerWidth)
           }, (rowIndex: number) => rowIndex.toString())
         }
-        .margin({ bottom: this.message.content.length > 0 ? 6 : 0 })
+        .margin({ bottom: this.hasMessageTextContent() ? 6 : 0 })
       }
 
-      ForEach(this.message.attachments, (attachment: MessageAttachment, index: number) => {
-        if (attachment.type === AttachmentType.FILE) {
-          // 文件附件
-          Row() {
-            SymbolGlyph($r('sys.symbol.doc'))
-              .fontSize(18)
-              .fontColor(['rgba(255,255,255,0.8)'])
+      ForEach(this.getMessageFileAttachments(), (attachment: MessageAttachment, index: number) => {
+        Row() {
+          SymbolGlyph($r('sys.symbol.doc'))
+            .fontSize(18)
+            .fontColor(['rgba(255,255,255,0.8)'])
 
-            Text(attachment.name)
-              .fontSize(12)
-              .fontColor('rgba(255,255,255,0.9)')
-              .margin({ left: 6 })
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .layoutWeight(1)
-          }
-          .padding(8)
-          .backgroundColor('rgba(255,255,255,0.15)')
-          .borderRadius(8)
-          .margin({ bottom: this.message.content.length > 0 ? 6 : 0 })
+          Text(attachment.name)
+            .fontSize(12)
+            .fontColor('rgba(255,255,255,0.9)')
+            .margin({ left: 6 })
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
         }
+        .padding(8)
+        .backgroundColor('rgba(255,255,255,0.15)')
+        .borderRadius(8)
+        .margin({ bottom: this.hasMessageTextContent() ? 6 : 0 })
       }, (attachment: MessageAttachment, index: number) => attachment.id || attachment.filePath || index.toString())
     }
     .alignItems(HorizontalAlign.End)
@@ -894,25 +928,25 @@ export struct MessageBubble {
   @Builder
   AssistantAttachments() {
     Column() {
-      if (this.getImageAttachmentIndices(this.message.attachments).length === 1) {
+      if (this.getMessageImageEntries().length === 1) {
         this.CompactSingleImage(
-          this.message.attachments[this.getImageAttachmentIndices(this.message.attachments)[0]],
-          this.getImageAttachmentIndices(this.message.attachments)[0],
+          this.getMessageImageEntries()[0].attachment,
+          this.getMessageImageEntries()[0].originalIndex,
           8
         )
-      } else if (this.getImageAttachmentIndices(this.message.attachments).length > 1) {
+      } else if (this.getMessageImageEntries().length > 1) {
         Column({ space: this.compactImageGap }) {
-          ForEach(this.buildImageGridRows(this.getImageAttachmentIndices(this.message.attachments).length), (rowIndex: number) => {
+          ForEach(this.buildImageGridRows(this.getMessageImageEntries().length), (rowIndex: number) => {
             Row({ space: this.compactImageGap }) {
               this.CompactGridImage(
-                this.message.attachments[this.getImageAttachmentIndices(this.message.attachments)[rowIndex * 2]],
-                this.getImageAttachmentIndices(this.message.attachments)[rowIndex * 2]
+                this.getMessageImageEntries()[rowIndex * 2].attachment,
+                this.getMessageImageEntries()[rowIndex * 2].originalIndex
               )
 
-              if (rowIndex * 2 + 1 < this.getImageAttachmentIndices(this.message.attachments).length) {
+              if (rowIndex * 2 + 1 < this.getMessageImageEntries().length) {
                 this.CompactGridImage(
-                  this.message.attachments[this.getImageAttachmentIndices(this.message.attachments)[rowIndex * 2 + 1]],
-                  this.getImageAttachmentIndices(this.message.attachments)[rowIndex * 2 + 1]
+                  this.getMessageImageEntries()[rowIndex * 2 + 1].attachment,
+                  this.getMessageImageEntries()[rowIndex * 2 + 1].originalIndex
                 )
               } else {
                 Blank()
@@ -925,27 +959,24 @@ export struct MessageBubble {
         .margin({ bottom: 8 })
       }
 
-      ForEach(this.message.attachments, (attachment: MessageAttachment, index: number) => {
-        if (attachment.type === AttachmentType.FILE) {
-          // 文件附件
-          Row() {
-            SymbolGlyph($r('sys.symbol.doc'))
-              .fontSize(18)
-              .fontColor([$r('app.color.text_tertiary')])
+      ForEach(this.getMessageFileAttachments(), (attachment: MessageAttachment, index: number) => {
+        Row() {
+          SymbolGlyph($r('sys.symbol.doc'))
+            .fontSize(18)
+            .fontColor([$r('app.color.text_tertiary')])
 
-            Text(attachment.name)
-              .fontSize(12)
-              .fontColor($r('app.color.text_secondary'))
-              .margin({ left: 6 })
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .layoutWeight(1)
-          }
-          .padding(8)
-          .backgroundColor($r('app.color.divider'))
-          .borderRadius(8)
-          .margin({ bottom: 8 })
+          Text(attachment.name)
+            .fontSize(12)
+            .fontColor($r('app.color.text_secondary'))
+            .margin({ left: 6 })
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
         }
+        .padding(8)
+        .backgroundColor($r('app.color.divider'))
+        .borderRadius(8)
+        .margin({ bottom: 8 })
       }, (attachment: MessageAttachment, index: number) => attachment.id || attachment.filePath || index.toString())
     }
     .width('100%')
@@ -954,7 +985,6 @@ export struct MessageBubble {
 
   // 处理图片预览点击
   private handleImagePreview(clickedIndex: number): void {
-    hilog.info(DOMAIN, TAG, '🔍 handleImagePreview 开始 (clickedIndex: %{public}d, msgId: %{public}s)', clickedIndex, this.message.id)
     // 收集所有图片附件的路径
     const imageAttachments = this.message.getImageAttachments()
     const imagePaths: Array<string> = []
@@ -981,7 +1011,6 @@ export struct MessageBubble {
           imageCount++
         }
       }
-      hilog.info(DOMAIN, TAG, '🔍 调用 onImageClick (imagePaths: %{public}d, imageIndex: %{public}d)', imagePaths.length, imageIndex)
       this.onImageClick(imagePaths, imageIndex)
     }
   }

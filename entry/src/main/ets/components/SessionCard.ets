@@ -1,6 +1,6 @@
 import { ChatSession } from '../models/ChatModels'
 import { curves } from '@kit.ArkUI'
-import { HdsListItemCard, PrefixCustomBuilder, SuffixCustomBuilder, hdsEffect } from '@kit.UIDesignKit'
+import { hdsEffect } from '@kit.UIDesignKit'
 import { Markdown, MarkdownController } from '@luvi/lv-markdown-in'
 import {
   getSessionDisplayPreviewText,
@@ -8,7 +8,7 @@ import {
   hasSessionDraftContent,
   SESSION_DRAFT_TAG_TEXT
 } from '../utils/ChatSessionDisplayHelper'
-import { getAppUiState, observeAppUiState } from '../state/AppUiState'
+import { getAppUiState } from '../state/AppUiState'
 
 @ComponentV2
 export struct SessionCard {
@@ -16,6 +16,7 @@ export struct SessionCard {
   @Param unreadCount: number = 0
   @Param enableAnimation: boolean = true
   @Param enableContextMenu: boolean = true
+  @Param themeRenderKey: string = ''
   @Local scaleValue: number = 1
   private get themePrimary(): string {
     return getAppUiState().themePrimary
@@ -27,8 +28,7 @@ export struct SessionCard {
   private get isDarkMode(): boolean {
     return getAppUiState().isDarkMode
   }
-  private titleMarkdownController: MarkdownController = new MarkdownController()
-  private darkModeObserverDisposer: (() => void) | null = null
+  private titleMarkdownController: MarkdownController | null = null
   @Event onTap: () => void = () => {}
   @Event onDelete: () => void = () => {}
   @Event onMultiSelect: () => void = () => {}
@@ -36,26 +36,23 @@ export struct SessionCard {
   @Event onToggleFavorite: () => void = () => {}
 
   aboutToAppear(): void {
-    this.configureTitleMarkdownStyles()
-    if (this.darkModeObserverDisposer === null) {
-      this.darkModeObserverDisposer = observeAppUiState('isDarkMode', (): void => {
-        this.onCardDarkModeChange()
-      })
+    if (this.titleContainsLatex()) {
+      this.configureTitleMarkdownStyles()
     }
   }
 
-  onCardDarkModeChange(): void {
+  @Monitor('themeRenderKey')
+  onThemeRenderKeyChange(): void {
     this.configureTitleMarkdownStyles()
   }
 
   aboutToDisappear(): void {
-    if (this.darkModeObserverDisposer !== null) {
-      this.darkModeObserverDisposer()
-      this.darkModeObserverDisposer = null
-    }
   }
 
   private configureTitleMarkdownStyles(): void {
+    if (this.titleMarkdownController === null) {
+      return
+    }
     const textColor = $r('app.color.text_primary')
     const latexTextColor = this.isDarkMode ? 0xFFE0E0E0 : 0xFF333333
 
@@ -66,6 +63,14 @@ export struct SessionCard {
       .setTextLineHeight(18)
       .setLatexMathTextColor(latexTextColor)
       .setLatexMathTextSize(14)
+  }
+
+  private getTitleMarkdownController(): MarkdownController {
+    if (this.titleMarkdownController === null) {
+      this.titleMarkdownController = new MarkdownController()
+      this.configureTitleMarkdownStyles()
+    }
+    return this.titleMarkdownController
   }
 
   private titleContainsLatex(): boolean {
@@ -170,7 +175,7 @@ export struct SessionCard {
       Column() {
         if (this.titleContainsLatex()) {
           Markdown({
-            controller: this.titleMarkdownController,
+            controller: this.getTitleMarkdownController(),
             text: this.normalizeLatexInTitle(this.session.title)
           })
             .constraintSize({ maxHeight: 22 })
@@ -231,7 +236,7 @@ export struct SessionCard {
       Row() {
         if (this.titleContainsLatex()) {
           Markdown({
-            controller: this.titleMarkdownController,
+            controller: this.getTitleMarkdownController(),
             text: this.normalizeLatexInTitle(this.session.title)
           })
             .layoutWeight(1)

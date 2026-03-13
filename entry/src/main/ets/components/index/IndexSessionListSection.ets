@@ -4,6 +4,24 @@ import { buildSessionRenderKeyForIndex } from '../../pages/index/IndexSessionGro
 import { SessionCard } from '../SessionCard'
 import { getAppUiState } from '../../state/AppUiState'
 
+enum SessionListRowKind {
+  GROUP_HEADER = 0,
+  SESSION = 1,
+  SPACER = 2
+}
+
+interface SessionListRenderRow {
+  kind: SessionListRowKind
+  key: string
+  groupKey: string
+  groupCount: number
+  session: ChatSession | null
+  indexInGroup: number
+  unreadCount: number
+  isSelected: boolean
+  isActive: boolean
+}
+
 @ComponentV2
 export struct IndexSessionListSection {
   private get themePrimary(): string {
@@ -18,6 +36,7 @@ export struct IndexSessionListSection {
   @Param activeSessionId: string = ''
   @Param bottomSpacerHeight: number = 100
   @Param unreadRenderVersion: number = 0
+  @Param themeRenderKey: string = ''
   @Event onGetUnreadCount: (sessionId: string) => number = (_sessionId: string): number => 0
   @Event onGetGroupTitle: (groupKey: string) => Resource = (_groupKey: string): Resource => $r('app.string.group_older')
   @Event onGetGroupRenderKey: (group: SessionGroupData) => string = (group: SessionGroupData): string => group.key
@@ -34,11 +53,55 @@ export struct IndexSessionListSection {
     return !this.isMultiSelectMode && this.activeSessionId === sessionId
   }
 
-  private buildSessionItemRenderKey(session: ChatSession): string {
-    const unreadCount = this.onGetUnreadCount(session.id)
+  private buildSessionItemRenderKey(session: ChatSession, unreadCount: number): string {
     const selectedState = this.isMultiSelectMode && this.selectedSessionIds.includes(session.id) ? 'selected' : 'idle'
     const activeState = this.isSessionActive(session.id) ? 'active' : 'inactive'
     return `${buildSessionRenderKeyForIndex(session)}_${unreadCount}_${this.unreadRenderVersion}_${selectedState}_${activeState}`
+  }
+
+  private buildRenderRows(): SessionListRenderRow[] {
+    const rows: SessionListRenderRow[] = []
+    for (let groupIndex = 0; groupIndex < this.sessionGroups.length; groupIndex++) {
+      const group = this.sessionGroups[groupIndex]
+      rows.push({
+        kind: SessionListRowKind.GROUP_HEADER,
+        key: `header_${this.onGetGroupRenderKey(group)}`,
+        groupKey: group.key,
+        groupCount: group.sessions.length,
+        session: null,
+        indexInGroup: 0,
+        unreadCount: 0,
+        isSelected: false,
+        isActive: false
+      })
+      for (let sessionIndex = 0; sessionIndex < group.sessions.length; sessionIndex++) {
+        const session = group.sessions[sessionIndex]
+        const unreadCount = this.onGetUnreadCount(session.id)
+        rows.push({
+          kind: SessionListRowKind.SESSION,
+          key: this.buildSessionItemRenderKey(session, unreadCount),
+          groupKey: group.key,
+          groupCount: group.sessions.length,
+          session: session,
+          indexInGroup: sessionIndex,
+          unreadCount: unreadCount,
+          isSelected: this.isMultiSelectMode && this.selectedSessionIds.includes(session.id),
+          isActive: this.isSessionActive(session.id)
+        })
+      }
+    }
+    rows.push({
+      kind: SessionListRowKind.SPACER,
+      key: `spacer_${this.bottomSpacerHeight}`,
+      groupKey: '',
+      groupCount: 0,
+      session: null,
+      indexInGroup: 0,
+      unreadCount: 0,
+      isSelected: false,
+      isActive: false
+    })
+    return rows
   }
 
   @Builder
@@ -364,64 +427,67 @@ export struct IndexSessionListSection {
 
   build() {
     List({ scroller: this.sessionListScroller }) {
-      ForEach(this.sessionGroups, (group: SessionGroupData) => {
-        ListItem() {
-          this.SessionGroupHeader(group.key, group.sessions.length)
-        }
-        .margin({ top: 4 })
-
-        ForEach(group.sessions, (session: ChatSession, index: number) => {
-          ListItem() {
-            SessionCard({
-              session: session,
-              unreadCount: this.onGetUnreadCount(session.id),
-              enableAnimation: false,
-              enableContextMenu: !this.isMultiSelectMode,
-              onTap: (): void => {
-                if (this.isMultiSelectMode) {
-                  this.onToggleSelection(session.id)
-                } else {
-                  this.onOpenSession(session.id)
+      Repeat<SessionListRenderRow>(this.buildRenderRows())
+        .each((ri: RepeatItem<SessionListRenderRow>) => {
+          if (ri.item.kind === SessionListRowKind.GROUP_HEADER) {
+            ListItem() {
+              this.SessionGroupHeader(ri.item.groupKey, ri.item.groupCount)
+            }
+            .margin({ top: 4 })
+          } else if (ri.item.kind === SessionListRowKind.SESSION && ri.item.session !== null) {
+            ListItem() {
+              SessionCard({
+                session: ri.item.session,
+                unreadCount: ri.item.unreadCount,
+                enableAnimation: false,
+                enableContextMenu: !this.isMultiSelectMode,
+                themeRenderKey: this.themeRenderKey,
+                onTap: (): void => {
+                  if (this.isMultiSelectMode) {
+                    this.onToggleSelection(ri.item.session!.id)
+                  } else {
+                    this.onOpenSession(ri.item.session!.id)
+                  }
+                },
+                onDelete: (): void => {
+                  this.onDeleteSession(ri.item.session!.id)
+                },
+                onMultiSelect: (): void => {
+                  this.onEnterMultiSelect(ri.item.session!.id)
+                },
+                onShare: (): void => {
+                  this.onShareSession(ri.item.session!)
+                },
+                onToggleFavorite: (): void => {
+                  this.onToggleFavorite(ri.item.session!)
                 }
-              },
-              onDelete: (): void => {
-                this.onDeleteSession(session.id)
-              },
-              onMultiSelect: (): void => {
-                this.onEnterMultiSelect(session.id)
-              },
-              onShare: (): void => {
-                this.onShareSession(session)
-              },
-              onToggleFavorite: (): void => {
-                this.onToggleFavorite(session)
-              }
+              })
+            }
+            .swipeAction(this.isMultiSelectMode ? undefined : {
+              start: this.FavoriteSwipeButton(ri.item.session),
+              end: this.DeleteSwipePanel(ri.item.session.id)
             })
-          }
-          .swipeAction(this.isMultiSelectMode ? undefined : {
-            start: this.FavoriteSwipeButton(session),
-            end: this.DeleteSwipePanel(session.id)
-          })
-          .margin({ left: 8, right: 8, top: index === 0 ? 4 : 0, bottom: 6 })
-          .borderRadius(12)
-          .clip(true)
-          .border(this.isMultiSelectMode && this.selectedSessionIds.includes(session.id)
-            ? { width: 1.5, color: this.themePrimary }
-            : this.isSessionActive(session.id)
+            .margin({ left: 8, right: 8, top: ri.item.indexInGroup === 0 ? 4 : 0, bottom: 6 })
+            .borderRadius(12)
+            .clip(true)
+            .border(ri.item.isSelected || ri.item.isActive
               ? { width: 1.5, color: this.themePrimary }
-            : { width: 0, color: Color.Transparent })
-          .animation({ duration: 200 })
-        }, (session: ChatSession) => this.buildSessionItemRenderKey(session))
-      }, (group: SessionGroupData) => this.onGetGroupRenderKey(group))
-
-      ListItem() {
-        Column().height(this.bottomSpacerHeight)
-      }
+              : { width: 0, color: Color.Transparent })
+            .animation({ duration: 200 })
+          } else {
+            ListItem() {
+              Column().height(this.bottomSpacerHeight)
+            }
+          }
+        })
+        .key((row: SessionListRenderRow) => row.key)
+        .virtualScroll({ totalCount: this.buildRenderRows().length })
     }
     .width('100%')
     .layoutWeight(1)
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
+    .cachedCount(4)
   }
 }
 

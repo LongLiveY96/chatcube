@@ -78,10 +78,7 @@ export class AttachmentStorageService {
     }
 
     try {
-      const subDir = attachment.type === AttachmentType.IMAGE ? IMAGES_DIR : FILES_DIR
-      const ext = this.getExtension(attachment.name, attachment.mimeType)
-      const fileName = `${attachment.id}${ext}`
-      const filePath = `${this.baseDir}/${ATTACHMENTS_DIR}/${subDir}/${fileName}`
+      const filePath = this.buildAttachmentFilePath(attachment)
       console.info('AttachmentStorageService', `Saving to path: ${filePath}`)
 
       // 如果有 base64 数据，从 base64 写入
@@ -100,6 +97,22 @@ export class AttachmentStorageService {
       return filePath
     } catch (error) {
       console.error('AttachmentStorageService', `Failed to save attachment: ${JSON.stringify(error)}`)
+      return ''
+    }
+  }
+
+  async importExistingAttachment(sourcePath: string, attachment: MessageAttachment): Promise<string> {
+    if (!this.isInitialized || this.baseDir === '') {
+      console.error('AttachmentStorageService', 'Service not initialized, baseDir is empty')
+      return ''
+    }
+
+    try {
+      const filePath = this.buildAttachmentFilePath(attachment)
+      await fileIo.copyFile(sourcePath, filePath)
+      return filePath
+    } catch (error) {
+      console.error('AttachmentStorageService', `Failed to import existing attachment: ${JSON.stringify(error)}`)
       return ''
     }
   }
@@ -147,22 +160,11 @@ export class AttachmentStorageService {
     return `${this.baseDir}/${ATTACHMENTS_DIR}`
   }
 
-  // 复制文件
-  private async copyFile(srcUri: string, destPath: string): Promise<void> {
-    try {
-      const srcFile = fileIo.openSync(srcUri, fileIo.OpenMode.READ_ONLY)
-      const stat = fileIo.statSync(srcFile.fd)
-      const buffer = new ArrayBuffer(stat.size)
-      fileIo.readSync(srcFile.fd, buffer)
-      fileIo.closeSync(srcFile)
-
-      const destFile = fileIo.openSync(destPath, fileIo.OpenMode.CREATE | fileIo.OpenMode.WRITE_ONLY)
-      fileIo.writeSync(destFile.fd, buffer)
-      fileIo.closeSync(destFile)
-    } catch (error) {
-      console.error('AttachmentStorageService', `Failed to copy file: ${JSON.stringify(error)}`)
-      throw new Error('Failed to copy file')
-    }
+  private buildAttachmentFilePath(attachment: MessageAttachment): string {
+    const subDir = attachment.type === AttachmentType.IMAGE ? IMAGES_DIR : FILES_DIR
+    const ext = this.getExtension(attachment.name, attachment.mimeType)
+    const fileName = `${attachment.id}${ext}`
+    return `${this.baseDir}/${ATTACHMENTS_DIR}/${subDir}/${fileName}`
   }
 
   // 获取文件扩展名

@@ -915,7 +915,7 @@ export class DatabaseService {
   }
 
   // 获取所有会话
-  async getAllSessions(): Promise<ChatSession[]> {
+  async getAllSessions(repairLegacySummary: boolean = true): Promise<ChatSession[]> {
     try {
       await this.waitForInitialization()
     } catch (error) {
@@ -981,33 +981,35 @@ export class DatabaseService {
       }
       resultSet.close()
 
-      // 兼容旧数据：首次加载时回填会话摘要和计数
-      for (let i = 0; i < sessions.length; i++) {
-        if (sessions[i].messageCount === 0 &&
-          sessions[i].lastMessagePreview === '' &&
-          sessions[i].updatedAt > sessions[i].createdAt) {
-          await this.refreshSessionSummary(sessions[i].id)
-          const summaryPredicates = new relationalStore.RdbPredicates(TableNames.SESSIONS)
-          summaryPredicates.equalTo('id', sessions[i].id)
-          const summaryResult = await this.rdbStore.query(summaryPredicates)
-          if (summaryResult.goToNextRow()) {
-            try {
-              sessions[i].lastMessagePreview = summaryResult.getString(summaryResult.getColumnIndex('last_message_preview')) || ''
-            } catch (e) {
-              sessions[i].lastMessagePreview = ''
+      if (repairLegacySummary) {
+        // 兼容旧数据：首次加载时回填会话摘要和计数
+        for (let i = 0; i < sessions.length; i++) {
+          if (sessions[i].messageCount === 0 &&
+            sessions[i].lastMessagePreview === '' &&
+            sessions[i].updatedAt > sessions[i].createdAt) {
+            await this.refreshSessionSummary(sessions[i].id)
+            const summaryPredicates = new relationalStore.RdbPredicates(TableNames.SESSIONS)
+            summaryPredicates.equalTo('id', sessions[i].id)
+            const summaryResult = await this.rdbStore.query(summaryPredicates)
+            if (summaryResult.goToNextRow()) {
+              try {
+                sessions[i].lastMessagePreview = summaryResult.getString(summaryResult.getColumnIndex('last_message_preview')) || ''
+              } catch (e) {
+                sessions[i].lastMessagePreview = ''
+              }
+              try {
+                sessions[i].messageCount = summaryResult.getLong(summaryResult.getColumnIndex('message_count'))
+              } catch (e) {
+                sessions[i].messageCount = 0
+              }
+              try {
+                sessions[i].updatedAt = summaryResult.getLong(summaryResult.getColumnIndex('updated_at'))
+              } catch (e) {
+                // ignore
+              }
             }
-            try {
-              sessions[i].messageCount = summaryResult.getLong(summaryResult.getColumnIndex('message_count'))
-            } catch (e) {
-              sessions[i].messageCount = 0
-            }
-            try {
-              sessions[i].updatedAt = summaryResult.getLong(summaryResult.getColumnIndex('updated_at'))
-            } catch (e) {
-              // ignore
-            }
+            summaryResult.close()
           }
-          summaryResult.close()
         }
       }
     } catch (error) {
@@ -1086,7 +1088,7 @@ export class DatabaseService {
   // ============ 消息操作 ============
 
   // 添加消息
-  async addMessage(sessionId: string, message: ChatMessage): Promise<void> {
+  async addMessage(sessionId: string, message: ChatMessage, refreshSummary: boolean = true): Promise<void> {
     await this.waitForInitialization()
     if (this.rdbStore === null) {
       return
@@ -1136,10 +1138,17 @@ export class DatabaseService {
       }
 
       // 同步会话摘要、计数和更新时间
-      await this.refreshSessionSummary(sessionId)
+      if (refreshSummary) {
+        await this.refreshSessionSummary(sessionId)
+      }
     } catch (error) {
       console.error('DatabaseService', `Failed to add message: ${JSON.stringify(error)}`)
     }
+  }
+
+  async refreshSessionSummaryForSession(sessionId: string): Promise<void> {
+    await this.waitForInitialization()
+    await this.refreshSessionSummary(sessionId)
   }
 
   // 添加附件

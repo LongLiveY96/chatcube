@@ -22,6 +22,8 @@ export struct ChatMessageListSection {
   @Param bottomPadding: number = 0
   @Param topInsetHeight: number = 0
   @Param currentModelId: string = ''
+  @Param chatFontSize: number = 15
+  @Param themeRenderKey: string = ''
   @Param contentMaxWidth: number = 99999
   @Event onRegenerate: (message: ChatMessage) => void = (_message: ChatMessage): void => {}
   @Event onDelete: (message: ChatMessage) => void = (_message: ChatMessage): void => {}
@@ -72,6 +74,16 @@ export struct ChatMessageListSection {
     return this.contentMaxWidth > 0 ? this.contentMaxWidth : 99999
   }
 
+  private getListCachedCount(): number {
+    if (this.messages.length >= 100) {
+      return 2
+    }
+    if (this.messages.length >= 30) {
+      return 3
+    }
+    return 4
+  }
+
   build() {
     Column() {
       if (this.isLoading) {
@@ -105,6 +117,8 @@ export struct ChatMessageListSection {
                       message: ri.item,
                       showHeader: this.checkShouldShowMessageHeader(ri.item, ri.index),
                       currentModelId: this.currentModelId,
+                      chatFontSize: this.chatFontSize,
+                      themeRenderKey: this.themeRenderKey,
                       isMultiSelectMode: this.isMultiSelectMode,
                       isSelected: this.selectedMessageIds.includes(ri.item.id),
                       isEditing: this.isEditingMessage && this.editingMessageId === ri.item.id,
@@ -158,6 +172,7 @@ export struct ChatMessageListSection {
               .animation({ duration: 200 })
             })
             .key((message: ChatMessage) => message.id)
+            .virtualScroll({ totalCount: this.messages.length })
 
           if (!this.isEditingMessage && this.showDraftPreview) {
             ListItem() {
@@ -166,7 +181,8 @@ export struct ChatMessageListSection {
                   DraftPreviewBubble({
                     inputText: this.inputText,
                     pendingAttachments: this.pendingAttachments,
-                    previewTimeText: this.draftPreviewTimeText
+                    previewTimeText: this.draftPreviewTimeText,
+                    chatFontSize: this.chatFontSize
                   })
                 }
                 .width('100%')
@@ -186,7 +202,7 @@ export struct ChatMessageListSection {
         .height('100%')
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
-        .cachedCount(5)
+        .cachedCount(this.getListCachedCount())
         .backdropBlur(this.isEditingMessage ? 8 : 0)
         .animation({ duration: 200 })
         .onAppear(() => {

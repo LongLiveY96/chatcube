@@ -166,8 +166,8 @@ entry/src/main/ets/
 - 联调和测试不同服务商能力
 - 持续迭代和打磨 ChatCube
 
-微信赞赏码如下：
+微信打赏码如下：
 
 <p align="center">
-  <img src="assets/wechat-pay.png" width="280" alt="ChatCube 微信赞赏码" />
+  <img src="assets/wechat-pay.png" width="280" alt="ChatCube 微信打赏码" />
 </p>

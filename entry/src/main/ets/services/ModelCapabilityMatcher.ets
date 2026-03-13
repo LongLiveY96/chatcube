@@ -489,10 +489,6 @@ export class ModelCapabilityMatcher {
       entry.limit.context > 0) {
       model.contextLength = entry.limit.context
     }
-    // name → 仅当 name === id 时覆盖（说明用户没有自定义名称）
-    if (model.name === model.id && entry.name !== undefined && entry.name !== '') {
-      model.name = entry.name
-    }
   }
 
   // 从模型 ID 推断原厂供应商 key，用于获取正确的 logo

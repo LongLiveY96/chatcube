@@ -118,6 +118,10 @@ struct Index {
   private get themePrimaryLight(): string {
     return getAppUiState().themePrimaryLight
   }
+  private get sessionListThemeRenderKey(): string {
+    const uiState = getAppUiState()
+    return `${this.currentColorTheme}_${uiState.isDarkMode ? '1' : '0'}`
+  }
   @Local chatFontSize: number = 15
   // 监听从服务卡片打开新聊天的事件
   private get openNewChatTimestamp(): number {
@@ -1505,6 +1509,7 @@ struct Index {
             activeSessionId: this.getActiveSessionIdForChatList(),
             bottomSpacerHeight: this.isMultiSelectMode ? 16 : 100,
             unreadRenderVersion: this.unreadRenderTick,
+            themeRenderKey: this.sessionListThemeRenderKey,
             onGetUnreadCount: (sessionId: string): number => {
               return this.getUnreadCountForSession(sessionId)
             },

@@ -256,22 +256,24 @@ export class ImportExportService {
     }
 
     try {
-      if (onProgress) {
-        onProgress(10)
+      let lastProgress = -1
+      const emitProgress = (progress: number): void => {
+        if (onProgress && progress !== lastProgress) {
+          lastProgress = progress
+          onProgress(progress)
+        }
       }
 
+      emitProgress(10)
+
       const sessions = await this.collectSessions(options)
-      if (onProgress) {
-        onProgress(15)
-      }
-      const messages = await this.collectMessages(sessions, onProgress)
+      emitProgress(15)
+      const messages = await this.collectMessages(sessions, emitProgress)
       const attachments = this.collectAttachments(messages, options)
       const providers = options.includeProviders ? await this.collectProviders(options) : []
       const preferences = options.includePreferences ? await this.collectPreferences(options) : []
 
-      if (onProgress) {
-        onProgress(30)
-      }
+      emitProgress(30)
 
       const manifest = this.generateManifest(sessions, messages, attachments, providers, preferences, options)
 
@@ -279,11 +281,9 @@ export class ImportExportService {
       const tempDir = `${this.context.cacheDir}/export_temp_${timestamp}`
       fileIo.mkdirSync(tempDir)
 
-      this.writeExportFiles(tempDir, manifest, sessions, messages, attachments, providers, preferences, options)
+      await this.writeExportFiles(tempDir, manifest, sessions, messages, attachments, providers, preferences, options)
 
-      if (onProgress) {
-        onProgress(60)
-      }
+      emitProgress(60)
 
       const zipPath = `${this.context.cacheDir}/chatcube_export_${timestamp}.zip`
       const zlibOptions: zlib.Options = {
@@ -293,15 +293,11 @@ export class ImportExportService {
       }
       await zlib.compressFile(tempDir, zipPath, zlibOptions)
 
-      if (onProgress) {
-        onProgress(90)
-      }
+      emitProgress(90)
 
       this.deleteDirectory(tempDir)
 
-      if (onProgress) {
-        onProgress(100)
-      }
+      emitProgress(100)
 
       return zipPath
     } catch (error) {
@@ -311,7 +307,7 @@ export class ImportExportService {
   }
 
   private async collectSessions(options: ExportOptions): Promise<ChatSession[]> {
-    const allSessions = await this.dbService.getAllSessions()
+    const allSessions = await this.dbService.getAllSessions(false)
     if (options.sessionIds && options.sessionIds.length > 0) {
       const result: ChatSession[] = []
       for (const session of allSessions) {
@@ -504,7 +500,7 @@ export class ImportExportService {
     return manifest
   }
 
-  private writeExportFiles(
+  private async writeExportFiles(
     tempDir: string,
     manifest: ManifestData,
     sessions: ChatSession[],
@@ -513,7 +509,7 @@ export class ImportExportService {
     providers: ProviderExportData[],
     preferences: PreferenceEntry[],
     options: ExportOptions
-  ): void {
+  ): Promise<void> {
     this.writeTextFile(`${tempDir}/manifest.json`, JSON.stringify(manifest, null, 2))
 
     const sessionsData: SessionData[] = []
@@ -647,7 +643,7 @@ export class ImportExportService {
               const subDir = att.type === AttachmentType.IMAGE ? 'images' : 'files'
               const ext = this.getExtension(att.name)
               const destPath = `${attachmentsDir}/${subDir}/${att.id}${ext}`
-              this.copyFile(att.filePath, destPath)
+              await this.copyFile(att.filePath, destPath)
             }
           }
         }
@@ -954,10 +950,7 @@ export class ImportExportService {
                     attData.size
                   )
 
-                  const base64Data = this.readFileAsBase64(srcPath)
-                  attachment.base64Data = base64Data
-
-                  const savedPath = await this.attachmentService.saveAttachment(attachment)
+                  const savedPath = await this.attachmentService.importExistingAttachment(srcPath, attachment)
                   attachment.filePath = savedPath
 
                   message.attachments.push(attachment)
@@ -966,9 +959,11 @@ export class ImportExportService {
             }
           }
 
-          await this.dbService.addMessage(finalSessionId, message)
+          await this.dbService.addMessage(finalSessionId, message, false)
         }
       }
+
+      await this.dbService.refreshSessionSummaryForSession(finalSessionId)
 
       // 恢复会话的原始时间戳（addMessage 会将 updated_at 覆盖为 Date.now()）
       await this.dbService.updateSessionTimestamps(finalSessionId, sessionData.createdAt, sessionData.updatedAt)
@@ -1147,36 +1142,11 @@ export class ImportExportService {
     }
   }
 
-  private copyFile(srcPath: string, destPath: string): void {
+  private async copyFile(srcPath: string, destPath: string): Promise<void> {
     try {
-      const srcFile = fileIo.openSync(srcPath, fileIo.OpenMode.READ_ONLY)
-      const stat = fileIo.statSync(srcFile.fd)
-      const buffer = new ArrayBuffer(stat.size)
-      fileIo.readSync(srcFile.fd, buffer)
-      fileIo.closeSync(srcFile)
-
-      const destFile = fileIo.openSync(destPath, fileIo.OpenMode.CREATE | fileIo.OpenMode.WRITE_ONLY)
-      fileIo.writeSync(destFile.fd, buffer)
-      fileIo.closeSync(destFile)
+      await fileIo.copyFile(srcPath, destPath)
     } catch (error) {
       console.error('ImportExportService', `Failed to copy file: ${JSON.stringify(error)}`)
-    }
-  }
-
-  private readFileAsBase64(filePath: string): string {
-    try {
-      const file = fileIo.openSync(filePath, fileIo.OpenMode.READ_ONLY)
-      const stat = fileIo.statSync(file.fd)
-      const buffer = new ArrayBuffer(stat.size)
-      fileIo.readSync(file.fd, buffer)
-      fileIo.closeSync(file)
-
-      const base64Helper = new util.Base64Helper()
-      const uint8Array = new Uint8Array(buffer)
-      return base64Helper.encodeToStringSync(uint8Array)
-    } catch (error) {
-      console.error('ImportExportService', `Failed to read file as base64: ${JSON.stringify(error)}`)
-      return ''
     }
   }
 

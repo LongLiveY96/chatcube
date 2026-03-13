@@ -19,8 +19,46 @@ export struct ScrollToBottomLoadingButton {
 
   @Local private btnPressed: boolean = false
   @Local private loadingAngle: number = 0
+  private rotationTimer: number = -1
   private get themePrimary(): string {
     return getAppUiState().themePrimary
+  }
+
+  aboutToAppear(): void {
+    if (this.isVisible) {
+      this.startLoadingRotation()
+    }
+  }
+
+  aboutToDisappear(): void {
+    this.stopLoadingRotation()
+  }
+
+  @Monitor('isVisible')
+  onVisibleChange(): void {
+    if (this.isVisible) {
+      this.startLoadingRotation()
+      return
+    }
+    this.stopLoadingRotation()
+  }
+
+  private startLoadingRotation(): void {
+    if (this.rotationTimer !== -1) {
+      return
+    }
+    this.loadingAngle = 0
+    this.rotationTimer = setInterval(() => {
+      this.loadingAngle = (this.loadingAngle + 12) % 360
+    }, 16)
+  }
+
+  private stopLoadingRotation(): void {
+    if (this.rotationTimer !== -1) {
+      clearInterval(this.rotationTimer)
+      this.rotationTimer = -1
+    }
+    this.loadingAngle = 0
   }
 
   build() {
@@ -34,12 +72,6 @@ export struct ScrollToBottomLoadingButton {
           .backgroundColor('transparent')
           .style({ strokeWidth: 2.5 })
           .rotate({ angle: this.loadingAngle })
-          .onAppear(() => {
-            this.loadingAngle = 0
-            animateTo({ duration: 1000, curve: Curve.Linear, iterations: -1 }, () => {
-              this.loadingAngle = 360
-            })
-          })
 
         // 中心向下箭头按钮
         Button({ type: ButtonType.Circle }) {
