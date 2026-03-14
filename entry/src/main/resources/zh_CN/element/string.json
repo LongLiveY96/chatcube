@@ -25,10 +25,6 @@
       "value": "输入消息..."
     },
     {
-      "name": "enabled_services",
-      "value": "已启用服务"
-    },
-    {
       "name": "api_key",
       "value": "API Key"
     },
@@ -37,28 +33,8 @@
       "value": "代理地址"
     },
     {
-      "name": "available_models",
-      "value": "可用模型"
-    },
-    {
       "name": "test_connection",
       "value": "测试连接"
-    },
-    {
-      "name": "save_config",
-      "value": "保存配置"
-    },
-    {
-      "name": "refresh_list",
-      "value": "刷新列表"
-    },
-    {
-      "name": "connected",
-      "value": "已连接"
-    },
-    {
-      "name": "recommended",
-      "value": "推荐使用"
     },
     {
       "name": "tab_assistant",
@@ -79,10 +55,6 @@
     {
       "name": "permission_keep_background_running",
       "value": "此应用需要后台运行权限，以便在退到后台时继续完成长回复任务。"
-    },
-    {
-      "name": "permission_publish_notification",
-      "value": "此应用需要通知权限，以便在后台回复完成后提醒你。"
     },
     {
       "name": "permission_detect_gesture",
@@ -107,22 +79,6 @@
     {
       "name": "tablet_chat_detail_empty_desc",
       "value": "从左侧列表打开会话，或开始新对话"
-    },
-    {
-      "name": "tablet_provider_detail_empty_title",
-      "value": "选择一个服务商"
-    },
-    {
-      "name": "tablet_provider_detail_empty_desc",
-      "value": "从左侧列表查看详情，或新增自定义服务商"
-    },
-    {
-      "name": "tablet_settings_detail_empty_title",
-      "value": "选择一个设置模块"
-    },
-    {
-      "name": "tablet_settings_detail_empty_desc",
-      "value": "从左侧设置列表打开需要查看的二级页面"
     },
     {
       "name": "loading",
@@ -157,22 +113,6 @@
       "value": "确定要删除这个对话吗？"
     },
     {
-      "name": "model_tag_openai",
-      "value": "OpenAI"
-    },
-    {
-      "name": "model_tag_claude",
-      "value": "Claude"
-    },
-    {
-      "name": "model_tag_gemini",
-      "value": "Gemini"
-    },
-    {
-      "name": "model_tag_other",
-      "value": "其他"
-    },
-    {
       "name": "add_custom_provider",
       "value": "添加自定义服务商"
     },
@@ -187,10 +127,6 @@
     {
       "name": "api_path_optional",
       "value": "API 路径 (可选)"
-    },
-    {
-      "name": "model_list",
-      "value": "模型列表"
     },
     {
       "name": "add",
@@ -234,14 +170,6 @@
     },
     {
       "name": "settings_appearance_desc",
-      "value": "显示模式、主题配色和字体大小"
-    },
-    {
-      "name": "settings_dark_mode",
-      "value": "主题"
-    },
-    {
-      "name": "settings_dark_mode_desc",
       "value": "显示模式、主题配色和字体大小"
     },
     {
@@ -339,10 +267,6 @@
     {
       "name": "settings_notifications",
       "value": "通知"
-    },
-    {
-      "name": "settings_notifications_enabled",
-      "value": "已开启"
     },
     {
       "name": "notification_enabled_title",
@@ -539,10 +463,6 @@
     {
       "name": "import_progress",
       "value": "导入进度"
-    },
-    {
-      "name": "import_success",
-      "value": "导入成功"
     },
     {
       "name": "import_failed",
@@ -777,36 +697,12 @@
       "value": "取消收藏"
     },
     {
-      "name": "menu_copy",
-      "value": "复制"
-    },
-    {
-      "name": "menu_regenerate",
-      "value": "重新生成"
-    },
-    {
-      "name": "menu_edit",
-      "value": "编辑"
-    },
-    {
-      "name": "menu_read_aloud",
-      "value": "朗读"
-    },
-    {
-      "name": "menu_stop_read_aloud",
-      "value": "停止朗读"
-    },
-    {
       "name": "translation_label",
       "value": "翻译"
     },
     {
       "name": "translation_loading",
       "value": "正在翻译..."
-    },
-    {
-      "name": "translation_clear",
-      "value": "清空翻译"
     },
     {
       "name": "reasoning_process",
@@ -859,10 +755,6 @@
     {
       "name": "save_and_send",
       "value": "保存并发送"
-    },
-    {
-      "name": "message_saved",
-      "value": "消息已保存"
     },
     {
       "name": "edit_message_placeholder",
@@ -1047,10 +939,6 @@
     {
       "name": "action_failed_retry",
       "value": "操作失败，请重试"
-    },
-    {
-      "name": "save_failed_retry",
-      "value": "保存失败，请重试"
     },
     {
       "name": "selected_message_not_found",
@@ -1245,64 +1133,16 @@
       "value": "已复制"
     },
     {
-      "name": "provider_moved_up",
-      "value": "已上移"
-    },
-    {
-      "name": "provider_moved_down",
-      "value": "已下移"
-    },
-    {
       "name": "provider_deleted",
       "value": "服务商已删除"
-    },
-    {
-      "name": "api_style_openai_desc",
-      "value": "兼容 OpenAI API 格式，如 OpenAI、DeepSeek、Ollama 等"
-    },
-    {
-      "name": "api_style_anthropic_desc",
-      "value": "Anthropic Claude API 格式"
-    },
-    {
-      "name": "api_style_google_desc",
-      "value": "Google Gemini API 格式"
     },
     {
       "name": "provider_name_placeholder",
       "value": "自定义服务商"
     },
     {
-      "name": "model_input_placeholder",
-      "value": "输入模型名称"
-    },
-    {
-      "name": "disabled_services",
-      "value": "已停用服务"
-    },
-    {
       "name": "search_try_other_keywords",
       "value": "请尝试其他关键词"
-    },
-    {
-      "name": "provider_disabled_badge",
-      "value": "已停用"
-    },
-    {
-      "name": "provider_menu_move_up",
-      "value": "上移"
-    },
-    {
-      "name": "provider_menu_move_down",
-      "value": "下移"
-    },
-    {
-      "name": "provider_menu_enable",
-      "value": "启用"
-    },
-    {
-      "name": "provider_menu_disable",
-      "value": "停用"
     },
     {
       "name": "delete_provider_title",
@@ -1513,16 +1353,8 @@
       "value": "无效链接"
     },
     {
-      "name": "model_picker_select_all",
-      "value": "全选"
-    },
-    {
       "name": "model_picker_deselect_all",
       "value": "取消全选"
-    },
-    {
-      "name": "model_picker_added",
-      "value": "已添加"
     },
     {
       "name": "model_picker_show_selected",
@@ -1681,10 +1513,6 @@
       "value": "执行完成"
     },
     {
-      "name": "function_calling_not_supported",
-      "value": "当前模型不支持工具调用，请切换支持 Function Calling 的模型"
-    },
-    {
       "name": "match_icons",
       "value": "匹配图标"
     },
@@ -1775,10 +1603,6 @@
     {
       "name": "about_wechat_support",
       "value": "微信打赏"
-    },
-    {
-      "name": "about_wechat_support_desc",
-      "value": "自愿支持开发，用于购买 token"
     },
     {
       "name": "about_wechat_pay_note",

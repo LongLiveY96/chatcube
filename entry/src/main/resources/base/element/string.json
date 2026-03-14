@@ -25,10 +25,6 @@
       "value": "Type a message..."
     },
     {
-      "name": "enabled_services",
-      "value": "Enabled Services"
-    },
-    {
       "name": "api_key",
       "value": "API Key"
     },
@@ -37,28 +33,8 @@
       "value": "Base URL"
     },
     {
-      "name": "available_models",
-      "value": "Available Models"
-    },
-    {
       "name": "test_connection",
       "value": "Test Connection"
-    },
-    {
-      "name": "save_config",
-      "value": "Save Config"
-    },
-    {
-      "name": "refresh_list",
-      "value": "Refresh List"
-    },
-    {
-      "name": "connected",
-      "value": "Connected"
-    },
-    {
-      "name": "recommended",
-      "value": "Recommended"
     },
     {
       "name": "tab_assistant",
@@ -79,10 +55,6 @@
     {
       "name": "permission_keep_background_running",
       "value": "This app requires background running permission to continue long-running reply tasks in the background."
-    },
-    {
-      "name": "permission_publish_notification",
-      "value": "This app needs notification permission to alert you when background replies complete."
     },
     {
       "name": "permission_detect_gesture",
@@ -107,22 +79,6 @@
     {
       "name": "tablet_chat_detail_empty_desc",
       "value": "Open one from the list on the left, or start a new chat"
-    },
-    {
-      "name": "tablet_provider_detail_empty_title",
-      "value": "Select a provider"
-    },
-    {
-      "name": "tablet_provider_detail_empty_desc",
-      "value": "Pick one from the list on the left, or add a custom provider"
-    },
-    {
-      "name": "tablet_settings_detail_empty_title",
-      "value": "Select a settings module"
-    },
-    {
-      "name": "tablet_settings_detail_empty_desc",
-      "value": "Open a secondary page from the settings list on the left"
     },
     {
       "name": "loading",
@@ -173,32 +129,12 @@
       "value": "API Path (Optional)"
     },
     {
-      "name": "model_list",
-      "value": "Model List"
-    },
-    {
       "name": "add",
       "value": "Add"
     },
     {
       "name": "save",
       "value": "Save"
-    },
-    {
-      "name": "model_tag_openai",
-      "value": "OpenAI"
-    },
-    {
-      "name": "model_tag_claude",
-      "value": "Claude"
-    },
-    {
-      "name": "model_tag_gemini",
-      "value": "Gemini"
-    },
-    {
-      "name": "model_tag_other",
-      "value": "Other"
     },
     {
       "name": "filter_models_placeholder",
@@ -234,14 +170,6 @@
     },
     {
       "name": "settings_appearance_desc",
-      "value": "Display mode, color theme, and font size"
-    },
-    {
-      "name": "settings_dark_mode",
-      "value": "Theme"
-    },
-    {
-      "name": "settings_dark_mode_desc",
       "value": "Display mode, color theme, and font size"
     },
     {
@@ -339,10 +267,6 @@
     {
       "name": "settings_notifications",
       "value": "Notifications"
-    },
-    {
-      "name": "settings_notifications_enabled",
-      "value": "Enabled"
     },
     {
       "name": "notification_enabled_title",
@@ -539,10 +463,6 @@
     {
       "name": "import_progress",
       "value": "Importing..."
-    },
-    {
-      "name": "import_success",
-      "value": "Import Successful"
     },
     {
       "name": "import_failed",
@@ -777,36 +697,12 @@
       "value": "Unfavorite"
     },
     {
-      "name": "menu_copy",
-      "value": "Copy"
-    },
-    {
-      "name": "menu_regenerate",
-      "value": "Regenerate"
-    },
-    {
-      "name": "menu_edit",
-      "value": "Edit"
-    },
-    {
-      "name": "menu_read_aloud",
-      "value": "Read Aloud"
-    },
-    {
-      "name": "menu_stop_read_aloud",
-      "value": "Stop Reading"
-    },
-    {
       "name": "translation_label",
       "value": "Translation"
     },
     {
       "name": "translation_loading",
       "value": "Translating..."
-    },
-    {
-      "name": "translation_clear",
-      "value": "Clear Translation"
     },
     {
       "name": "reasoning_process",
@@ -859,10 +755,6 @@
     {
       "name": "save_and_send",
       "value": "Save & Send"
-    },
-    {
-      "name": "message_saved",
-      "value": "Message saved"
     },
     {
       "name": "edit_message_placeholder",
@@ -1047,10 +939,6 @@
     {
       "name": "action_failed_retry",
       "value": "Action failed. Please try again"
-    },
-    {
-      "name": "save_failed_retry",
-      "value": "Save failed. Please try again"
     },
     {
       "name": "selected_message_not_found",
@@ -1245,64 +1133,16 @@
       "value": "Copied"
     },
     {
-      "name": "provider_moved_up",
-      "value": "Moved up"
-    },
-    {
-      "name": "provider_moved_down",
-      "value": "Moved down"
-    },
-    {
       "name": "provider_deleted",
       "value": "Provider deleted"
-    },
-    {
-      "name": "api_style_openai_desc",
-      "value": "Compatible with OpenAI API format, e.g. OpenAI, DeepSeek, Ollama"
-    },
-    {
-      "name": "api_style_anthropic_desc",
-      "value": "Anthropic Claude API format"
-    },
-    {
-      "name": "api_style_google_desc",
-      "value": "Google Gemini API format"
     },
     {
       "name": "provider_name_placeholder",
       "value": "Custom provider"
     },
     {
-      "name": "model_input_placeholder",
-      "value": "Enter model name"
-    },
-    {
-      "name": "disabled_services",
-      "value": "Disabled Services"
-    },
-    {
       "name": "search_try_other_keywords",
       "value": "Try other keywords"
-    },
-    {
-      "name": "provider_disabled_badge",
-      "value": "Disabled"
-    },
-    {
-      "name": "provider_menu_move_up",
-      "value": "Move Up"
-    },
-    {
-      "name": "provider_menu_move_down",
-      "value": "Move Down"
-    },
-    {
-      "name": "provider_menu_enable",
-      "value": "Enable"
-    },
-    {
-      "name": "provider_menu_disable",
-      "value": "Disable"
     },
     {
       "name": "delete_provider_title",
@@ -1513,16 +1353,8 @@
       "value": "Invalid link"
     },
     {
-      "name": "model_picker_select_all",
-      "value": "Select all"
-    },
-    {
       "name": "model_picker_deselect_all",
       "value": "Deselect all"
-    },
-    {
-      "name": "model_picker_added",
-      "value": "Added"
     },
     {
       "name": "model_picker_show_selected",
@@ -1681,10 +1513,6 @@
       "value": "Completed"
     },
     {
-      "name": "function_calling_not_supported",
-      "value": "Current model does not support function calling"
-    },
-    {
       "name": "match_icons",
       "value": "Match Icons"
     },
@@ -1775,10 +1603,6 @@
     {
       "name": "about_wechat_support",
       "value": "WeChat Support"
-    },
-    {
-      "name": "about_wechat_support_desc",
-      "value": "Optional support for token costs and development"
     },
     {
       "name": "about_wechat_pay_note",
