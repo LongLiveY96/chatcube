@@ -40,9 +40,9 @@ const PRESET_PROVIDERS: PresetProviderConfig[] = [
     apiStyle: ApiStyle.ANTHROPIC,
     baseUrl: 'https://api.anthropic.com',
     iconPath: '',
-    brandColorHex: '#D97757',
+    brandColorHex: '#C45C3A',
     textIcon: 'C',
-    textIconBgColor: '#D97757'
+    textIconBgColor: '#C45C3A'
   },
   {
     id: 'deepseek',
@@ -128,9 +128,9 @@ const PRESET_PROVIDERS: PresetProviderConfig[] = [
     apiStyle: ApiStyle.OPENAI,
     baseUrl: 'https://api.minimax.chat/v1',
     iconPath: '',
-    brandColorHex: '#00D68F',
+    brandColorHex: '#00A876',
     textIcon: 'M',
-    textIconBgColor: '#00D68F'
+    textIconBgColor: '#00A876'
   },
   {
     id: 'aihubmix',
@@ -139,9 +139,9 @@ const PRESET_PROVIDERS: PresetProviderConfig[] = [
     apiStyle: ApiStyle.OPENAI,
     baseUrl: 'https://aihubmix.com/v1',
     iconPath: '',
-    brandColorHex: '#F59E0B',
+    brandColorHex: '#D97706',
     textIcon: 'AH',
-    textIconBgColor: '#F59E0B'
+    textIconBgColor: '#D97706'
   },
   {
     id: 'grok',

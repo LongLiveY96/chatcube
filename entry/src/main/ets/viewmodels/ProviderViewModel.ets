@@ -253,8 +253,8 @@ export class ProviderViewModel {
     provider.textIconBgColor = config.textIconBgColor !== undefined ? config.textIconBgColor : ''
     provider.customImagePath = config.customImagePath !== undefined ? config.customImagePath : ''
 
-    // 自动迁移：预设供应商如果仍为 SVG 类型，改为 TEXT 类型
-    if (provider.isPreset && provider.iconType === ProviderIconType.SVG) {
+    // 自动迁移：预设供应商始终使用预设图标配置（确保品牌色对比度合规）
+    if (provider.isPreset) {
       const preset = getPresetProviderById(config.id)
       if (preset !== null) {
         provider.iconType = ProviderIconType.TEXT
