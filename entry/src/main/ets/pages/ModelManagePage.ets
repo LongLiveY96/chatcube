@@ -21,6 +21,13 @@ import { ProviderDetailRouteParams } from './ProviderDetailPage'
 
 let modelManagePagePathStack: NavPathStack | null = null
 let modelManageInternalBackHandler: (() => boolean) | null = null
+let modelManageRefreshHandler: (() => void) | null = null
+
+export function notifyModelManageRefresh(): void {
+  if (modelManageRefreshHandler !== null) {
+    modelManageRefreshHandler()
+  }
+}
 
 @Entry
 @ComponentV2
@@ -186,6 +193,9 @@ struct ModelManagePage {
     modelManageInternalBackHandler = (): boolean => {
       return this.handleInternalBackPressed()
     }
+    modelManageRefreshHandler = (): void => {
+      this.refreshFromCache()
+    }
     if (this.layoutObserverDisposer === null) {
       this.layoutObserverDisposer = observeAppUiState(['layoutSizeClass', 'windowWidthVp', 'windowHeightVp',
         'settingsDetailPresentationMode'], (): void => {
@@ -197,6 +207,7 @@ struct ModelManagePage {
 
   aboutToDisappear(): void {
     modelManageInternalBackHandler = null
+    modelManageRefreshHandler = null
     if (this.layoutObserverDisposer !== null) {
       this.layoutObserverDisposer()
       this.layoutObserverDisposer = null

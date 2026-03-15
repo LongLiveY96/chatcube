@@ -95,7 +95,7 @@ export struct MessageBubble {
     return getAppUiState().speakingMessageId
   }
   // 聊天图片紧凑展示参数
-  private compactImageMaxHeight: number = 120
+  private compactImageMaxHeight: number = 100
   private compactImageContainerWidth: number = 180
   private compactImageGap: number = 6
 
@@ -815,8 +815,8 @@ export struct MessageBubble {
       Image(this.getAttachmentImageSource(attachment))
         .width(this.compactImageContainerWidth)
         .height(this.compactImageMaxHeight)
-        .objectFit(ImageFit.Contain)
-        .borderRadius(12)
+        .objectFit(ImageFit.Cover)
+        .borderRadius(8)
         .clip(true)
         .margin({ bottom: bottomMargin })
     }
@@ -828,8 +828,8 @@ export struct MessageBubble {
       Image(this.getAttachmentImageSource(attachment))
         .width('100%')
         .height(this.compactImageMaxHeight)
-        .objectFit(ImageFit.Contain)
-        .borderRadius(12)
+        .objectFit(ImageFit.Cover)
+        .borderRadius(8)
         .clip(true)
         .layoutWeight(1)
     }
@@ -842,8 +842,8 @@ export struct MessageBubble {
         .id('img_' + attachment.id)
         .width(this.compactImageContainerWidth)
         .height(this.compactImageMaxHeight)
-        .objectFit(ImageFit.Contain)
-        .borderRadius(12)
+        .objectFit(ImageFit.Cover)
+        .borderRadius(8)
         .clip(true)
         .margin({ bottom: bottomMargin })
         .hitTestBehavior(HitTestMode.Block)
@@ -863,8 +863,8 @@ export struct MessageBubble {
         .id('img_' + attachment.id)
         .width('100%')
         .height(this.compactImageMaxHeight)
-        .objectFit(ImageFit.Contain)
-        .borderRadius(12)
+        .objectFit(ImageFit.Cover)
+        .borderRadius(8)
         .clip(true)
         .layoutWeight(1)
         .hitTestBehavior(HitTestMode.Block)
@@ -1107,7 +1107,7 @@ export struct MessageBubble {
             }
             .width(30)
             .height(30)
-            .borderRadius(10)
+            .borderRadius(8)
             .backgroundColor($r('app.color.model_icon_bg'))
             .border({ width: 0.5, color: $r('app.color.bubble_border') })
             .justifyContent(FlexAlign.Center)

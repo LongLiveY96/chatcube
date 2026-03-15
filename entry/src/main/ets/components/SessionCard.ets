@@ -346,23 +346,6 @@ export struct SessionCard {
     .onClick(() => {
       this.onTap()
     })
-    // TODO: 排查横滑冲突，临时禁用 onTouch 按压缩放
-    // .scale(this.enableAnimation ? { x: this.scaleValue, y: this.scaleValue } : { x: 1, y: 1 })
-    // .onTouch(this.enableAnimation ? (event: TouchEvent) => {
-    //   if (event.type === TouchType.Down) {
-    //     this.getUIContext().animateTo({
-    //       curve: curves.interpolatingSpring(0, 1, 350, 35)
-    //     }, () => {
-    //       this.scaleValue = 0.96
-    //     })
-    //   } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-    //     this.getUIContext().animateTo({
-    //       curve: curves.interpolatingSpring(0, 1, 350, 35)
-    //     }, () => {
-    //       this.scaleValue = 1
-    //     })
-    //   }
-    // } : undefined)
     .bindContextMenu(this.enableContextMenu ? this.SessionContextMenu : undefined, ResponseType.LongPress, {
       preview: this.SessionPreview
     })

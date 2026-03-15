@@ -247,7 +247,7 @@ export struct ChatNavigationBar {
                   }
                   .width(20)
                   .height(20)
-                  .borderRadius(4)
+                  .borderRadius(5)
                   .backgroundColor($r('app.color.model_icon_bg'))
                   .justifyContent(FlexAlign.Center)
                   .alignItems(HorizontalAlign.Center)
@@ -259,7 +259,7 @@ export struct ChatNavigationBar {
                   }
                   .width(20)
                   .height(20)
-                  .borderRadius(4)
+                  .borderRadius(5)
                   .backgroundColor($r('app.color.model_icon_bg'))
                   .justifyContent(FlexAlign.Center)
                   .alignItems(HorizontalAlign.Center)

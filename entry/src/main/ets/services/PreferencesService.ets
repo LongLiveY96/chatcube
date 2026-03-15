@@ -36,6 +36,7 @@ export class PreferenceKeys {
   static readonly TRANSLATE_PROMPT_TEMPLATE: string = 'translate_prompt_template'
   static readonly TRANSLATE_TARGET_LANGUAGE: string = 'translate_target_language'
   static readonly CUSTOM_SYSTEM_PROMPT: string = 'custom_system_prompt'
+  static readonly SYSTEM_PROMPT_ENABLED: string = 'system_prompt_enabled'
 
   // 搜索服务配置
   static readonly SEARCH_SERVICE_ENABLED: string = 'search_service_enabled'

@@ -125,6 +125,9 @@ export struct ProviderDetailPanel {
 
   aboutToDisappear(): void {
     providerDetailInternalBackHandler = null
+    if (this.isStandalonePagePresentation()) {
+      this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
+    }
   }
 
   @Monitor('providerId', 'isCreateMode')
@@ -701,6 +704,7 @@ export struct ProviderDetailPanel {
         action: async () => {
           await this.providerViewModel.deleteProvider(providerId)
           showToast(this.getUIContext(), $r('app.string.provider_deleted'))
+          this.onProviderChanged(providerId, false)
           this.onClose()
         }
       }
@@ -984,42 +988,27 @@ export struct ProviderDetailPanel {
 
           if (!this.isCreateMode && this.provider !== null && !this.provider.isPreset) {
             Button() {
-              Row({ space: 4 }) {
-                SymbolGlyph($r('sys.symbol.clean'))
-                  .fontSize(14)
-                  .fontColor([$r('app.color.status_error')])
-                Text($r('app.string.delete'))
-                  .fontSize(13)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor($r('app.color.status_error'))
-              }
+              SymbolGlyph($r('sys.symbol.clean'))
+                .fontSize(18)
+                .fontColor([$r('app.color.status_error')])
             }
-            .type(ButtonType.Normal)
-            .stateEffect(false)
-            .height(32)
-            .padding({ left: 4, right: 4 })
-            .backgroundColor(Color.Transparent)
+            .type(ButtonType.Circle)
+            .width(36)
+            .height(36)
+            .backgroundColor($r('app.color.divider'))
             .onClick(() => {
               this.showDeleteConfirmDialog()
             })
           }
 
           Button() {
-            Row({ space: 4 }) {
-              SymbolGlyph(this.headerSaveSymbol())
-                .fontSize(14)
-                .fontColor([Color.White])
-              Text($r('app.string.save'))
-                .fontSize(13)
-                .fontWeight(FontWeight.Medium)
-                .fontColor(Color.White)
-            }
+            SymbolGlyph(this.headerSaveSymbol())
+              .fontSize(18)
+              .fontColor([Color.White])
           }
-          .type(ButtonType.Normal)
-          .stateEffect(false)
-          .height(34)
-          .padding({ left: 14, right: 14 })
-          .borderRadius(17)
+          .type(ButtonType.Circle)
+          .width(36)
+          .height(36)
           .backgroundColor(this.themePrimary)
           .onClick(() => {
             this.saveConfigAndClose()
@@ -1145,14 +1134,6 @@ export struct ProviderDetailPanel {
   ProviderHeaderCard() {
     if (this.isStandalonePagePresentation()) {
       Stack({ alignContent: Alignment.TopStart }) {
-        Column()
-          .width(124)
-          .height(124)
-          .borderRadius(62)
-          .backgroundColor(this.themePrimaryLight)
-          .opacity(this.isDarkMode ? 0.14 : 0.46)
-          .position({ x: -30, y: -50 })
-
         Column({ space: 12 }) {
           Row({ space: 12 }) {
             if (this.provider !== null) {
@@ -1163,7 +1144,7 @@ export struct ProviderDetailPanel {
                 textIconBgColor: this.provider.textIconBgColor,
                 customImagePath: this.provider.customImagePath,
                 iconSize: 48,
-                radius: 14,
+                radius: 12,
                 bgColor: $r('app.color.divider'),
                 brandColor: this.provider.brandColor,
                 fallbackSymbol: $r('sys.symbol.cloud'),
@@ -1228,25 +1209,58 @@ export struct ProviderDetailPanel {
             .layoutWeight(1)
             .alignItems(HorizontalAlign.Start)
 
-            Toggle({ type: ToggleType.Switch, isOn: this.provider?.isConnected ?? false })
-              .selectedColor(this.themePrimary)
-              .onChange((isOn: boolean) => {
-                if (this.provider !== null && this.provider.isConnected !== isOn) {
-                  this.toggleEnabled()
-                }
-              })
+            if (this.provider?.id !== 'siliconflow') {
+              Toggle({ type: ToggleType.Switch, isOn: this.provider?.isConnected ?? false })
+                .selectedColor(this.themePrimary)
+                .onChange((isOn: boolean) => {
+                  if (this.provider !== null && this.provider.isConnected !== isOn) {
+                    this.toggleEnabled()
+                  }
+                })
+            }
           }
           .alignItems(VerticalAlign.Top)
           .width('100%')
 
           Row({ space: 8 }) {
-            this.PageMetaBadge(
-              (this.provider?.isConnected ?? false) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.xmark_circle'),
-              (this.provider?.isConnected ?? false) ? $r('app.string.provider_enabled') : $r('app.string.provider_disabled'),
-              this.provider?.isConnected ?? false
-            )
-            this.PageMetaBadge($r('sys.symbol.gearshape'), this.getCurrentApiStyleName())
-            this.PageMetaBadge($r('sys.symbol.satellite_map'), `${this.provider?.models.length ?? 0}`)
+            Row({ space: 6 }) {
+              SymbolGlyph((this.provider?.isConnected ?? false) ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.xmark_circle'))
+                .fontSize(12)
+                .fontColor([(this.provider?.isConnected ?? false) ? this.themePrimary : $r('app.color.text_secondary')])
+              Text((this.provider?.isConnected ?? false) ? $r('app.string.provider_enabled') : $r('app.string.provider_disabled'))
+                .fontSize(11)
+                .fontWeight(FontWeight.Medium)
+                .fontColor((this.provider?.isConnected ?? false) ? this.themePrimary : $r('app.color.text_secondary'))
+            }
+            .padding({ left: 8, right: 8, top: 5, bottom: 5 })
+            .backgroundColor((this.provider?.isConnected ?? false) ? this.themePrimaryLight : $r('app.color.background'))
+            .borderRadius(14)
+
+            Row({ space: 6 }) {
+              SymbolGlyph($r('sys.symbol.gearshape'))
+                .fontSize(12)
+                .fontColor([$r('app.color.text_secondary')])
+              Text(this.getCurrentApiStyleName())
+                .fontSize(11)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('app.color.text_secondary'))
+            }
+            .padding({ left: 8, right: 8, top: 5, bottom: 5 })
+            .backgroundColor($r('app.color.background'))
+            .borderRadius(14)
+
+            Row({ space: 6 }) {
+              SymbolGlyph($r('sys.symbol.satellite_map'))
+                .fontSize(12)
+                .fontColor([$r('app.color.text_secondary')])
+              Text(`${this.provider?.models.length ?? 0}`)
+                .fontSize(11)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('app.color.text_secondary'))
+            }
+            .padding({ left: 8, right: 8, top: 5, bottom: 5 })
+            .backgroundColor($r('app.color.background'))
+            .borderRadius(14)
           }
           .width('100%')
         }
@@ -1256,7 +1270,6 @@ export struct ProviderDetailPanel {
       .width('100%')
       .backgroundColor($r('app.color.surface'))
       .borderRadius(20)
-      .border({ width: 1, color: this.themePrimaryLight })
       .clip(true)
       .margin({ left: 16, right: 16, top: 2, bottom: 4 })
     } else {
@@ -1271,7 +1284,7 @@ export struct ProviderDetailPanel {
               textIconBgColor: this.provider.textIconBgColor,
               customImagePath: this.provider.customImagePath,
               iconSize: 44,
-              radius: 12,
+              radius: 11,
               bgColor: $r('app.color.divider'),
               brandColor: this.provider.brandColor,
               fallbackSymbol: $r('sys.symbol.cloud'),
@@ -1338,15 +1351,17 @@ export struct ProviderDetailPanel {
           .margin({ left: 10 })
           .layoutWeight(1)
 
-          // 启用开关
-          Toggle({ type: ToggleType.Switch, isOn: this.provider?.isConnected ?? false })
-            .selectedColor(this.themePrimary)
-            .onChange((isOn: boolean) => {
-              // 只有当状态真正改变时才处理（避免重复触发）
-              if (this.provider !== null && this.provider.isConnected !== isOn) {
-                this.toggleEnabled()
-              }
-            })
+          // 启用开关（系统服务不可禁用）
+          if (this.provider?.id !== 'siliconflow') {
+            Toggle({ type: ToggleType.Switch, isOn: this.provider?.isConnected ?? false })
+              .selectedColor(this.themePrimary)
+              .onChange((isOn: boolean) => {
+                // 只有当状态真正改变时才处理（避免重复触发）
+                if (this.provider !== null && this.provider.isConnected !== isOn) {
+                  this.toggleEnabled()
+                }
+              })
+          }
         }
         .width('100%')
         .padding({ left: 16, right: 16, top: 12, bottom: 12 })
@@ -1386,7 +1401,7 @@ export struct ProviderDetailPanel {
         .padding({ left: 16, top: 16, bottom: 12 })
 
       // API 风格选择（仅自定义类型服务商显示）
-      if (this.provider !== null && this.provider.type === ProviderType.CUSTOM) {
+      if (this.provider !== null && !this.provider.isPreset) {
         Column() {
           Text($r('app.string.api_style'))
             .fontSize(13)

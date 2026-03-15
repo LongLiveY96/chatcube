@@ -386,7 +386,7 @@
     },
     {
       "name": "export_include_providers",
-      "value": "包含供应商配置"
+      "value": "包含服务商配置"
     },
     {
       "name": "export_include_api_keys",
@@ -450,7 +450,7 @@
     },
     {
       "name": "import_providers",
-      "value": "导入供应商配置"
+      "value": "导入服务商配置"
     },
     {
       "name": "import_preferences",
@@ -842,11 +842,11 @@
     },
     {
       "name": "provider_detail_title",
-      "value": "供应商详情"
+      "value": "服务商详情"
     },
     {
       "name": "provider_detail_not_found",
-      "value": "未找到供应商"
+      "value": "未找到服务商"
     },
     {
       "name": "action_back",
@@ -1146,11 +1146,11 @@
     },
     {
       "name": "delete_provider_title",
-      "value": "删除供应商"
+      "value": "删除服务商"
     },
     {
       "name": "delete_provider_confirm",
-      "value": "确定要删除该供应商吗？此操作不可恢复。"
+      "value": "确定要删除该服务商吗？此操作不可恢复。"
     },
     {
       "name": "icon_click_edit",
@@ -1418,7 +1418,7 @@
     },
     {
       "name": "default_model_no_provider",
-      "value": "暂无可用的模型供应商"
+      "value": "暂无可用的模型服务商"
     },
     {
       "name": "default_model_no_provider_hint",
@@ -1555,6 +1555,10 @@
     {
       "name": "system_prompt_saved",
       "value": "系统提示词已保存"
+    },
+    {
+      "name": "system_prompt_enabled_label",
+      "value": "启用系统提示词"
     },
     {
       "name": "about_page_slogan",

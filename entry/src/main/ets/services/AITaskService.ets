@@ -83,7 +83,6 @@ export class AITaskService {
 
   // 获取标题语言（优先 App 设置，其次自动检测）
   private getTitleLocale(content: string): string {
-    // TODO: 未来可以从 AppStateManager 获取 App 语言设置
     // 目前使用自动检测
     return this.detectLanguage(content)
   }

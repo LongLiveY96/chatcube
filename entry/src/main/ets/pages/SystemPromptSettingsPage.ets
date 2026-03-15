@@ -31,6 +31,7 @@ struct SystemPromptSettingsPage {
   }
 
   @Local customSystemPrompt: string = ''
+  @Local systemPromptEnabled: boolean = true
 
   private preferencesService = ServiceRegistry.preferences()
 
@@ -39,6 +40,10 @@ struct SystemPromptSettingsPage {
   }
 
   private async loadSystemPrompt(): Promise<void> {
+    this.systemPromptEnabled = await this.preferencesService.getBoolean(
+      PreferenceKeys.SYSTEM_PROMPT_ENABLED,
+      true
+    )
     const saved = await this.preferencesService.getString(
       PreferenceKeys.CUSTOM_SYSTEM_PROMPT,
       SystemPromptTemplateDefaults.DEFAULT_TEMPLATE
@@ -94,6 +99,21 @@ struct SystemPromptSettingsPage {
           .lineHeight(16)
           .width('100%')
 
+        Row() {
+          Text($r('app.string.system_prompt_enabled_label'))
+            .fontSize(14)
+            .fontColor($r('app.color.text_primary'))
+            .layoutWeight(1)
+
+          Toggle({ type: ToggleType.Switch, isOn: this.systemPromptEnabled })
+            .onChange((isOn: boolean) => {
+              this.systemPromptEnabled = isOn
+              this.preferencesService.setBoolean(PreferenceKeys.SYSTEM_PROMPT_ENABLED, isOn)
+            })
+        }
+        .width('100%')
+        .padding({ left: 4, right: 4 })
+
         TextArea({ text: this.customSystemPrompt, placeholder: $r('app.string.system_prompt_placeholder') })
           .layoutWeight(1)
           .width('100%')
@@ -103,6 +123,8 @@ struct SystemPromptSettingsPage {
           .backgroundColor($r('app.color.surface'))
           .borderRadius(20)
           .padding(16)
+          .enabled(this.systemPromptEnabled)
+          .opacity(this.systemPromptEnabled ? 1 : 0.5)
           .onChange((value: string) => {
             this.customSystemPrompt = value
           })

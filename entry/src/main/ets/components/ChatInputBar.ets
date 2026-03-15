@@ -163,7 +163,7 @@ export struct ChatInputBar {
               }
               .width(28)
               .height(28)
-              .borderRadius(8)
+              .borderRadius(7)
               .backgroundColor($r('app.color.model_icon_bg'))
               .justifyContent(FlexAlign.Center)
               .alignItems(HorizontalAlign.Center)
@@ -175,7 +175,7 @@ export struct ChatInputBar {
               }
               .width(28)
               .height(28)
-              .borderRadius(8)
+              .borderRadius(7)
               .backgroundColor($r('app.color.model_icon_bg'))
               .justifyContent(FlexAlign.Center)
               .alignItems(HorizontalAlign.Center)

@@ -130,6 +130,10 @@ export class ChatViewModel {
 
   private async getRenderedSystemPrompt(): Promise<string> {
     const prefsService = getPreferencesService()
+    const enabled = await prefsService.getBoolean(PreferenceKeys.SYSTEM_PROMPT_ENABLED, true)
+    if (!enabled) {
+      return ''
+    }
     const template = await prefsService.getString(
       PreferenceKeys.CUSTOM_SYSTEM_PROMPT,
       SystemPromptTemplateDefaults.DEFAULT_TEMPLATE
@@ -535,7 +539,9 @@ export class ChatViewModel {
     // 构建请求消息列表（从上下文起始位置开始，过滤掉上下文清空标记）
     const requestMessages: RequestMessage[] = []
     const renderedSystemPrompt = await this.getRenderedSystemPrompt()
-    requestMessages.push(new RequestMessage('system', renderedSystemPrompt))
+    if (renderedSystemPrompt !== '') {
+      requestMessages.push(new RequestMessage('system', renderedSystemPrompt))
+    }
     for (let i = 0; i < historyMessages.length; i++) {
       requestMessages.push(historyMessages[i])
     }
@@ -825,7 +831,7 @@ ${webContext.content}
     // 构建请求消息列表
     const requestMessages: RequestMessage[] = []
     const renderedSystemPromptWeb = await this.getRenderedSystemPrompt()
-    const finalSystemPromptWeb = `${renderedSystemPromptWeb}\n\n${systemPrompt}`
+    const finalSystemPromptWeb = renderedSystemPromptWeb !== '' ? `${renderedSystemPromptWeb}\n\n${systemPrompt}` : systemPrompt
     requestMessages.push(new RequestMessage('system', finalSystemPromptWeb))
     for (let i = 0; i < historyMessages.length; i++) {
       requestMessages.push(historyMessages[i])
@@ -1124,7 +1130,7 @@ ${limitedSearchContext}
     // 构建请求消息列表
     const requestMessages: RequestMessage[] = []
     const renderedSystemPromptSearch = await this.getRenderedSystemPrompt()
-    const finalSystemPromptSearch = `${renderedSystemPromptSearch}\n\n${systemPrompt}`
+    const finalSystemPromptSearch = renderedSystemPromptSearch !== '' ? `${renderedSystemPromptSearch}\n\n${systemPrompt}` : systemPrompt
     requestMessages.push(new RequestMessage('system', finalSystemPromptSearch))
     for (let i = 0; i < historyMessages.length; i++) {
       requestMessages.push(historyMessages[i])
@@ -1430,7 +1436,7 @@ ${limitedSearchContext}
 - 若用户提到“今天/昨天/明天/现在/最新”等相对时间，请以当前时间为基准理解，不要编造不一致的绝对日期。
 - 工具返回后必须给出最终回答，不要在没有必要的情况下重复调用工具。`
     const renderedSystemPromptTools = await this.getRenderedSystemPrompt()
-    const finalToolUsageSystemPrompt = `${renderedSystemPromptTools}\n\n${toolUsageSystemPrompt}`
+    const finalToolUsageSystemPrompt = renderedSystemPromptTools !== '' ? `${renderedSystemPromptTools}\n\n${toolUsageSystemPrompt}` : toolUsageSystemPrompt
     requestMessages.push(new RequestMessage('system', finalToolUsageSystemPrompt))
     for (let i = 0; i < historyMessages.length; i++) {
       requestMessages.push(historyMessages[i])

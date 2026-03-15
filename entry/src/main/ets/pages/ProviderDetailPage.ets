@@ -3,6 +3,7 @@ import {
   ProviderDetailPresentationMode,
   tryHandleProviderDetailInternalBack
 } from '../components/ProviderDetailSheet'
+import { notifyModelManageRefresh } from './ModelManagePage'
 
 export interface ProviderDetailRouteParams {
   providerId?: string
@@ -36,7 +37,10 @@ struct ProviderDetailPageContent {
         isCreateMode: this.isCreateMode,
         closeOnModelsSelected: false,
         presentationMode: ProviderDetailPresentationMode.PAGE,
-        onClose: this.onClose
+        onClose: this.onClose,
+        onProviderChanged: (_providerId: string, _isCreateMode: boolean) => {
+          notifyModelManageRefresh()
+        }
       })
     }
     .width('100%')

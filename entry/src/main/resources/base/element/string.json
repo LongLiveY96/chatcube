@@ -1557,6 +1557,10 @@
       "value": "System prompt saved"
     },
     {
+      "name": "system_prompt_enabled_label",
+      "value": "Enable System Prompt"
+    },
+    {
       "name": "about_page_slogan",
       "value": "Your Smart AI Chat Companion"
     },

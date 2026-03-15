@@ -12,7 +12,7 @@ export struct ProviderIcon {
   @Param iconPath: string = ''
   @Param iconSize: number = 40
   @Param bgColor: ResourceColor = Color.Transparent
-  @Param radius: number = 12
+  @Param radius: number = 10
   @Param fallbackSymbol: Resource = $r('sys.symbol.message')
   @Param fallbackColor: ResourceColor = Color.White
   @Param iconType: string = 'svg'
@@ -21,11 +21,6 @@ export struct ProviderIcon {
   @Param customImagePath: string = ''
   @Param brandColor: ResourceColor = ''
   @Param isDarkMode: boolean = false
-
-  // 判断是否显示品牌色边框
-  private shouldShowBrandBorder(): boolean {
-    return this.iconType === 'svg' && this.brandColor !== ''
-  }
 
   // 判断是否为透明背景
   private isTransparentBg(): boolean {
@@ -39,6 +34,9 @@ export struct ProviderIcon {
         return Color.Transparent
       }
       return this.textIconBgColor
+    }
+    if (this.iconType === 'svg' || this.iconType === 'image') {
+      return Color.Transparent
     }
     return this.bgColor
   }
@@ -56,10 +54,12 @@ export struct ProviderIcon {
       // SVG 图标
       if (this.iconType === 'svg' && this.iconPath !== '') {
         Image($rawfile(buildIconResourcePath(this.iconPath)))
-          .width(this.iconSize * 0.6)
-          .height(this.iconSize * 0.6)
+          .width(this.iconSize)
+          .height(this.iconSize)
           .objectFit(ImageFit.Contain)
           .interpolation(ImageInterpolation.High)
+          .borderRadius(this.radius)
+          .clip(true)
       }
       // 文字图标
       else if (this.iconType === 'text' && this.textIcon !== '') {
@@ -71,11 +71,12 @@ export struct ProviderIcon {
       // 自定义图片
       else if (this.iconType === 'image' && this.customImagePath !== '') {
         Image('file://' + this.customImagePath)
-          .width(this.iconSize * 0.6)
-          .height(this.iconSize * 0.6)
+          .width(this.iconSize)
+          .height(this.iconSize)
           .objectFit(ImageFit.Cover)
           .interpolation(ImageInterpolation.High)
-          .borderRadius(this.radius * 0.5)
+          .borderRadius(this.radius)
+          .clip(true)
       }
       // 默认 fallback（显示云图标）
       else {
@@ -90,10 +91,6 @@ export struct ProviderIcon {
     .backgroundColor(this.getBackgroundColor())
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
-    .border(this.shouldShowBrandBorder() ? {
-      width: 2,
-      color: this.brandColor
-    } : undefined)
   }
 }
 
@@ -130,7 +127,7 @@ export struct ProviderIconSmall {
           width: 1.5,
           color: this.brandColor
         } : undefined)
-        .borderRadius(this.iconSize * 0.2)
+        .borderRadius(this.iconSize * 0.25)
     }
     // 文字图标
     else if (this.iconType === 'text' && this.textIcon !== '') {
@@ -149,7 +146,7 @@ export struct ProviderIconSmall {
         }
         .width(this.iconSize)
         .height(this.iconSize)
-        .borderRadius(this.iconSize * 0.3)
+        .borderRadius(this.iconSize * 0.25)
         .backgroundColor(this.textIconBgColor)
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
@@ -162,7 +159,7 @@ export struct ProviderIconSmall {
         .height(this.iconSize)
         .objectFit(ImageFit.Cover)
         .interpolation(ImageInterpolation.High)
-        .borderRadius(this.iconSize * 0.3)
+        .borderRadius(this.iconSize * 0.25)
     }
     // 默认 fallback
     else {
