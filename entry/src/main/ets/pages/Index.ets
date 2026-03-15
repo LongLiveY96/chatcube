@@ -8,7 +8,7 @@ import { ChatSession, ChatMessage } from '../models/ChatModels'
 import { ChatViewModel } from '../viewmodels/ChatViewModel'
 import { SettingsChangeCallback } from '../viewmodels/SettingsManager'
 import { ThemeMode, AppLanguage, PreferenceKeys } from '../services/PreferencesService'
-import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
+import { dismissActiveSnackBarOnBack, showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
 import { MultiSelectToolbar } from '../components/MultiSelectToolbar'
 import { SharePreviewSheet } from '../components/SharePreviewSheet'
 import { ColorTheme, ThemeColorConfig } from '../models/ThemeColors'
@@ -201,13 +201,6 @@ struct Index {
     options.duration = duration
     options.tone = tone
     showSnackBar(this.getUIContext(), options)
-  }
-
-  @Monitor('currentThemeMode', 'currentLanguage', 'notifyEnabled', 'notifyOnComplete', 'notifyOnFailed', 'handAdaptiveEnabled', 'handAdaptiveNewChat', 'handAdaptiveUnsupported', 'currentColorTheme')
-  onSettingsSummaryStateChanged(): void {
-    console.info('Index', `Settings summary state changed: theme=${this.currentThemeMode}, language=${this.currentLanguage},` +
-      ` colorTheme=${this.currentColorTheme}, hand=${this.handAdaptiveEnabled}/${this.handAdaptiveNewChat}/` +
-      `${this.handAdaptiveUnsupported}, notify=${this.notifyEnabled}/${this.notifyOnComplete}/${this.notifyOnFailed}`)
   }
 
   onLayoutSizeClassChanged(): void {
@@ -573,6 +566,10 @@ struct Index {
       return true
     }
 
+    if (dismissActiveSnackBarOnBack()) {
+      return true
+    }
+
     // 双击返回退出应用
     const currentTime = Date.now()
     if (currentTime - this.lastBackPressTime < 2000) {
@@ -744,19 +741,6 @@ struct Index {
     return getFabOffsetYForIndex(this.px2vp(this.bottomAvoidHeight))
   }
 
-  private getHandAdaptiveSummaryText(): Resource {
-    if (!this.handAdaptiveEnabled) {
-      return $r('app.string.hand_adaptive_disabled')
-    }
-    if (this.handAdaptiveUnsupported) {
-      return $r('app.string.hand_adaptive_unsupported')
-    }
-    if (this.handAdaptiveNewChat) {
-      return $r('app.string.hand_adaptive_summary_new_chat')
-    }
-    return $r('app.string.hand_adaptive_summary_none')
-  }
-
   private async persistHandAdaptiveSettings(): Promise<void> {
     await this.preferencesService.setBoolean(PreferenceKeys.HAND_ADAPTIVE_ENABLED, this.handAdaptiveEnabled)
     await this.preferencesService.setBoolean(PreferenceKeys.HAND_ADAPTIVE_NEW_CHAT, this.handAdaptiveNewChat)
@@ -897,6 +881,16 @@ struct Index {
 
   private isAnySettingsSheetOpen(): boolean {
     return this.showSettingsSheet || this.settingsSheetClosing
+  }
+
+  private handleSettingsSheetWillDismiss(dismissAction: DismissSheetAction): void {
+    if (dismissAction.reason === DismissReason.PRESS_BACK || dismissAction.reason === DismissReason.SLIDE_DOWN) {
+      dismissAction.dismiss()
+      return
+    }
+    if (dismissAction.reason === DismissReason.CLOSE_BUTTON) {
+      dismissAction.dismiss()
+    }
   }
 
   async loadSessions(): Promise<void> {
@@ -1058,14 +1052,14 @@ struct Index {
           .height(0)
           .bindSheet($$this.showSettingsSheet, this.SettingsSheetBuilder(), {
             height: this.getActiveSettingsSheetHeight(),
-            dragBar: false,
+            dragBar: true,
             showClose: false,
             backgroundColor: this.getSettingsSheetBackgroundColor(),
             blurStyle: BlurStyle.Thin,
             preferType: SheetType.BOTTOM,
             maskColor: '#66000000',
-            // 禁止遮罩点击/拖拽关闭，只允许显式点击关闭按钮/返回键关闭。
-            shouldDismiss: (_dismissAction: SheetDismiss) => {
+            onWillDismiss: (dismissAction: DismissSheetAction) => {
+              this.handleSettingsSheetWillDismiss(dismissAction)
             },
             onDisappear: () => {
               // Closing 结束：如果有排队的打开请求，直接重开并切换内容。
@@ -1745,15 +1739,6 @@ struct Index {
   @Builder
   SettingsNavigationContent() {
     IndexSettingsPanel({
-      currentThemeMode: this.currentThemeMode!!,
-      currentLanguage: this.currentLanguage!!,
-      currentColorTheme: this.currentColorTheme!!,
-      handAdaptiveEnabled: this.handAdaptiveEnabled!!,
-      handAdaptiveNewChat: this.handAdaptiveNewChat!!,
-      handAdaptiveUnsupported: this.handAdaptiveUnsupported!!,
-      notifyEnabled: this.notifyEnabled!!,
-      notifyOnComplete: this.notifyOnComplete!!,
-      notifyOnFailed: this.notifyOnFailed!!,
       sidebarMode: this.isSettingsSplitMode(),
       selectedRouteName: this.currentSettingsRouteName,
       highlightSelection: this.isSettingsSplitMode(),
@@ -1775,17 +1760,11 @@ struct Index {
       onOpenTheme: (): void => {
         this.openSettingsDestination(SettingsRouteName.THEME_MODE)
       },
-      onOpenColorTheme: (): void => {
-        this.openSettingsDestination(SettingsRouteName.THEME_MODE)
-      },
       onOpenLanguage: (): void => {
         this.openSettingsPanelEntry(SettingsRouteName.LANGUAGE, SettingsSheetType.LANGUAGE)
       },
       onOpenNotification: (): void => {
         this.openSettingsPanelEntry(SettingsRouteName.NOTIFICATION, SettingsSheetType.NOTIFICATION)
-      },
-      onOpenFontSize: (): void => {
-        this.openSettingsDestination(SettingsRouteName.THEME_MODE)
       },
       onOpenExportData: (): void => {
         this.openSettingsDestination(SettingsRouteName.EXPORT_DATA)

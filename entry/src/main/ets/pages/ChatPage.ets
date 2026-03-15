@@ -30,7 +30,7 @@ import { ServiceRegistry } from '../services/ServiceRegistry'
 import { registerBuiltinTools } from '../config/BuiltinTools'
 import { AppStorageKeys } from '../config/AppStorageKeys'
 import { inputMethod } from '@kit.IMEKit'
-import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
+import { dismissActiveSnackBarOnBack, showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { ChatModelSelectorSheetContent } from '../components/chat/ChatModelSelectorSheetContent'
 import { ChatInputAreaSection } from '../components/chat/ChatInputAreaSection'
@@ -1462,6 +1462,9 @@ export struct ChatPage {
     .onBackPressed((): boolean => {
       if (this.showImagePreview) {
         this.showImagePreview = false
+        return true
+      }
+      if (dismissActiveSnackBarOnBack()) {
         return true
       }
       this.handleBack()

@@ -162,6 +162,37 @@ export class ChatViewModel {
     return cloned
   }
 
+  private async ensureAttachmentBase64Data(attachment: MessageAttachment): Promise<boolean> {
+    if (attachment.base64Data !== '') {
+      return true
+    }
+    if (attachment.filePath === '') {
+      console.warn('ChatViewModel', `Attachment missing file path: ${attachment.id}`)
+      return false
+    }
+    try {
+      const base64Data = await this.attachmentStorageService.readAsBase64(attachment.filePath)
+      if (base64Data === '') {
+        console.warn('ChatViewModel', `Attachment base64 empty after read: ${attachment.id}`)
+        return false
+      }
+      attachment.base64Data = base64Data
+      console.info('ChatViewModel', `Prepared attachment for request: ${attachment.id}`)
+      return true
+    } catch (error) {
+      console.error('ChatViewModel', `Failed to prepare attachment ${attachment.id}: ${JSON.stringify(error)}`)
+      return false
+    }
+  }
+
+  private async prepareOutgoingAttachments(attachments: MessageAttachment[]): Promise<MessageAttachment[]> {
+    const clonedAttachments = this.cloneAttachments(attachments)
+    for (let i = 0; i < clonedAttachments.length; i++) {
+      await this.ensureAttachmentBase64Data(clonedAttachments[i])
+    }
+    return clonedAttachments
+  }
+
   private buildDraftTitle(content: string): string {
     const normalized = content.replace(/\s+/g, ' ').trim()
     if (normalized.length === 0) {
@@ -254,7 +285,7 @@ export class ChatViewModel {
       if (msg.role === MessageRole.SYSTEM) {
         continue
       }
-      historyMessages.push(new RequestMessage(msg.role, msg.content, msg.attachments))
+      historyMessages.push(new RequestMessage(msg.role, msg.content, this.cloneAttachments(msg.attachments)))
     }
     return historyMessages
   }
@@ -491,6 +522,10 @@ export class ChatViewModel {
     const snapshotSession = this.currentSession
     const shouldAutoGenerateTitle = this.isFirstRoundSession(snapshotSession)
     const historyMessages = this.buildConversationRequestHistory(messages, contextStartIndex)
+    const requestAttachments = await this.prepareOutgoingAttachments(attachments)
+    if (this.isCancelled(cancelSnapshot)) {
+      return
+    }
 
     // 创建用户消息
     const userMessage = new ChatMessage(
@@ -545,7 +580,7 @@ export class ChatViewModel {
     for (let i = 0; i < historyMessages.length; i++) {
       requestMessages.push(historyMessages[i])
     }
-    requestMessages.push(new RequestMessage('user', content, attachments))
+    requestMessages.push(new RequestMessage('user', content, requestAttachments))
 
     // 懒加载历史附件
     await this.prepareHistoryAttachments(requestMessages)
@@ -785,6 +820,10 @@ export class ChatViewModel {
     const snapshotSession = this.currentSession
     const shouldAutoGenerateTitle = this.isFirstRoundSession(snapshotSession)
     const historyMessages = this.buildConversationRequestHistory(messages, contextStartIndex)
+    const requestAttachments = await this.prepareOutgoingAttachments(attachments)
+    if (this.isCancelled(cancelSnapshot)) {
+      return
+    }
 
     // 构建系统提示（包含网页内容）
     const systemPrompt = `用户提供了以下网页内容供参考：
@@ -836,7 +875,12 @@ ${webContext.content}
     for (let i = 0; i < historyMessages.length; i++) {
       requestMessages.push(historyMessages[i])
     }
-    requestMessages.push(new RequestMessage('user', content, attachments))
+    requestMessages.push(new RequestMessage('user', content, requestAttachments))
+
+    await this.prepareHistoryAttachments(requestMessages)
+    if (this.isCancelled(cancelSnapshot)) {
+      return
+    }
 
     const apiConfig: AIApiConfig = {
       providerId: providerId,
@@ -1056,6 +1100,10 @@ ${webContext.content}
     const snapshotSession = this.currentSession
     const shouldAutoGenerateTitle = this.isFirstRoundSession(snapshotSession)
     const historyMessages = this.buildConversationRequestHistory(messages, contextStartIndex)
+    const requestAttachments = await this.prepareOutgoingAttachments(attachments)
+    if (this.isCancelled(cancelSnapshot)) {
+      return
+    }
 
     // 构建系统提示（包含搜索内容和当前时间）
     const currentTime = this.getCurrentTimeContext()
@@ -1135,7 +1183,12 @@ ${limitedSearchContext}
     for (let i = 0; i < historyMessages.length; i++) {
       requestMessages.push(historyMessages[i])
     }
-    requestMessages.push(new RequestMessage('user', content, attachments))
+    requestMessages.push(new RequestMessage('user', content, requestAttachments))
+
+    await this.prepareHistoryAttachments(requestMessages)
+    if (this.isCancelled(cancelSnapshot)) {
+      return
+    }
 
     const apiConfig: AIApiConfig = {
       providerId: providerId,
@@ -1359,6 +1412,10 @@ ${limitedSearchContext}
     const snapshotSession = this.currentSession
     const shouldAutoGenerateTitle = this.isFirstRoundSession(snapshotSession)
     const historyMessages = this.buildConversationRequestHistory(messages, contextStartIndex)
+    const requestAttachments = await this.prepareOutgoingAttachments(attachments)
+    if (this.isCancelled(cancelSnapshot)) {
+      return
+    }
 
     // 创建用户消息
     const userMessage = new ChatMessage(
@@ -1441,7 +1498,7 @@ ${limitedSearchContext}
     for (let i = 0; i < historyMessages.length; i++) {
       requestMessages.push(historyMessages[i])
     }
-    requestMessages.push(new RequestMessage('user', content, attachments))
+    requestMessages.push(new RequestMessage('user', content, requestAttachments))
 
     // 懒加载历史附件
     await this.prepareHistoryAttachments(requestMessages)
@@ -2570,7 +2627,7 @@ ${context !== '' ? context : '(无历史对话)'}
     return null
   }
 
-  // 懒加载历史附件（从后向前扫描，只加载最后 N 条用户消息的图片附件）
+  // 懒加载历史附件（从后向前扫描，只加载最后 N 条用户消息的附件）
   private async prepareHistoryAttachments(messages: RequestMessage[]): Promise<void> {
     let loadedCount = 0
     let totalSize = 0
@@ -2585,29 +2642,18 @@ ${context !== '' ? context : '(无历史对话)'}
 
         for (let j = 0; j < msg.attachments.length; j++) {
           const att = msg.attachments[j]
-          if (att.type === AttachmentType.IMAGE) {
-            // 跳过已有数据的附件
-            if (att.base64Data !== '') {
-              continue
-            }
+          if (att.base64Data !== '') {
+            continue
+          }
 
-            // 估算文件大小
-            const estimatedSize = att.size > 0 ? att.size : (1024 * 1024) // 默认 1MB
+          const estimatedSize = att.size > 0 ? att.size : (1024 * 1024)
+          if (totalSize + estimatedSize > this.MAX_HISTORY_ATTACHMENT_SIZE) {
+            console.warn('ChatViewModel', `Attachment size limit reached, skipping ${att.id}`)
+            continue
+          }
 
-            // 检查大小限制
-            if (totalSize + estimatedSize > this.MAX_HISTORY_ATTACHMENT_SIZE) {
-              console.warn('ChatViewModel', `Attachment size limit reached, skipping ${att.id}`)
-              continue
-            }
-
-            // 从文件加载 base64 数据
-            try {
-              att.base64Data = await this.attachmentStorageService.readAsBase64(att.filePath)
-              totalSize += estimatedSize
-              console.info('ChatViewModel', `Loaded history attachment: ${att.id}`)
-            } catch (error) {
-              console.error('ChatViewModel', `Failed to load attachment ${att.id}: ${JSON.stringify(error)}`)
-            }
+          if (await this.ensureAttachmentBase64Data(att)) {
+            totalSize += estimatedSize
           }
         }
         loadedCount++
