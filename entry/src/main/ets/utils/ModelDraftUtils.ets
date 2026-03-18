@@ -41,4 +41,7 @@ export function applyModelDraft(target: ModelInfo, draft: ModelInfoExtendedJson)
   if (draft.parameters !== undefined) {
     target.parameters = ModelParameters.fromJson(draft.parameters)
   }
+  if (draft.reasoningStrategyOverride !== undefined) {
+    target.reasoningStrategyOverride = draft.reasoningStrategyOverride
+  }
 }

@@ -244,10 +244,42 @@ export function resolveReasoningRequestStrategy(
   }
 }
 
+function parseReasoningStrategyOverride(rawOverride?: string): ReasoningRequestStrategy | null {
+  switch (rawOverride) {
+    case ReasoningRequestStrategy.NONE:
+      return ReasoningRequestStrategy.NONE
+    case ReasoningRequestStrategy.OPENAI_REASONING_EFFORT:
+      return ReasoningRequestStrategy.OPENAI_REASONING_EFFORT
+    case ReasoningRequestStrategy.OPENAI_REASONING_SPLIT:
+      return ReasoningRequestStrategy.OPENAI_REASONING_SPLIT
+    case ReasoningRequestStrategy.ANTHROPIC_THINKING:
+      return ReasoningRequestStrategy.ANTHROPIC_THINKING
+    case ReasoningRequestStrategy.ZHIPU_THINKING:
+      return ReasoningRequestStrategy.ZHIPU_THINKING
+    case ReasoningRequestStrategy.GOOGLE_THINKING_CONFIG:
+      return ReasoningRequestStrategy.GOOGLE_THINKING_CONFIG
+    default:
+      return null
+  }
+}
+
+export function resolveReasoningRequestStrategyWithOverride(
+  info: CompatibilityProviderInfo,
+  modelId: string,
+  rawOverride?: string
+): ReasoningRequestStrategy {
+  const overrideStrategy = parseReasoningStrategyOverride(rawOverride)
+  if (overrideStrategy !== null) {
+    return overrideStrategy
+  }
+  return resolveReasoningRequestStrategy(info, modelId)
+}
+
 export function supportsReasoningControl(
   info: CompatibilityProviderInfo,
   modelId: string,
-  modelSupportsReasoning: boolean
+  modelSupportsReasoning: boolean,
+  rawOverride?: string
 ): boolean {
   if (!modelSupportsReasoning) {
     return false
@@ -256,7 +288,7 @@ export function supportsReasoningControl(
   if (profile.reasoningControlMode === ReasoningControlMode.NONE) {
     return false
   }
-  return resolveReasoningRequestStrategy(info, modelId) !== ReasoningRequestStrategy.NONE
+  return resolveReasoningRequestStrategyWithOverride(info, modelId, rawOverride) !== ReasoningRequestStrategy.NONE
 }
 
 export function normalizeReasoningLevelForControl(level: ReasoningLevel): ReasoningLevel {

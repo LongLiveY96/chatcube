@@ -534,6 +534,9 @@ export class ModelInfo {
   // 新增字段：默认参数
   @Trace parameters: ModelParameters
 
+  // 推理请求策略覆盖（空字符串表示沿用自动推断）
+  @Trace reasoningStrategyOverride: string
+
   constructor(
     id: string,
     name: string,
@@ -553,6 +556,7 @@ export class ModelInfo {
     this.outputMode = OutputMode.TEXT
     this.capabilities = new ModelCapabilities()
     this.parameters = new ModelParameters()
+    this.reasoningStrategyOverride = ''
   }
 
   // 从扩展 JSON 对象创建
@@ -585,6 +589,9 @@ export class ModelInfo {
     if (json.parameters !== undefined) {
       model.parameters = ModelParameters.fromJson(json.parameters)
     }
+    if (json.reasoningStrategyOverride !== undefined) {
+      model.reasoningStrategyOverride = json.reasoningStrategyOverride
+    }
 
     return model
   }
@@ -601,7 +608,8 @@ export class ModelInfo {
       inputMode: this.inputMode,
       outputMode: this.outputMode,
       capabilities: this.capabilities.toJson(),
-      parameters: this.parameters.toJson()
+      parameters: this.parameters.toJson(),
+      reasoningStrategyOverride: this.reasoningStrategyOverride
     }
     return json
   }
@@ -619,6 +627,7 @@ export interface ModelInfoExtendedJson {
   outputMode?: string
   capabilities?: ModelCapabilitiesJson
   parameters?: ModelParametersJson
+  reasoningStrategyOverride?: string
 }
 
 // 模型提供商类型

@@ -36,9 +36,7 @@ import { ChatModelSelectorSheetContent } from '../components/chat/ChatModelSelec
 import { ChatInputAreaSection } from '../components/chat/ChatInputAreaSection'
 import { ChatMessageListSection } from '../components/chat/ChatMessageListSection'
 import {
-  CompatibilityProviderInfo,
-  normalizeReasoningLevelForControl,
-  supportsReasoningControl
+  normalizeReasoningLevelForControl
 } from '../services/ProviderCompatibilityRegistry'
 import {
   getListBottomPaddingForChat,
@@ -520,40 +518,26 @@ export struct ChatPage {
     })
   }
 
-  private getCurrentProviderCompatibilityInfo(): CompatibilityProviderInfo | null {
-    if (this.currentProvider === null) {
-      return null
-    }
-    return {
-      providerId: this.currentProvider.id,
-      baseUrl: this.currentProvider.baseUrl,
-      apiStyle: this.currentProvider.apiStyle
-    }
-  }
-
-  private supportsReasoningControlForCurrentModel(): boolean {
+  private getCurrentModelInfo(): ModelInfo | null {
     if (this.currentProvider === null || this.currentModelId === '') {
-      return false
-    }
-    const compatibilityInfo = this.getCurrentProviderCompatibilityInfo()
-    if (compatibilityInfo === null) {
-      return false
+      return null
     }
     for (let i = 0; i < this.currentProvider.models.length; i++) {
       const model = this.currentProvider.models[i]
       if (model.id === this.currentModelId) {
-        return supportsReasoningControl(
-          compatibilityInfo,
-          model.id,
-          model.capabilities.supportsReasoning
-        )
+        return model
       }
     }
-    return false
+    return null
+  }
+
+  private supportsReasoningForCurrentModel(): boolean {
+    const model = this.getCurrentModelInfo()
+    return model !== null && model.capabilities.supportsReasoning
   }
 
   private syncReasoningAvailabilityWithCurrentModel(): void {
-    if (!this.supportsReasoningControlForCurrentModel()) {
+    if (!this.supportsReasoningForCurrentModel()) {
       this.reasoningLevel = ReasoningLevel.OFF
     } else {
       this.reasoningLevel = normalizeReasoningLevelForControl(this.reasoningLevel)
@@ -1366,7 +1350,7 @@ export struct ChatPage {
             isEditing: this.isEditingMessage,
             webSearchAvailable: this.webSearchAvailable,
             webSearchEnabled: this.webSearchEnabled,
-            reasoningAvailable: this.supportsReasoningControlForCurrentModel(),
+            reasoningAvailable: this.supportsReasoningForCurrentModel(),
             onWebSearchEnabledChange: (value: boolean): void => {
               this.webSearchEnabled = value
             },

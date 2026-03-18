@@ -20,7 +20,7 @@ import {
   ReasoningRequestStrategy,
   normalizeReasoningLevelForControl,
   resolveProviderCompatibilityProfile,
-  resolveReasoningRequestStrategy
+  resolveReasoningRequestStrategyWithOverride
 } from './ProviderCompatibilityRegistry'
 
 // URL 解析工具类
@@ -322,6 +322,7 @@ export interface AIApiConfig {
   apiKey: string
   baseUrl: string
   apiPath?: string  // 可选的自定义 API 路径（如 /v1/chat/completions）
+  modelReasoningStrategyOverride?: string
   // 模型参数（可选）
   topP?: number
   presencePenalty?: number
@@ -580,7 +581,11 @@ export class AIApiService {
   }
 
   private getReasoningRequestStrategy(config: AIApiConfig, model: string): ReasoningRequestStrategy {
-    return resolveReasoningRequestStrategy(this.toCompatibilityInfo(config), model)
+    return resolveReasoningRequestStrategyWithOverride(
+      this.toCompatibilityInfo(config),
+      model,
+      config.modelReasoningStrategyOverride
+    )
   }
 
   private configureStreamState(config: AIApiConfig, model: string): void {

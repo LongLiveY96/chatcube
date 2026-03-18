@@ -5,6 +5,7 @@
 import { ModelInfo, InputMode, OutputMode, ModelInfoExtendedJson } from '../models/ChatModels'
 import { LengthMetrics } from '@kit.ArkUI'
 import { getAppUiState } from '../state/AppUiState'
+import { ReasoningRequestStrategy } from '../services/ProviderCompatibilityRegistry'
 
 @ComponentV2
 export struct ModelEditSheet {
@@ -23,6 +24,7 @@ export struct ModelEditSheet {
   @Local capSupportsVision: boolean = false
   @Local capSupportsStreaming: boolean = false
   @Local capOutputImage: boolean = false
+  @Local reasoningStrategyOverride: string = ''
   // 高级参数折叠状态
   @Local isAdvancedExpanded: boolean = false
   // 高级参数本地状态（驱动 Slider 实时刷新）
@@ -35,6 +37,22 @@ export struct ModelEditSheet {
   }
   @Event onCancel: () => void = () => {
   }
+  private readonly reasoningStrategyValues: string[] = [
+    '',
+    ReasoningRequestStrategy.OPENAI_REASONING_EFFORT,
+    ReasoningRequestStrategy.OPENAI_REASONING_SPLIT,
+    ReasoningRequestStrategy.ANTHROPIC_THINKING,
+    ReasoningRequestStrategy.ZHIPU_THINKING,
+    ReasoningRequestStrategy.GOOGLE_THINKING_CONFIG
+  ]
+  private readonly reasoningStrategyOptions: Array<SelectOption> = [
+    { value: '自动推断' },
+    { value: 'OpenAI Effort' },
+    { value: 'OpenAI Split' },
+    { value: 'Anthropic Thinking' },
+    { value: '智谱 Thinking' },
+    { value: 'Gemini Thinking' }
+  ]
 
   aboutToAppear(): void {
     this.syncDraftFromModel()
@@ -48,6 +66,7 @@ export struct ModelEditSheet {
     this.capSupportsVision = this.model.capabilities.supportsVision
     this.capSupportsStreaming = this.model.capabilities.supportsStreaming
     this.capOutputImage = this.model.outputMode === OutputMode.IMAGE
+    this.reasoningStrategyOverride = this.model.reasoningStrategyOverride
     this.paramTemperature = this.model.parameters.temperature
     this.paramTopP = this.model.parameters.topP
     this.paramPresencePenalty = this.model.parameters.presencePenalty
@@ -71,6 +90,7 @@ export struct ModelEditSheet {
         supportsVision: this.capSupportsVision,
         supportsStreaming: this.capSupportsStreaming
       },
+      reasoningStrategyOverride: this.reasoningStrategyOverride,
       parameters: {
         temperature: this.paramTemperature,
         topP: this.paramTopP,
@@ -79,6 +99,15 @@ export struct ModelEditSheet {
         frequencyPenalty: this.paramFrequencyPenalty
       }
     }
+  }
+
+  private getReasoningStrategySelectedIndex(): number {
+    for (let i = 0; i < this.reasoningStrategyValues.length; i++) {
+      if (this.reasoningStrategyValues[i] === this.reasoningStrategyOverride) {
+        return i
+      }
+    }
+    return 0
   }
 
   build() {
@@ -347,6 +376,37 @@ export struct ModelEditSheet {
       // 展开内容
       if (this.isAdvancedExpanded) {
         Column() {
+          if (this.capSupportsReasoning) {
+            Column() {
+              Text('推理协议映射')
+                .fontSize(15)
+                .fontColor($r('app.color.text_primary'))
+
+              Text('聚合平台下可手动指定推理参数方言；默认走自动推断')
+                .fontSize(12)
+                .fontColor($r('app.color.text_tertiary'))
+                .margin({ top: 2, bottom: 8 })
+
+              Select(this.reasoningStrategyOptions)
+                .selected(this.getReasoningStrategySelectedIndex())
+                .value(this.reasoningStrategyOptions[this.getReasoningStrategySelectedIndex()].value)
+                .onSelect((index: number) => {
+                  if (index >= 0 && index < this.reasoningStrategyValues.length) {
+                    this.reasoningStrategyOverride = this.reasoningStrategyValues[index]
+                  }
+                })
+                .fontColor($r('app.color.text_primary'))
+                .width('100%')
+                .height(40)
+                .backgroundColor($r('app.color.background'))
+                .borderRadius(10)
+                .padding({ left: 8, right: 8 })
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Start)
+            .padding({ top: 12, bottom: 12 })
+          }
+
           // 温度
           Column() {
             Row() {

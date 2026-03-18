@@ -612,6 +612,7 @@ export class ChatViewModel {
       apiConfig.presencePenalty = modelParams.presencePenalty
       apiConfig.frequencyPenalty = modelParams.frequencyPenalty
     }
+    apiConfig.modelReasoningStrategyOverride = this.getCurrentModelReasoningStrategyOverride(providerId, modelId)
 
     if (this.isCancelled(cancelSnapshot)) {
       return
@@ -897,6 +898,7 @@ ${webContext.content}
       apiKey: apiKey,
       baseUrl: baseUrl
     }
+    apiConfig.modelReasoningStrategyOverride = this.getCurrentModelReasoningStrategyOverride(providerId, modelId)
 
     if (this.isCancelled(cancelSnapshot)) {
       return
@@ -1205,6 +1207,7 @@ ${limitedSearchContext}
       apiKey: apiKey,
       baseUrl: baseUrl
     }
+    apiConfig.modelReasoningStrategyOverride = this.getCurrentModelReasoningStrategyOverride(providerId, modelId)
 
     if (this.isCancelled(cancelSnapshot)) {
       return
@@ -1530,6 +1533,7 @@ ${limitedSearchContext}
       apiConfig.presencePenalty = modelParams.presencePenalty
       apiConfig.frequencyPenalty = modelParams.frequencyPenalty
     }
+    apiConfig.modelReasoningStrategyOverride = this.getCurrentModelReasoningStrategyOverride(providerId, modelId)
 
     if (this.isCancelled(cancelSnapshot)) {
       return
@@ -2633,6 +2637,21 @@ ${context !== '' ? context : '(无历史对话)'}
     }
 
     return null
+  }
+
+  private getCurrentModelReasoningStrategyOverride(providerId: string, modelId: string): string {
+    const provider = this.providerViewModel.getProviderById(providerId)
+    if (provider === null) {
+      return ''
+    }
+
+    for (let i = 0; i < provider.models.length; i++) {
+      if (provider.models[i].id === modelId) {
+        return provider.models[i].reasoningStrategyOverride
+      }
+    }
+
+    return ''
   }
 
   // 懒加载历史附件（从后向前扫描，只加载最后 N 条用户消息的附件）

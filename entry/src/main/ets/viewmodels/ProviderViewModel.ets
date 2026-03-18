@@ -331,6 +331,9 @@ export class ProviderViewModel {
           if (modelObj.parameters !== undefined) {
             modelInfo.parameters = ModelParameters.fromJson(modelObj.parameters)
           }
+          if (modelObj.reasoningStrategyOverride !== undefined) {
+            modelInfo.reasoningStrategyOverride = modelObj.reasoningStrategyOverride
+          }
 
           provider.models.push(modelInfo)
         }
@@ -574,6 +577,7 @@ interface ModelData {
   outputMode?: string
   capabilities?: ModelCapabilitiesJson
   parameters?: ModelParametersJson
+  reasoningStrategyOverride?: string
 }
 
 // 导出获取实例方法

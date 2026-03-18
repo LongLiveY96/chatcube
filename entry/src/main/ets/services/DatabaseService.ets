@@ -46,6 +46,7 @@ interface ModelJsonData {
   outputMode?: string
   capabilities?: CapabilitiesJsonData
   parameters?: ParametersJsonData
+  reasoningStrategyOverride?: string
 }
 
 // 能力配置 JSON 数据
@@ -1533,7 +1534,8 @@ export class DatabaseService {
         inputMode: model.inputMode,
         outputMode: model.outputMode,
         capabilities: capabilitiesData,
-        parameters: parametersData
+        parameters: parametersData,
+        reasoningStrategyOverride: model.reasoningStrategyOverride
       }
       modelsArray.push(modelObj)
     }
