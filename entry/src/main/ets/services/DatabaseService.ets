@@ -247,6 +247,10 @@ export class DatabaseService {
         message_id TEXT,
         tool_call_id TEXT,
         tool_name TEXT,
+        tool_display_name TEXT DEFAULT '',
+        source_label TEXT DEFAULT '',
+        source_type TEXT DEFAULT '',
+        permission_level TEXT DEFAULT 'read',
         tool_arguments TEXT,
         tool_result TEXT,
         status TEXT DEFAULT 'pending',
@@ -279,6 +283,8 @@ export class DatabaseService {
       await this.addSessionDraftColumnsIfNeeded()
       // 尝试添加搜索引用相关字段（用于联网搜索）
       await this.addSearchColumnsIfNeeded()
+      // 尝试添加工具事件元数据字段（用于通用 tools/MCP）
+      await this.addToolEventMetaColumnsIfNeeded()
       // 尝试添加消息 model_id 字段（用于图标匹配）
       await this.addMessageModelIdColumnIfNeeded()
       // 迁移现有供应商数据
@@ -817,6 +823,32 @@ export class DatabaseService {
     }
   }
 
+  private async addToolEventMetaColumnsIfNeeded(): Promise<void> {
+    if (this.rdbStore === null) {
+      return
+    }
+    try {
+      await this.rdbStore.executeSql(`ALTER TABLE ${TableNames.TOOL_EVENTS} ADD COLUMN tool_display_name TEXT DEFAULT ''`)
+    } catch (error) {
+      console.info('DatabaseService', 'tool_display_name column may already exist')
+    }
+    try {
+      await this.rdbStore.executeSql(`ALTER TABLE ${TableNames.TOOL_EVENTS} ADD COLUMN source_label TEXT DEFAULT ''`)
+    } catch (error) {
+      console.info('DatabaseService', 'source_label column may already exist')
+    }
+    try {
+      await this.rdbStore.executeSql(`ALTER TABLE ${TableNames.TOOL_EVENTS} ADD COLUMN source_type TEXT DEFAULT ''`)
+    } catch (error) {
+      console.info('DatabaseService', 'source_type column may already exist')
+    }
+    try {
+      await this.rdbStore.executeSql(`ALTER TABLE ${TableNames.TOOL_EVENTS} ADD COLUMN permission_level TEXT DEFAULT 'read'`)
+    } catch (error) {
+      console.info('DatabaseService', 'permission_level column may already exist')
+    }
+  }
+
   // 仅更新会话当前模型选择（不修改 updated_at，避免切模型时打乱会话排序）
   async updateSessionModelSelection(sessionId: string, modelId: string, providerId: string): Promise<void> {
     await this.waitForInitialization()
@@ -1282,100 +1314,101 @@ export class DatabaseService {
     return attachmentsMap
   }
 
+  private buildChatMessageFromResultSet(resultSet: relationalStore.ResultSet): ChatMessage {
+    const roleStr = resultSet.getString(resultSet.getColumnIndex('role'))
+    let role: MessageRole = MessageRole.USER
+    if (roleStr === 'assistant') {
+      role = MessageRole.ASSISTANT
+    } else if (roleStr === 'system') {
+      role = MessageRole.SYSTEM
+    }
+    const message = new ChatMessage(
+      resultSet.getString(resultSet.getColumnIndex('id')),
+      role,
+      this.safeGetString(resultSet, 'content'),
+      this.safeGetString(resultSet, 'model_name')
+    )
+    message.modelId = this.safeGetString(resultSet, 'model_id')
+    message.timestamp = resultSet.getLong(resultSet.getColumnIndex('timestamp'))
+    message.reasoningContent = this.safeGetString(resultSet, 'reasoning_content')
+    message.searchQuery = this.safeGetString(resultSet, 'search_query')
+    message.searchEngine = this.safeGetString(resultSet, 'search_engine')
+    message.searchSource = this.safeGetString(resultSet, 'search_source')
+
+    try {
+      const searchReferencesJson = this.safeGetString(resultSet, 'search_references')
+      if (searchReferencesJson.length > 0) {
+        const refsArray = JSON.parse(searchReferencesJson) as SearchReferenceJsonData[]
+        for (let i = 0; i < refsArray.length; i++) {
+          const refData = refsArray[i]
+          const ref = new SearchReference(
+            refData.id,
+            refData.title,
+            refData.url,
+            refData.snippet
+          )
+          ref.timestamp = refData.timestamp
+          message.searchReferences.push(ref)
+        }
+      }
+    } catch (error) {
+      console.error('DatabaseService', `Failed to parse search references: ${JSON.stringify(error)}`)
+    }
+    return message
+  }
+
+  private async populateAttachmentsForMessages(messages: ChatMessage[]): Promise<void> {
+    if (messages.length === 0) {
+      return
+    }
+    const messageIds: string[] = []
+    for (let i = 0; i < messages.length; i++) {
+      messageIds.push(messages[i].id)
+    }
+    const attachmentsMap = await this.getAttachmentsByMessageIds(messageIds)
+    for (let i = 0; i < messages.length; i++) {
+      const attachments = attachmentsMap.get(messages[i].id)
+      messages[i].attachments = attachments !== undefined ? attachments : []
+    }
+  }
+
+  private async queryMessagesByPredicates(
+    predicates: relationalStore.RdbPredicates,
+    limit: number = 0
+  ): Promise<ChatMessage[]> {
+    const messages: ChatMessage[] = []
+    if (this.rdbStore === null) {
+      return messages
+    }
+    try {
+      const resultSet = await this.rdbStore.query(predicates)
+      try {
+        while (resultSet.goToNextRow()) {
+          if (limit > 0 && messages.length >= limit) {
+            break
+          }
+          messages.push(this.buildChatMessageFromResultSet(resultSet))
+        }
+      } finally {
+        resultSet.close()
+      }
+      await this.populateAttachmentsForMessages(messages)
+    } catch (error) {
+      console.error('DatabaseService', `Failed to query messages: ${JSON.stringify(error)}`)
+    }
+    return messages
+  }
+
   // 获取会话的所有消息
   async getMessages(sessionId: string): Promise<ChatMessage[]> {
     await this.waitForInitialization()
     if (this.rdbStore === null) {
       return []
     }
-    const messages: ChatMessage[] = []
     const predicates = new relationalStore.RdbPredicates(TableNames.MESSAGES)
     predicates.equalTo('session_id', sessionId)
     predicates.orderByAsc('timestamp')
-    try {
-      const resultSet = await this.rdbStore.query(predicates)
-      while (resultSet.goToNextRow()) {
-        const roleStr = resultSet.getString(resultSet.getColumnIndex('role'))
-        let role: MessageRole = MessageRole.USER
-        if (roleStr === 'assistant') {
-          role = MessageRole.ASSISTANT
-        } else if (roleStr === 'system') {
-          role = MessageRole.SYSTEM
-        }
-        const messageId = resultSet.getString(resultSet.getColumnIndex('id'))
-        const message = new ChatMessage(
-          messageId,
-          role,
-          resultSet.getString(resultSet.getColumnIndex('content')),
-          resultSet.getString(resultSet.getColumnIndex('model_name'))
-        )
-        // 读取 model_id（历史消息可能没有该字段）
-        try {
-          message.modelId = resultSet.getString(resultSet.getColumnIndex('model_id')) || ''
-        } catch (e) {
-          message.modelId = ''
-        }
-        message.timestamp = resultSet.getLong(resultSet.getColumnIndex('timestamp'))
-        // 读取推理内容
-        try {
-          const reasoningContent = resultSet.getString(resultSet.getColumnIndex('reasoning_content'))
-          message.reasoningContent = reasoningContent || ''
-        } catch (e) {
-          // 如果字段不存在，使用默认值
-          message.reasoningContent = ''
-        }
-        // 恢复搜索引用数据
-        try {
-          message.searchQuery = resultSet.getString(resultSet.getColumnIndex('search_query')) || ''
-        } catch (e) {
-          message.searchQuery = ''
-        }
-        try {
-          message.searchEngine = resultSet.getString(resultSet.getColumnIndex('search_engine')) || ''
-        } catch (e) {
-          message.searchEngine = ''
-        }
-        try {
-          message.searchSource = resultSet.getString(resultSet.getColumnIndex('search_source')) || ''
-        } catch (e) {
-          message.searchSource = ''
-        }
-        try {
-          const searchReferencesJson = resultSet.getString(resultSet.getColumnIndex('search_references')) || ''
-          if (searchReferencesJson.length > 0) {
-            const refsArray = JSON.parse(searchReferencesJson) as SearchReferenceJsonData[]
-            for (let i = 0; i < refsArray.length; i++) {
-              const refData = refsArray[i]
-              const ref = new SearchReference(
-                refData.id,
-                refData.title,
-                refData.url,
-                refData.snippet
-              )
-              ref.timestamp = refData.timestamp
-              message.searchReferences.push(ref)
-            }
-          }
-        } catch (e) {
-          console.error('DatabaseService', `Failed to parse search references: ${JSON.stringify(e)}`)
-        }
-        messages.push(message)
-      }
-      resultSet.close()
-
-      const messageIds: string[] = []
-      for (let i = 0; i < messages.length; i++) {
-        messageIds.push(messages[i].id)
-      }
-      const attachmentsMap = await this.getAttachmentsByMessageIds(messageIds)
-      for (let i = 0; i < messages.length; i++) {
-        const attachments = attachmentsMap.get(messages[i].id)
-        messages[i].attachments = attachments !== undefined ? attachments : []
-      }
-    } catch (error) {
-      console.error('DatabaseService', `Failed to get messages: ${JSON.stringify(error)}`)
-    }
-    return messages
+    return await this.queryMessagesByPredicates(predicates)
   }
 
   // 删除消息
@@ -1817,6 +1850,10 @@ export class DatabaseService {
     messageId: string,
     toolCallId: string,
     toolName: string,
+    toolDisplayName: string,
+    sourceLabel: string,
+    sourceType: string,
+    permissionLevel: string,
     toolArguments: string,
     toolResult: string,
     status: string
@@ -1835,11 +1872,15 @@ export class DatabaseService {
       message_id: messageId,
       tool_call_id: toolCallId,
       tool_name: toolName,
+      tool_display_name: toolDisplayName,
+      source_label: sourceLabel,
+      source_type: sourceType,
+      permission_level: permissionLevel,
       tool_arguments: toolArguments,
       tool_result: toolResult,
       status: status,
       created_at: now,
-      completed_at: status === 'completed' ? now : 0
+      completed_at: status === 'pending' ? 0 : now
     }
 
     try {
@@ -1871,6 +1912,10 @@ export class DatabaseService {
           messageId: resultSet.getString(resultSet.getColumnIndex('message_id')),
           toolCallId: resultSet.getString(resultSet.getColumnIndex('tool_call_id')),
           toolName: resultSet.getString(resultSet.getColumnIndex('tool_name')),
+          toolDisplayName: this.safeGetString(resultSet, 'tool_display_name'),
+          sourceLabel: this.safeGetString(resultSet, 'source_label'),
+          sourceType: this.safeGetString(resultSet, 'source_type'),
+          permissionLevel: this.safeGetString(resultSet, 'permission_level', 'read'),
           toolArguments: resultSet.getString(resultSet.getColumnIndex('tool_arguments')),
           toolResult: resultSet.getString(resultSet.getColumnIndex('tool_result')),
           status: resultSet.getString(resultSet.getColumnIndex('status')),
@@ -1908,6 +1953,10 @@ export class DatabaseService {
           messageId: resultSet.getString(resultSet.getColumnIndex('message_id')),
           toolCallId: resultSet.getString(resultSet.getColumnIndex('tool_call_id')),
           toolName: resultSet.getString(resultSet.getColumnIndex('tool_name')),
+          toolDisplayName: this.safeGetString(resultSet, 'tool_display_name'),
+          sourceLabel: this.safeGetString(resultSet, 'source_label'),
+          sourceType: this.safeGetString(resultSet, 'source_type'),
+          permissionLevel: this.safeGetString(resultSet, 'permission_level', 'read'),
           toolArguments: resultSet.getString(resultSet.getColumnIndex('tool_arguments')),
           toolResult: resultSet.getString(resultSet.getColumnIndex('tool_result')),
           status: resultSet.getString(resultSet.getColumnIndex('status')),
@@ -1948,6 +1997,10 @@ export class DatabaseService {
           messageId: resultSet.getString(resultSet.getColumnIndex('message_id')),
           toolCallId: resultSet.getString(resultSet.getColumnIndex('tool_call_id')),
           toolName: resultSet.getString(resultSet.getColumnIndex('tool_name')),
+          toolDisplayName: this.safeGetString(resultSet, 'tool_display_name'),
+          sourceLabel: this.safeGetString(resultSet, 'source_label'),
+          sourceType: this.safeGetString(resultSet, 'source_type'),
+          permissionLevel: this.safeGetString(resultSet, 'permission_level', 'read'),
           toolArguments: resultSet.getString(resultSet.getColumnIndex('tool_arguments')),
           toolResult: resultSet.getString(resultSet.getColumnIndex('tool_result')),
           status: resultSet.getString(resultSet.getColumnIndex('status')),
@@ -1982,6 +2035,14 @@ export class DatabaseService {
       console.error('DatabaseService', `Failed to delete tool events: ${JSON.stringify(error)}`)
     }
   }
+
+  private safeGetString(resultSet: relationalStore.ResultSet, columnName: string, defaultValue: string = ''): string {
+    try {
+      return resultSet.getString(resultSet.getColumnIndex(columnName))
+    } catch (_error) {
+      return defaultValue
+    }
+  }
 }
 
 // 工具事件数据接口
@@ -1991,6 +2052,10 @@ export interface ToolEventData {
   messageId: string
   toolCallId: string
   toolName: string
+  toolDisplayName: string
+  sourceLabel: string
+  sourceType: string
+  permissionLevel: string
   toolArguments: string
   toolResult: string
   status: string

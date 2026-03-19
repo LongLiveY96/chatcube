@@ -20,15 +20,11 @@ export class ChatSendPrepareResult {
   currentProvider: ModelProvider | null = null
 }
 
-export enum ChatExecutionMode {
-  PLAIN = 'plain',
-  WEB_SEARCH = 'web_search'
-}
-
 enum ChatExecutionPlanKind {
   PLAIN_DIRECT = 'plain_direct',
   TOOLS = 'tools',
-  MANUAL_SEARCH = 'manual_search'
+  MANUAL_SEARCH = 'manual_search',
+  UNSUPPORTED_TOOLS = 'unsupported_tools'
 }
 
 class ChatExecutionPlan {
@@ -144,20 +140,21 @@ export class ChatSendFlow {
     currentProvider: ModelProvider,
     effectiveApiKey: string,
     attachmentsToSend: MessageAttachment[],
+    webSearchConversationEnabled: boolean,
+    selectedToolIds: string[],
     forcedToolIds: string[],
-    executionMode: ChatExecutionMode,
     currentModelId: string
   ): Promise<void> {
     const plan = this.buildExecutionPlan(
-      messageContent,
       currentProvider,
+      webSearchConversationEnabled,
+      selectedToolIds,
       forcedToolIds,
-      executionMode,
       currentModelId
     )
     console.info(
       'ChatSendFlow',
-      `[executeSend] mode=${executionMode}, plan=${plan.kind}, tools=${plan.enabledToolIds.join(',')}`
+      `[executeSend] plan=${plan.kind}, search=${webSearchConversationEnabled}, selected=${selectedToolIds.join(',')}, forced=${forcedToolIds.join(',')}, tools=${plan.enabledToolIds.join(',')}`
     )
 
     if (plan.kind === ChatExecutionPlanKind.MANUAL_SEARCH) {
@@ -173,6 +170,13 @@ export class ChatSendFlow {
         attachmentsToSend,
         plan.enabledToolIds
       )
+      return
+    }
+
+    if (plan.kind === ChatExecutionPlanKind.UNSUPPORTED_TOOLS) {
+      const message = '当前模型或接口不支持所选工具，请切换到支持 tools 的模型后重试'
+      this.deps.onShowError(message)
+      this.deps.onMarkAutoTaskFailed(message)
       return
     }
 
@@ -205,64 +209,75 @@ export class ChatSendFlow {
     return false
   }
 
-  buildEnabledToolIds(extraToolIds: string[] = []): string[] {
+  buildEnabledToolIds(selectedToolIds: string[] = [], forcedToolIds: string[] = []): string[] {
     const ids: string[] = []
-
-    for (let i = 0; i < extraToolIds.length; i++) {
-      const toolId = extraToolIds[i]
+    const allToolIds = [...selectedToolIds, ...forcedToolIds]
+    for (let i = 0; i < allToolIds.length; i++) {
+      const toolId = allToolIds[i]
       if (this.deps.toolRegistry.isToolRegistered(toolId)) {
         appendUniqueToolId(ids, toolId)
       }
     }
+    return ids
+  }
 
+  private shouldEnableWebSearch(
+    webSearchConversationEnabled: boolean,
+    forcedToolIds: string[]
+  ): boolean {
+    if (webSearchConversationEnabled) {
+      return true
+    }
+    return forcedToolIds.includes('web_search')
+  }
+
+  private filterNonSearchToolIds(toolIds: string[]): string[] {
+    const ids: string[] = []
+    for (let i = 0; i < toolIds.length; i++) {
+      if (toolIds[i] !== 'web_search') {
+        ids.push(toolIds[i])
+      }
+    }
     return ids
   }
 
   private buildExecutionPlan(
-    messageContent: string,
     currentProvider: ModelProvider,
+    webSearchConversationEnabled: boolean,
+    selectedToolIds: string[],
     forcedToolIds: string[],
-    executionMode: ChatExecutionMode,
     currentModelId: string
   ): ChatExecutionPlan {
-    const enabledToolIds = this.buildEnabledToolIds(forcedToolIds)
-    if (enabledToolIds.length > 0) {
-      if (this.isCurrentModelSupportsTools(currentProvider, currentModelId)) {
-        return new ChatExecutionPlan(ChatExecutionPlanKind.TOOLS, enabledToolIds)
-      }
-      if (this.hasWebSearchTool(enabledToolIds)) {
-        return new ChatExecutionPlan(ChatExecutionPlanKind.MANUAL_SEARCH)
-      }
+    const searchEnabled = this.shouldEnableWebSearch(webSearchConversationEnabled, forcedToolIds)
+    const enabledToolIds = this.buildEnabledToolIds(selectedToolIds, this.filterNonSearchToolIds(forcedToolIds))
+    if (searchEnabled && this.deps.toolRegistry.isToolRegistered('web_search')) {
+      appendUniqueToolId(enabledToolIds, 'web_search')
+    }
+    if (enabledToolIds.length === 0) {
       return new ChatExecutionPlan(ChatExecutionPlanKind.PLAIN_DIRECT)
     }
 
-    if (executionMode === ChatExecutionMode.WEB_SEARCH) {
-      const webSearchToolIds = this.getRegisteredWebSearchToolIds()
-      if (webSearchToolIds.length > 0 && this.isCurrentModelSupportsTools(currentProvider, currentModelId)) {
-        return new ChatExecutionPlan(ChatExecutionPlanKind.TOOLS, webSearchToolIds)
-      }
-
-      return new ChatExecutionPlan(ChatExecutionPlanKind.MANUAL_SEARCH)
+    if (this.isCurrentModelSupportsTools(currentProvider, currentModelId)) {
+      return new ChatExecutionPlan(ChatExecutionPlanKind.TOOLS, enabledToolIds)
     }
 
-    return new ChatExecutionPlan(ChatExecutionPlanKind.PLAIN_DIRECT)
-  }
-
-  private getRegisteredWebSearchToolIds(): string[] {
-    const ids: string[] = []
-    if (this.deps.toolRegistry.isToolRegistered('web_search')) {
-      ids.push('web_search')
+    if (searchEnabled && this.allToolsAreWebSearch(enabledToolIds)) {
+      return new ChatExecutionPlan(ChatExecutionPlanKind.MANUAL_SEARCH, enabledToolIds)
     }
-    return ids
+
+    return new ChatExecutionPlan(ChatExecutionPlanKind.UNSUPPORTED_TOOLS, enabledToolIds)
   }
 
-  private hasWebSearchTool(toolIds: string[]): boolean {
+  private allToolsAreWebSearch(toolIds: string[]): boolean {
+    if (toolIds.length === 0) {
+      return false
+    }
     for (let i = 0; i < toolIds.length; i++) {
-      if (toolIds[i] === 'web_search') {
-        return true
+      if (toolIds[i] !== 'web_search') {
+        return false
       }
     }
-    return false
+    return true
   }
 
   private startTaskOrFail(messageContent: string): string {

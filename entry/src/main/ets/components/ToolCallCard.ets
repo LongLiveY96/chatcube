@@ -1,9 +1,13 @@
 import { ToolCall, ToolResult } from '../models/ChatModels'
 import { getAppUiState } from '../state/AppUiState'
+import { buildToolArgumentsPreview, buildToolResultPreview, ToolPayloadPreview } from '../utils/ToolPayloadSummaryUtils'
 
 // 获取工具显示名称
-function getToolDisplayName(toolId: string): string | Resource {
-  const raw = toolId as string | null | undefined
+function getToolDisplayName(toolCall: ToolCall): string | Resource {
+  if (toolCall.displayName.trim() !== '') {
+    return toolCall.displayName
+  }
+  const raw = toolCall.functionName as string | null | undefined
   if (raw === undefined || raw === null || raw.trim() === '') {
     return '未知工具'
   }
@@ -22,6 +26,8 @@ export struct ToolCallCard {
   @Param toolResult: ToolResult | null = null
   @Param isExecuting: boolean = false
   @Local isExpanded: boolean = false
+  @Local showRawArguments: boolean = false
+  @Local showRawResult: boolean = false
   // 跳动点动画状态
   @Local dot1Scale: number = 0.6
   @Local dot2Scale: number = 0.6
@@ -29,6 +35,9 @@ export struct ToolCallCard {
   // 主题颜色
   private get themePrimary(): string {
     return getAppUiState().themePrimary
+  }
+  private get isDarkMode(): boolean {
+    return getAppUiState().isDarkMode
   }
   private dotAnimationTimer: number = -1
 
@@ -96,11 +105,18 @@ export struct ToolCallCard {
           .fontColor([this.isExecuting ? this.themePrimary : $r('app.color.text_secondary')])
 
         // 工具名称
-        Text(getToolDisplayName(this.toolCall.functionName))
+        Text(getToolDisplayName(this.toolCall))
           .fontSize(13)
           .fontWeight(FontWeight.Medium)
           .fontColor(this.isExecuting ? this.themePrimary : $r('app.color.text_secondary'))
           .margin({ left: 6 })
+
+        if (this.toolCall.sourceLabel.trim() !== '') {
+          Text(this.toolCall.sourceLabel)
+            .fontSize(10)
+            .fontColor($r('app.color.text_tertiary'))
+            .margin({ left: 6 })
+        }
 
         // 执行状态
         if (this.isExecuting) {
@@ -129,10 +145,10 @@ export struct ToolCallCard {
           }
           .margin({ left: 8 })
         } else if (this.toolResult !== null) {
-          // 已完成：显示勾选图标
-          SymbolGlyph($r('sys.symbol.checkmark_circle'))
+          // 已完成：根据结果显示成功/失败状态
+          SymbolGlyph(this.getResultStatusSymbol())
             .fontSize(14)
-            .fontColor([$r('app.color.status_success')])
+            .fontColor([this.getResultStatusColor()])
             .margin({ left: 8 })
         }
 
@@ -154,6 +170,10 @@ export struct ToolCallCard {
           }
           .onClick(() => {
             this.getUIContext().animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+              if (this.isExpanded) {
+                this.showRawArguments = false
+                this.showRawResult = false
+              }
               this.isExpanded = !this.isExpanded
             })
           })
@@ -165,37 +185,88 @@ export struct ToolCallCard {
 
       // 展开的详情内容
       if (this.isExpanded && this.toolResult !== null) {
-        Column() {
-          // 参数
+        Column({ space: 8 }) {
           Row() {
             Text($r('app.string.tool_call_args_label'))
               .fontSize(11)
               .fontColor($r('app.color.text_tertiary'))
+              .width(56)
 
-            Text(this.formatArguments())
+            Text(this.getArgumentPreview().summary)
               .fontSize(11)
+              .lineHeight(16)
               .fontColor($r('app.color.text_secondary'))
-              .maxLines(2)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
               .layoutWeight(1)
           }
           .width('100%')
-          .margin({ bottom: 4 })
 
-          // 结果摘要
+          Row() {
+            Blank()
+            Text(this.showRawArguments ? '收起原始参数' : '查看原始参数')
+              .fontSize(10)
+              .fontColor(this.themePrimary)
+              .onClick(() => {
+                this.showRawArguments = !this.showRawArguments
+              })
+          }
+          .width('100%')
+
+          if (this.showRawArguments) {
+            Scroll() {
+              Text(this.getArgumentPreview().rawPreview)
+                .width('100%')
+                .fontSize(11)
+                .lineHeight(16)
+                .fontFamily('monospace')
+                .fontColor($r('app.color.text_secondary'))
+            }
+            .width('100%')
+            .constraintSize({ maxHeight: 160 })
+            .padding(10)
+            .borderRadius(10)
+            .backgroundColor(this.isDarkMode ? '#14171F' : '#F6F8FC')
+          }
+
           Row() {
             Text($r('app.string.tool_call_result_label'))
               .fontSize(11)
               .fontColor($r('app.color.text_tertiary'))
+              .width(56)
 
-            Text(this.formatResultSummary())
+            Text(this.getResultPreview().summary)
               .fontSize(11)
-              .fontColor($r('app.color.text_secondary'))
-              .maxLines(3)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .lineHeight(16)
+              .fontColor(this.hasFailedResult() ? $r('app.color.status_error') : $r('app.color.text_secondary'))
               .layoutWeight(1)
           }
           .width('100%')
+
+          Row() {
+            Blank()
+            Text(this.showRawResult ? '收起原始结果' : '查看原始结果')
+              .fontSize(10)
+              .fontColor(this.themePrimary)
+              .onClick(() => {
+                this.showRawResult = !this.showRawResult
+              })
+          }
+          .width('100%')
+
+          if (this.showRawResult) {
+            Scroll() {
+              Text(this.getResultPreview().rawPreview)
+                .width('100%')
+                .fontSize(11)
+                .lineHeight(16)
+                .fontFamily('monospace')
+                .fontColor($r('app.color.text_secondary'))
+            }
+            .width('100%')
+            .constraintSize({ maxHeight: 180 })
+            .padding(10)
+            .borderRadius(10)
+            .backgroundColor(this.isDarkMode ? '#14171F' : '#F6F8FC')
+          }
         }
         .width('100%')
         .padding({ left: 10, right: 10, bottom: 8 })
@@ -208,51 +279,38 @@ export struct ToolCallCard {
     .clip(true)
   }
 
-  // 格式化参数显示
-  private formatArguments(): string {
+  private getArgumentPreview(): ToolPayloadPreview {
+    return buildToolArgumentsPreview(this.toolCall.arguments, 3, 600)
+  }
+
+  private getResultPreview(): ToolPayloadPreview {
+    if (this.toolResult === null) {
+      return new ToolPayloadPreview('执行中...', [], '执行中...', false)
+    }
+    return buildToolResultPreview(this.toolResult.content, 3, 900)
+  }
+
+  private hasFailedResult(): boolean {
+    if (this.toolResult === null) {
+      return false
+    }
+    if (this.toolResult.isError) {
+      return true
+    }
     try {
-      const args = JSON.parse(this.toolCall.arguments) as Record<string, string>
-      const parts: string[] = []
-      const keys = Object.keys(args)
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i]
-        parts.push(`${key}="${args[key]}"`)
-      }
-      return parts.join(', ')
-    } catch (e) {
-      return this.toolCall.arguments
+      const parsed = JSON.parse(this.toolResult.content) as Record<string, Object>
+      return parsed.isError === true || parsed.error !== undefined
+    } catch (_error) {
+      return false
     }
   }
 
-  // 格式化结果摘要
-  private formatResultSummary(): string | Resource {
-    if (this.toolResult === null) {
-      return $r('app.string.tool_call_executing')
-    }
-    try {
-      const result = JSON.parse(this.toolResult.content) as Record<string, Object>
-      // 检查是否有错误
-      if (result['error'] !== undefined) {
-        return `${result['error']}`
-      }
-      // 检查是否是搜索结果
-      if (result['results'] !== undefined) {
-        const results = result['results'] as Array<Object>
-        return `${results.length}`
-      }
-      if (result['forecast'] !== undefined) {
-        const forecast = result['forecast'] as Array<Object>
-        return `${forecast.length}天预报`
-      }
-      return $r('app.string.tool_call_completed')
-    } catch (e) {
-      // 如果不是 JSON，返回截断的内容
-      const content = this.toolResult.content
-      if (content.length > 50) {
-        return content.substring(0, 50) + '...'
-      }
-      return content
-    }
+  private getResultStatusSymbol(): Resource {
+    return this.hasFailedResult() ? $r('sys.symbol.xmark_circle') : $r('sys.symbol.checkmark_circle')
+  }
+
+  private getResultStatusColor(): ResourceColor {
+    return this.hasFailedResult() ? $r('app.color.status_error') : $r('app.color.status_success')
   }
 }
 

@@ -54,11 +54,13 @@ export class ToolParameters {
   type: string = 'object'
   properties: Map<string, ToolParameterProperty> = new Map()
   required: string[] = []
+  rawSchema: object | null = null
 
   constructor() {
     this.type = 'object'
     this.properties = new Map()
     this.required = []
+    this.rawSchema = null
   }
 
   addProperty(name: string, property: ToolParameterProperty): void {
@@ -69,8 +71,15 @@ export class ToolParameters {
     this.required.push(name)
   }
 
+  setRawSchema(schema: object): void {
+    this.rawSchema = schema
+  }
+
   // 转换为 JSON 对象（用于 API 请求）
   toJsonObject(): object {
+    if (this.rawSchema !== null) {
+      return this.rawSchema
+    }
     const props: Record<string, ToolParameterPropertyJson> = {}
     this.properties.forEach((value, key) => {
       if (value.enumValues.length > 0) {
@@ -106,6 +115,16 @@ export class ToolDefinition {
   }
 }
 
+export enum ToolSourceType {
+  BUILTIN = 'builtin',
+  MCP = 'mcp'
+}
+
+export enum ToolPermissionLevel {
+  READ = 'read',
+  WRITE = 'write'
+}
+
 // 工具调用（AI 返回）
 @ObservedV2
 export class ToolCall {
@@ -113,11 +132,30 @@ export class ToolCall {
   @Trace type: string = 'function'
   @Trace functionName: string = ''
   @Trace arguments: string = ''
+  @Trace toolId: string = ''
+  @Trace displayName: string = ''
+  @Trace sourceType: string = ToolSourceType.BUILTIN
+  @Trace sourceLabel: string = ''
+  @Trace permissionLevel: string = ToolPermissionLevel.READ
 
-  constructor(id: string = '', functionName: string = '', args: string = '') {
+  constructor(
+    id: string = '',
+    functionName: string = '',
+    args: string = '',
+    toolId: string = '',
+    displayName: string = '',
+    sourceType: string = ToolSourceType.BUILTIN,
+    sourceLabel: string = '',
+    permissionLevel: string = ToolPermissionLevel.READ
+  ) {
     this.id = id
     this.functionName = functionName
     this.arguments = args
+    this.toolId = toolId !== '' ? toolId : functionName
+    this.displayName = displayName !== '' ? displayName : functionName
+    this.sourceType = sourceType !== '' ? sourceType : ToolSourceType.BUILTIN
+    this.sourceLabel = sourceLabel
+    this.permissionLevel = permissionLevel !== '' ? permissionLevel : ToolPermissionLevel.READ
   }
 }
 
@@ -125,10 +163,22 @@ export class ToolCall {
 export class ToolResult {
   toolCallId: string = ''
   content: string = ''
+  isError: boolean = false
+  displayName: string = ''
+  sourceLabel: string = ''
 
-  constructor(toolCallId: string = '', content: string = '') {
+  constructor(
+    toolCallId: string = '',
+    content: string = '',
+    isError: boolean = false,
+    displayName: string = '',
+    sourceLabel: string = ''
+  ) {
     this.toolCallId = toolCallId
     this.content = content
+    this.isError = isError
+    this.displayName = displayName
+    this.sourceLabel = sourceLabel
   }
 }
 
@@ -141,6 +191,11 @@ export class ToolConfig {
   @Trace icon: Resource | null = null  // 图标
   @Trace enabled: boolean = false  // 是否启用
   @Trace requiresSetup: boolean = false  // 是否需要额外配置
+  @Trace sourceType: string = ToolSourceType.BUILTIN
+  @Trace sourceId: string = ''
+  @Trace functionName: string = ''
+  @Trace sourceLabel: string = ''
+  @Trace permissionLevel: string = ToolPermissionLevel.READ
 
   constructor(
     id: string = '',
@@ -148,7 +203,12 @@ export class ToolConfig {
     description: string = '',
     icon: Resource | null = null,
     enabled: boolean = false,
-    requiresSetup: boolean = false
+    requiresSetup: boolean = false,
+    sourceType: string = ToolSourceType.BUILTIN,
+    sourceId: string = '',
+    functionName: string = '',
+    sourceLabel: string = '',
+    permissionLevel: string = ToolPermissionLevel.READ
   ) {
     this.id = id
     this.name = name
@@ -156,6 +216,11 @@ export class ToolConfig {
     this.icon = icon
     this.enabled = enabled
     this.requiresSetup = requiresSetup
+    this.sourceType = sourceType !== '' ? sourceType : ToolSourceType.BUILTIN
+    this.sourceId = sourceId
+    this.functionName = functionName !== '' ? functionName : id
+    this.sourceLabel = sourceLabel
+    this.permissionLevel = permissionLevel !== '' ? permissionLevel : ToolPermissionLevel.READ
   }
 }
 
@@ -356,8 +421,8 @@ export interface ModelParametersJson {
 // 搜索引擎类型枚举
 export enum SearchEngine {
   BING = 'bing',
+  BRAVE = 'brave',
   EXA = 'exa',
-  DUCKDUCKGO = 'duckduckgo',
   TAVILY = 'tavily',
   CUSTOM = 'custom'
 }

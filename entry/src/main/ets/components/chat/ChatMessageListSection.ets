@@ -41,6 +41,7 @@ export struct ChatMessageListSection {
   @Event onListAppear: () => void = (): void => {}
   @Event onReachStart: () => void = (): void => {}
   @Event onReachEnd: () => void = (): void => {}
+  @Event onContentAreaChange: () => void = (): void => {}
   @Event onDidScroll: (scrollOffset: number, scrollState: ScrollState) => void = (_scrollOffset: number,
     _scrollState: ScrollState): void => {}
 
@@ -170,6 +171,9 @@ export struct ChatMessageListSection {
               .padding({ left: 14, right: 14, top: 5, bottom: 5 })
               .opacity(this.isEditingMessage && this.editingMessageId !== ri.item.id ? 0.4 : 1)
               .animation({ duration: 200 })
+              .onAreaChange((_oldArea: Area, _newArea: Area) => {
+                this.onContentAreaChange()
+              })
             })
             .key((message: ChatMessage) => message.id)
             .virtualScroll({ totalCount: this.messages.length })
@@ -192,6 +196,9 @@ export struct ChatMessageListSection {
               .justifyContent(FlexAlign.Center)
             }
             .padding({ left: 14, right: 14, top: 5, bottom: 5 })
+            .onAreaChange((_oldArea: Area, _newArea: Area) => {
+              this.onContentAreaChange()
+            })
           }
 
           ListItem() {

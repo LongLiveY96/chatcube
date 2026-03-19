@@ -505,6 +505,10 @@
       "value": "Web Query"
     },
     {
+      "name": "chat_toolbar_tools",
+      "value": "Tools"
+    },
+    {
       "name": "chat_toolbar_reasoning",
       "value": "Reasoning"
     },
@@ -542,7 +546,7 @@
     },
     {
       "name": "search_engine_runtime_hint",
-      "value": "The search card in chat shows actual engine used. Exa will fallback to Bing(Local) on failure."
+      "value": "The search card in chat shows the actual engine used. Exa falls back to Bing(Local) on failure; Brave and Tavily use their selected provider directly."
     },
     {
       "name": "search_query_optimization",
@@ -1346,7 +1350,11 @@
     },
     {
       "name": "search_service_config_desc",
-      "value": "Execution backend for built-in web_search tool."
+      "value": "Configure the chat web search capability and choose which search provider it runs on."
+    },
+    {
+      "name": "search_service_card_title",
+      "value": "Web Search"
     },
     {
       "name": "common_web_page",
