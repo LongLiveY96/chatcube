@@ -52,6 +52,7 @@ export struct ChatMessageListItem {
 
         MessageBubble({
           message: this.row.message,
+          renderSignature: this.row.renderSignature,
           showHeader: this.row.showHeader,
           currentModelId: this.currentModelId,
           chatFontSize: this.chatFontSize,

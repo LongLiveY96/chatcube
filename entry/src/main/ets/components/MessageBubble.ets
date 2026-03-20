@@ -42,6 +42,7 @@ interface ImageAttachmentEntry {
 @ComponentV2
 export struct MessageBubble {
   @Param message: ChatMessage = new ChatMessage('', MessageRole.USER, '')
+  @Param renderSignature: string = ''
   @Param showHeader: boolean = true  // 是否显示消息头部（模型信息）
   @Param currentModelId: string = ''  // 当前会话的模型 ID（用于图标匹配回退）
   @Param themeRenderKey: string = ''
@@ -191,9 +192,7 @@ export struct MessageBubble {
     this.configureMarkdownStyles()
 
     // 只在需要时启动跳动点动画（优化性能）
-    if (this.shouldShowDotAnimation()) {
-      this.startDotAnimation()
-    }
+    this.syncDotAnimationState()
 
     this.isReasoningExpanded = false
   }
@@ -203,11 +202,14 @@ export struct MessageBubble {
   onMessageStateChange(): void {
     this.syncMessageScopedState()
     this.syncDerivedRenderCaches()
-    if (this.shouldShowDotAnimation()) {
-      this.startDotAnimation()
-    } else {
-      this.stopDotAnimation()
-    }
+    this.syncDotAnimationState()
+  }
+
+  @Monitor('renderSignature')
+  onRenderSignatureChange(): void {
+    this.syncMessageScopedState()
+    this.syncDerivedRenderCaches()
+    this.syncDotAnimationState()
   }
 
   @Monitor('previewContent')
@@ -332,6 +334,14 @@ export struct MessageBubble {
       this.message.reasoningContent.length === 0
     // 正在搜索时也需要显示跳动点动画（联网查询等待状态）
     return isGeneratingWithoutContent || this.message.isSearching
+  }
+
+  private syncDotAnimationState(): void {
+    if (this.shouldShowDotAnimation()) {
+      this.startDotAnimation()
+      return
+    }
+    this.stopDotAnimation()
   }
 
   // 配置 Markdown 样式
@@ -524,6 +534,9 @@ export struct MessageBubble {
       clearInterval(this.dotAnimationTimer)
       this.dotAnimationTimer = -1
     }
+    this.dot1Scale = 0.6
+    this.dot2Scale = 0.6
+    this.dot3Scale = 0.6
   }
 
   build() {
