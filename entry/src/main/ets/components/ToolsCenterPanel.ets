@@ -1021,6 +1021,7 @@ export struct ToolsCenterPanel {
             .fontColor([$r('app.color.text_secondary')])
         }
         .type(ButtonType.Circle)
+        .stateEffect(false)
         .width(36)
         .height(36)
         .backgroundColor($r('app.color.divider'))
@@ -1041,6 +1042,7 @@ export struct ToolsCenterPanel {
             .fontColor([Color.White])
         }
         .type(ButtonType.Circle)
+        .stateEffect(false)
         .width(36)
         .height(36)
         .backgroundColor(this.themePrimary)
@@ -1199,6 +1201,7 @@ export struct ToolsCenterPanel {
             .fontColor([$r('app.color.text_secondary')])
         }
         .type(ButtonType.Circle)
+        .stateEffect(false)
         .width(36)
         .height(36)
         .backgroundColor($r('app.color.divider'))
@@ -1219,6 +1222,7 @@ export struct ToolsCenterPanel {
             .fontColor([Color.White])
         }
         .type(ButtonType.Circle)
+        .stateEffect(false)
         .width(36)
         .height(36)
         .backgroundColor(this.isSavingMcpServer ? `${this.themePrimary}99` : this.themePrimary)
@@ -1536,6 +1540,7 @@ export struct ToolsCenterPanel {
               .height(32)
               .padding({ left: 14, right: 14 })
               .type(ButtonType.Capsule)
+              .stateEffect(false)
               .backgroundColor(this.themePrimary)
               .onClick(() => {
                 this.addMcpHeaderEntry()
@@ -1620,7 +1625,9 @@ export struct ToolsCenterPanel {
                       .height(28)
                       .fontSize(11)
                       .type(ButtonType.Capsule)
-                      .backgroundColor(this.isDarkMode ? '#4B1D24' : '#FDECEF')
+                      .stateEffect(false)
+                      .backgroundColor($r('app.color.surface'))
+                      .border({ width: 1, color: this.isDarkMode ? '#6A3139' : '#F2CBD2' })
                       .fontColor('#D9485F')
                       .onClick(() => {
                         this.removeMcpHeaderEntry(entry.id)
@@ -1762,6 +1769,8 @@ export struct ToolsCenterPanel {
             Button($r('app.string.tools_center_refresh'))
               .height(30)
               .fontSize(12)
+              .type(ButtonType.Capsule)
+              .stateEffect(false)
               .backgroundColor(this.themePrimary)
               .fontColor(Color.White)
               .onClick(() => {
@@ -1842,6 +1851,7 @@ export struct ToolsCenterPanel {
                   .height(32)
                   .padding({ left: 14, right: 14 })
                   .type(ButtonType.Capsule)
+                  .stateEffect(false)
                   .backgroundColor(this.themePrimary)
                   .onClick(() => {
                     this.openCreateMcpServer()
@@ -2018,7 +2028,8 @@ struct SearchServiceCardItem {
         .width(44)
         .height(44)
         .borderRadius(16)
-        .backgroundColor(this.searchEnabled ? `${this.themePrimary}${this.isDarkMode ? '24' : '10'}` : this.backgroundHex)
+        .backgroundColor(this.backgroundHex)
+        .border({ width: 1, color: this.searchEnabled ? this.themePrimary : this.dividerHex })
         .justifyContent(FlexAlign.Center)
 
         Column({ space: 6 }) {
@@ -2065,8 +2076,7 @@ struct SearchServiceCardItem {
     .margin({ bottom: 8 })
     .borderRadius(20)
     .backgroundColor($r('app.color.surface'))
-    .border({ width: 1, color: this.searchEnabled ? `${this.themePrimary}${this.isDarkMode ? '20' : '10'}` :
-      this.dividerHex })
+    .border({ width: 1, color: this.searchEnabled ? this.themePrimary : this.dividerHex })
     .shadow({
       radius: 16,
       color: this.isDarkMode ? 'rgba(0, 0, 0, 0.20)' : 'rgba(15, 23, 42, 0.05)',
@@ -2218,8 +2228,8 @@ struct McpServerCardItem {
         .width(46)
         .height(46)
         .borderRadius(16)
-        .backgroundColor(this.serverEnabled ? `${this.themePrimary}${this.isDarkMode ? '24' : '10'}` :
-          this.backgroundHex)
+        .backgroundColor(this.backgroundHex)
+        .border({ width: 1, color: this.serverEnabled ? this.themePrimary : this.dividerHex })
         .justifyContent(FlexAlign.Center)
 
         Column({ space: 6 }) {
@@ -2276,7 +2286,8 @@ struct McpServerCardItem {
             .fontColor(this.themePrimary)
             .padding({ left: 10, right: 10, top: 6, bottom: 6 })
             .borderRadius(999)
-            .backgroundColor(`${this.themePrimary}${this.isDarkMode ? '20' : '10'}`)
+            .backgroundColor(this.backgroundHex)
+            .border({ width: 1, color: this.themePrimary })
         }
 
         if (this.customHeaderCount > 0) {
@@ -2326,7 +2337,8 @@ struct McpServerCardItem {
             }
             .padding({ left: 10, right: 10, top: 6, bottom: 6 })
             .borderRadius(999)
-            .backgroundColor(`${this.themePrimary}${this.isDarkMode ? '22' : '12'}`)
+            .backgroundColor(this.backgroundHex)
+            .border({ width: 1, color: this.themePrimary })
             .onClick(() => {
               this.isToolsExpanded = !this.isToolsExpanded
             })
@@ -2377,17 +2389,17 @@ struct McpServerCardItem {
       .width('100%')
       .padding(14)
       .borderRadius(18)
-      .backgroundColor(this.serverEnabled ? `${this.themePrimary}${this.isDarkMode ? '12' : '08'}` :
-        this.backgroundHex)
-      .border({ width: 1, color: this.serverEnabled ? `${this.themePrimary}${this.isDarkMode ? '16' : '10'}` :
-        this.dividerHex })
+      .backgroundColor(this.backgroundHex)
+      .border({ width: 1, color: this.serverEnabled ? this.themePrimary : this.dividerHex })
 
       Row({ space: 8 }) {
         Button(pickLocalizedText('刷新', 'Refresh'))
           .height(32)
           .fontSize(12)
           .type(ButtonType.Capsule)
-          .backgroundColor(`${this.themePrimary}${this.isDarkMode ? '26' : '14'}`)
+          .stateEffect(false)
+          .backgroundColor(this.backgroundHex)
+          .border({ width: 1, color: this.themePrimary })
           .fontColor(this.themePrimary)
           .onClick(() => {
             this.onRefresh()
@@ -2397,7 +2409,9 @@ struct McpServerCardItem {
           .height(32)
           .fontSize(12)
           .type(ButtonType.Capsule)
-          .backgroundColor($r('app.color.background'))
+          .stateEffect(false)
+          .backgroundColor(this.backgroundHex)
+          .border({ width: 1, color: this.dividerHex })
           .fontColor($r('app.color.text_primary'))
           .onClick(() => {
             this.onEdit()
@@ -2409,7 +2423,9 @@ struct McpServerCardItem {
           .height(32)
           .fontSize(12)
           .type(ButtonType.Capsule)
-          .backgroundColor(this.isDarkMode ? '#4B1D24' : '#FDECEF')
+          .stateEffect(false)
+          .backgroundColor(this.backgroundHex)
+          .border({ width: 1, color: this.isDarkMode ? '#6A3139' : '#F2CBD2' })
           .fontColor('#D9485F')
           .onClick(() => {
             this.onDelete()
@@ -2422,8 +2438,7 @@ struct McpServerCardItem {
     .margin({ bottom: 10 })
     .borderRadius(20)
     .backgroundColor($r('app.color.surface'))
-    .border({ width: 1, color: this.serverEnabled ? `${this.themePrimary}${this.isDarkMode ? '20' : '10'}` :
-      this.dividerHex })
+    .border({ width: 1, color: this.serverEnabled ? this.themePrimary : this.dividerHex })
     .shadow({
       radius: 16,
       color: this.isDarkMode ? 'rgba(0, 0, 0, 0.20)' : 'rgba(15, 23, 42, 0.05)',

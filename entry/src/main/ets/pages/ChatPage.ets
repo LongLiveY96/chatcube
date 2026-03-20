@@ -121,6 +121,7 @@ export struct ChatPage {
   @Local isAtBottom: boolean = false
   // 是否在列表顶部
   @Local isAtTop: boolean = false
+  @Local currentScrollOffsetVp: number = 0
   @Local scrollProgress: number = 0
   // 输入框显示状态（true=显示，false=隐藏）
   @Local isInputBarVisible: boolean = true
@@ -233,6 +234,7 @@ export struct ChatPage {
   @Local editingWebSearchEnabled: boolean = false
   @Local editingSelectedToolIds: string[] = []
   @Local editingReasoningLevel: ReasoningLevel = ReasoningLevel.OFF
+  @Local messageListSyncVersion: number = 0
   private scroller: Scroller = new Scroller()
   private maxScrollOffset: number = 0
   private readonly floatingScrollButtonBottomOffsetVp: number = 128
@@ -450,10 +452,16 @@ export struct ChatPage {
 
   private replaceMessages(nextMessages: ChatMessage[]): void {
     this.messages.splice(0, this.messages.length, ...nextMessages)
+    this.markMessageListChanged()
   }
 
   private clearMessages(): void {
     this.messages.splice(0, this.messages.length)
+    this.markMessageListChanged()
+  }
+
+  private markMessageListChanged(): void {
+    this.messageListSyncVersion = this.messageListSyncVersion + 1
   }
 
   private applyLoadedSessionData(loadResult: ChatPageLoadResult): void {
@@ -583,6 +591,7 @@ export struct ChatPage {
     this.clearInitialBottomAlignmentRetries()
     this.pendingInitialBottomAlignment = false
     this.lastScrollOffset = 0
+    this.currentScrollOffsetVp = 0
     this.isAtTop = false
     this.isAtBottom = false
     this.scrollProgress = 0
@@ -1108,6 +1117,7 @@ export struct ChatPage {
         this.currentTaskId = taskId
       },
       onSyncMessages: (): void => {
+        this.markMessageListChanged()
       },
       onScrollBottom: (): void => {
         this.getScrollUiFlow().alignToBottomIfPinned()
@@ -1160,6 +1170,7 @@ export struct ChatPage {
         this.webSearchService.cancelAllRequests()
       },
       onSyncMessages: (): void => {
+        this.markMessageListChanged()
       },
       onSetSending: (value: boolean): void => {
         this.isSending = value
@@ -1204,6 +1215,7 @@ export struct ChatPage {
       getReasoningLevel: (): ReasoningLevel => this.reasoningLevel,
       isSearchCancelled: (): boolean => this.isSearchCancelled,
       onSyncMessages: (): void => {
+        this.markMessageListChanged()
       },
       onScrollBottom: (): void => {
         this.getScrollUiFlow().alignToBottomIfPinned()
@@ -1273,6 +1285,7 @@ export struct ChatPage {
         return prepareResult.shouldSend
       },
       onSyncMessages: (): void => {
+        this.markMessageListChanged()
       },
       onResetEditState: (): void => {
         this.isEditingMessage = false
@@ -1326,6 +1339,7 @@ export struct ChatPage {
       chatViewModel: this.chatViewModel,
       messages: this.messages,
       onSyncMessages: (): void => {
+        this.markMessageListChanged()
       },
       onSetMultiSelectMode: (value: boolean): void => {
         this.isMultiSelectMode = value
@@ -1401,12 +1415,14 @@ export struct ChatPage {
     const deps: ChatScrollUiFlowDependencies = {
       scroller: this.scroller,
       messages: this.messages,
-      getBottomAnchorIndex: (): number => this.getBottomAnchorListIndex(),
-      getCurrentScrollOffset: (): number => this.readCurrentScrollOffset(),
-      getLastScrollOffset: (): number => this.lastScrollOffset,
-      setLastScrollOffset: (value: number): void => {
-        this.lastScrollOffset = value
-      },
+        getBottomAnchorIndex: (): number => this.getBottomAnchorListIndex(),
+        getCurrentScrollOffset: (): number => this.currentScrollOffsetVp,
+        syncCurrentScrollOffset: (): number => this.syncCurrentScrollOffsetFromScroller(),
+        syncIsAtBottomBoundary: (): boolean => this.syncIsAtBottomBoundaryFromScroller(),
+        getLastScrollOffset: (): number => this.lastScrollOffset,
+        setLastScrollOffset: (value: number): void => {
+          this.lastScrollOffset = value
+        },
       getMaxScrollOffset: (): number => this.maxScrollOffset,
       setMaxScrollOffset: (value: number): void => {
         this.maxScrollOffset = value
@@ -1432,6 +1448,9 @@ export struct ChatPage {
           this.isInputFocused = false
           inputMethod.getController().stopInputSession()
         }
+      },
+      onSetCurrentScrollOffsetState: (value: number): void => {
+        this.currentScrollOffsetVp = value
       },
       onSetScrollProgressState: (value: number): void => {
         this.scrollProgress = value
@@ -1621,6 +1640,7 @@ export struct ChatPage {
           loadingColor: this.themePrimary,
           scroller: this.scroller,
           messages: this.messages,
+          syncVersion: this.messageListSyncVersion,
           isEditingMessage: this.isEditingMessage,
           editingMessageId: this.editingMessageId,
           selectedMessageIds: this.selectedMessageIds,
@@ -2305,7 +2325,7 @@ export struct ChatPage {
       this.isMultiSelectMode,
       this.messages.length,
       this.isAtTop,
-      this.readCurrentScrollOffset(),
+      this.currentScrollOffsetVp,
       this.windowHeightVp
     )
   }
@@ -2319,11 +2339,10 @@ export struct ChatPage {
   }
 
   private handleMessageListDidScroll(scrollOffset: number, scrollState: ScrollState): void {
-    const offsetDelta = scrollOffset - this.lastScrollOffset
-    if (this.pendingInitialBottomAlignment && scrollState === ScrollState.Scroll && offsetDelta < 0) {
+    const userScrolledAwayFromBottom = this.getScrollUiFlow().handleMessageListDidScroll(scrollOffset, scrollState)
+    if (this.pendingInitialBottomAlignment && userScrolledAwayFromBottom) {
       this.cancelPendingInitialBottomAlignment()
     }
-    this.getScrollUiFlow().handleMessageListDidScroll(scrollOffset, scrollState)
   }
 
   private handleMessageListReachStart(): void {
@@ -2355,6 +2374,20 @@ export struct ChatPage {
       return offset.yOffset
     } catch (_error) {
       return 0
+    }
+  }
+
+  private syncCurrentScrollOffsetFromScroller(): number {
+    const offset = this.readCurrentScrollOffset()
+    this.currentScrollOffsetVp = offset
+    return offset
+  }
+
+  private syncIsAtBottomBoundaryFromScroller(): boolean {
+    try {
+      return this.scroller.isAtEnd()
+    } catch (_error) {
+      return false
     }
   }
 
@@ -2605,6 +2638,7 @@ export struct ChatPage {
     const messageIdsToDelete = collectTailMessageIds(this.messages, userMsgIndex)
     await this.chatViewModel.deleteMessagesFromIndex(messageIdsToDelete)
     this.messages.splice(userMsgIndex)
+    this.markMessageListChanged()
     if (isFirstRound) {
       this.titleGenerateFailed = false
     }
@@ -2680,6 +2714,7 @@ export struct ChatPage {
       return
     }
     this.messages.splice(index, 1)
+    this.markMessageListChanged()
     await this.chatViewModel.deleteMessage(message.id)
     this.showChatSnack($r('app.string.message_deleted'), 2000, SnackBarTone.SUCCESS)
   }
@@ -2936,4 +2971,3 @@ export struct ChatPage {
 export function ChatPageBuilder(name: string, param: Object) {
   ChatPage()
 }
-

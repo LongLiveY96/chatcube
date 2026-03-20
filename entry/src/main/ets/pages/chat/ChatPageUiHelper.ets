@@ -5,6 +5,7 @@ export function shouldShowScrollToTopButtonForChat(
   currentScrollOffsetVp: number,
   viewportHeightVp: number
 ): boolean {
+  const minimumVisibleOffsetVp = 24
   if (isMultiSelectMode) {
     return false
   }
@@ -14,7 +15,7 @@ export function shouldShowScrollToTopButtonForChat(
   if (viewportHeightVp <= 0) {
     return false
   }
-  if (currentScrollOffsetVp <= viewportHeightVp) {
+  if (currentScrollOffsetVp <= minimumVisibleOffsetVp) {
     return false
   }
   return !isAtTop

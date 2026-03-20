@@ -82,3 +82,21 @@ export function buildSessionGroupsForIndex(filteredSessions: ChatSession[]): Ses
   }
   return groups
 }
+
+export function buildSessionRenderKeyForIndex(session: ChatSession): string {
+  const favorite = session.isFavorite ? '1' : '0'
+  const updatedAt = session.updatedAt.toString()
+  const messageCount = session.messageCount.toString()
+  const title = session.title
+  const preview = getSessionDisplayPreviewText(session)
+  return `${session.id}_${favorite}_${updatedAt}_${messageCount}_${title}_${preview}`
+}
+
+export function buildSessionGroupRenderKey(group: SessionGroupData, filterType: SessionFilterType, searchText: string):
+  string {
+  let orderSignature = ''
+  for (let i = 0; i < group.sessions.length; i++) {
+    orderSignature += `${buildSessionRenderKeyForIndex(group.sessions[i])}|`
+  }
+  return `${group.key}_${filterType.toString()}_${searchText}_${orderSignature}`
+}

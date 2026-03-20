@@ -78,6 +78,5 @@ export class ChatStopFlow {
     if (lastMessage.isSearching) {
       lastMessage.isSearching = false
     }
-    this.deps.onSyncMessages()
   }
 }

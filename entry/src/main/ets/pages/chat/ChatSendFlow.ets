@@ -11,6 +11,7 @@ import { ChatViewModel, ToolCallCallbacks } from '../../viewmodels/ChatViewModel
 import { ChatTaskOrchestratorService } from '../../services/ChatTaskOrchestratorService'
 import { ToolRegistry } from '../../services/ToolRegistry'
 import { appendUniqueToolId } from './ChatToolIdHelper'
+import { syncChatMessageFromSource } from './ChatMessageActionHelper'
 import { validateProviderConfig } from '../../utils/ProviderValidationUtils'
 
 export class ChatSendPrepareResult {
@@ -322,8 +323,7 @@ export class ChatSendFlow {
       console.warn('ChatSendFlow', `[handleAIMessageUpdated] message not found: ${aiMessage.id}`)
       return
     }
-    this.deps.messages[index] = aiMessage
-    this.deps.onSyncMessages()
+    syncChatMessageFromSource(this.deps.messages[index], aiMessage)
     this.deps.onScrollBottom()
   }
 

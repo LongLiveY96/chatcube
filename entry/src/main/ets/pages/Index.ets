@@ -45,6 +45,8 @@ import { SessionListGroupViewModel, rebuildSessionListGroupViewModels } from './
 import {
   getFabOffsetXForIndex,
   getFabOffsetYForIndex,
+  INDEX_NEW_CHAT_FAB_BOTTOM_SPACING,
+  INDEX_NEW_CHAT_FAB_SIZE,
   isHandAdaptiveActiveForIndex,
   shouldPlaceFabOnLeftForIndex
 } from './index/IndexHandAdaptiveHelper'
@@ -63,6 +65,7 @@ import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentati
 import { getAppUiState, observeAppUiState, setAppUiStateValue } from '../state/AppUiState'
 import { tryHandleProviderDetailInternalBack } from '../components/ProviderDetailSheet'
 import { tryHandleModelManageInternalBack } from './ModelManagePage'
+import { getCompactTabsBarHeightForIndex } from '../utils/SettingsPageLayoutHelper'
 
 const PRIVACY_POLICY_URL = 'https://agreement-drcn.hispace.dbankcloud.cn/index.html?lang=zh&agreementId=1906111586003597632'
 
@@ -732,8 +735,22 @@ struct Index {
     return getFabOffsetXForIndex(this.shouldPlaceFabOnLeft())
   }
 
+  private getFabBaseBottomInset(): number {
+    if (!this.isExpandedLayout()) {
+      return this.getCompactTabsBarHeight()
+    }
+    return this.px2vp(this.bottomAvoidHeight)
+  }
+
+  private getChatListBottomSpacerHeight(): number {
+    const cardBottomBreathingRoom = 12
+    const viewportBottomInset = this.isExpandedLayout() ? this.px2vp(this.bottomAvoidHeight) : 0
+    return viewportBottomInset + INDEX_NEW_CHAT_FAB_SIZE +
+      INDEX_NEW_CHAT_FAB_BOTTOM_SPACING + cardBottomBreathingRoom
+  }
+
   private getFabOffsetY(): number {
-    return getFabOffsetYForIndex(this.px2vp(this.bottomAvoidHeight))
+    return getFabOffsetYForIndex(this.getFabBaseBottomInset())
   }
 
   private async persistHandAdaptiveSettings(): Promise<void> {
@@ -1359,8 +1376,9 @@ struct Index {
     Column() {
       this.ChatListPanel()
     }
-      .width('100%')
-      .layoutWeight(1)
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.background'))
   }
 
   @Builder
@@ -1509,38 +1527,54 @@ struct Index {
             })
           }
         } else {
-          IndexSessionListSection({
-            sessionGroups: this.sessionListGroups,
-            isMultiSelectMode: this.isMultiSelectMode,
-            bottomSpacerHeight: this.isMultiSelectMode ? 16 : 100,
-            themeRenderKey: this.sessionListThemeRenderKey,
-            onGetGroupTitle: (groupKey: string): Resource => {
-              return this.getSessionGroupTitle(groupKey)
-            },
-            onToggleSelection: (sessionId: string): void => {
-              this.handleSessionCardClick(sessionId)
-            },
-            onOpenSession: (sessionId: string): void => {
-              this.openChatRoute({ sessionId: sessionId } as ChatPageRouteParams)
-            },
-            onDeleteSession: (sessionId: string): void => {
-              this.deleteSession(sessionId)
-            },
-            onEnterMultiSelect: (sessionId: string): void => {
-              this.handleEnterMultiSelectMode(sessionId)
-            },
-            onShareSession: (session: ChatSession): void => {
-              this.handleShareSession(session)
-            },
-            onToggleFavorite: (session: ChatSession): void => {
-              this.handleToggleFavoriteSession(session)
-            }
-          })
+          Column() {
+            IndexSessionListSection({
+              sessionGroups: this.sessionListGroups,
+              isMultiSelectMode: this.isMultiSelectMode,
+              bottomSpacerHeight: this.isMultiSelectMode ? 16 : this.getChatListBottomSpacerHeight(),
+              themeRenderKey: this.sessionListThemeRenderKey,
+              onGetGroupTitle: (groupKey: string): Resource => {
+                return this.getSessionGroupTitle(groupKey)
+              },
+              onToggleSelection: (sessionId: string): void => {
+                this.handleSessionCardClick(sessionId)
+              },
+              onOpenSession: (sessionId: string): void => {
+                this.openChatRoute({ sessionId: sessionId } as ChatPageRouteParams)
+              },
+              onDeleteSession: (sessionId: string): void => {
+                this.deleteSession(sessionId)
+              },
+              onEnterMultiSelect: (sessionId: string): void => {
+                this.handleEnterMultiSelectMode(sessionId)
+              },
+              onShareSession: (session: ChatSession): void => {
+                this.handleShareSession(session)
+              },
+              onToggleFavorite: (session: ChatSession): void => {
+                this.handleToggleFavoriteSession(session)
+              }
+            })
+            .width('100%')
+            .height('100%')
+          }
+          .width('100%')
+          .layoutWeight(1)
         }
       }
     }
     .width('100%')
     .layoutWeight(1)
+    .backgroundColor($r('app.color.background'))
+  }
+
+  @Builder
+  private ChatListViewportContent() {
+    Column() {
+      this.ChatListPanelContent()
+    }
+    .width('100%')
+    .height('100%')
     .backgroundColor($r('app.color.background'))
   }
 
@@ -1571,10 +1605,8 @@ struct Index {
       .backgroundColor($r('app.color.background'))
     } else {
       Stack({ alignContent: Alignment.BottomEnd }) {
-        this.ChatListPanelContent()
-      if (!this.isMultiSelectMode) {
+        this.ChatListViewportContent()
         this.FloatingActionButton()
-      }
       }
       .width('100%')
       .height('100%')
@@ -1805,15 +1837,8 @@ struct Index {
     return true
   }
 
-  private shouldHideCompactBottomTabs(): boolean {
-    return this.currentTabIndex === 2 && !this.isSettingsSplitMode() && this.currentSettingsRouteName !== ''
-  }
-
   private getCompactTabsBarHeight(): number {
-    if (this.shouldHideCompactBottomTabs()) {
-      return 0
-    }
-    return 56 + this.px2vp(this.bottomAvoidHeight)
+    return getCompactTabsBarHeightForIndex(this.px2vp(this.bottomAvoidHeight))
   }
 
   @Builder

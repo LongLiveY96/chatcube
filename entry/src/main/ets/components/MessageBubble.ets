@@ -31,7 +31,7 @@ interface TranslateLanguage {
 // 内容分段（用于 HTML 代码块内联预览）
 interface ContentSegment {
   isHtml: boolean
-  content: string
+  renderContent: string
 }
 
 interface ImageAttachmentEntry {
@@ -105,6 +105,23 @@ export struct MessageBubble {
   private compactImageMaxHeight: number = 100
   private compactImageContainerWidth: number = 180
   private compactImageGap: number = 6
+  private cachedDisplayContent: string = ''
+  private cachedHasDisplayAttachments: boolean = false
+  private cachedHasPreviewTextContent: boolean = false
+  private cachedHasMessageTextContent: boolean = false
+  private cachedHasToolbarPayload: boolean = false
+  private cachedCurrentMessageModelIconResourcePath: string = ''
+  private cachedReadonlyMessageContent: string = ''
+  private cachedReadonlyReasoningContent: string = ''
+  private cachedReadonlyTranslatedText: string = ''
+  private cachedHasHtmlSegments: boolean = false
+  private cachedContentSegments: ContentSegment[] = []
+  private cachedPreviewImageEntries: ImageAttachmentEntry[] = []
+  private cachedMessageImageEntries: ImageAttachmentEntry[] = []
+  private cachedMessageFileAttachments: MessageAttachment[] = []
+  private cachedPreviewImageGridRows: number[] = []
+  private cachedMessageImageGridRows: number[] = []
+  private derivedCacheSignature: string = ''
 
   @Event onRegenerate: () => void = () => {}
   @Event onCopy: () => void = () => {}
@@ -152,7 +169,7 @@ export struct MessageBubble {
   }
 
   // 获取当前消息模型图标资源路径（空字符串表示无可用图标）
-  private getCurrentMessageModelIconResourcePath(): string {
+  private computeCurrentMessageModelIconResourcePath(): string {
     const iconPath = this.getCurrentMessageModelIconPath()
     if (iconPath === '') {
       return ''
@@ -166,6 +183,7 @@ export struct MessageBubble {
 
   aboutToAppear(): void {
     this.syncMessageScopedState()
+    this.syncDerivedRenderCaches()
     // 翻译内容动态变化，使用新的 Controller
     this.translationMarkdownController = new MarkdownController()
 
@@ -184,11 +202,37 @@ export struct MessageBubble {
   @Monitor('message')
   onMessageStateChange(): void {
     this.syncMessageScopedState()
+    this.syncDerivedRenderCaches()
     if (this.shouldShowDotAnimation()) {
       this.startDotAnimation()
     } else {
       this.stopDotAnimation()
     }
+  }
+
+  @Monitor('previewContent')
+  onPreviewContentChange(): void {
+    this.syncDerivedRenderCaches()
+  }
+
+  @Monitor('previewAttachments')
+  onPreviewAttachmentsChange(): void {
+    this.syncDerivedRenderCaches()
+  }
+
+  @Monitor('isEditing')
+  onIsEditingChange(): void {
+    this.syncDerivedRenderCaches()
+  }
+
+  @Monitor('currentModelId')
+  onCurrentModelIdChange(): void {
+    this.syncDerivedRenderCaches()
+  }
+
+  @Monitor('translatedText')
+  onTranslatedTextChange(): void {
+    this.syncDerivedRenderCaches()
   }
 
   private syncMessageScopedState(): void {
@@ -210,6 +254,74 @@ export struct MessageBubble {
     this.showWebSheet = false
     this.webSheetUrl = ''
     this.webSheetTitle = ''
+  }
+
+  private buildAttachmentSignature(attachments: MessageAttachment[]): string {
+    if (attachments.length <= 0) {
+      return '0'
+    }
+    const segments: string[] = []
+    for (let i = 0; i < attachments.length; i++) {
+      const attachment = attachments[i]
+      segments.push([
+        attachment.id,
+        attachment.type,
+        attachment.name,
+        attachment.filePath,
+        attachment.mimeType,
+        attachment.size.toString(),
+        attachment.base64Data.length.toString()
+      ].join(':'))
+    }
+    return segments.join('|')
+  }
+
+  private buildDerivedCacheSignature(): string {
+    return [
+      this.message.id,
+      this.message.role,
+      this.message.timestamp.toString(),
+      this.message.modelId,
+      this.message.modelName,
+      this.message.content,
+      this.message.reasoningContent,
+      this.message.isGenerating ? '1' : '0',
+      this.message.isSearching ? '1' : '0',
+      this.currentModelId,
+      this.isEditing ? '1' : '0',
+      this.previewContent,
+      this.translatedText,
+      this.buildAttachmentSignature(this.previewAttachments),
+      this.buildAttachmentSignature(this.message.attachments)
+    ].join('\u0001')
+  }
+
+  private ensureDerivedRenderCaches(): void {
+    const nextSignature = this.buildDerivedCacheSignature()
+    if (nextSignature === this.derivedCacheSignature) {
+      return
+    }
+    this.derivedCacheSignature = nextSignature
+    this.syncDerivedRenderCaches()
+  }
+
+  private syncDerivedRenderCaches(): void {
+    this.cachedDisplayContent = this.computeDisplayContent()
+    this.cachedHasDisplayAttachments = this.isEditing ? this.previewAttachments.length > 0 : this.message.hasAttachments()
+    this.cachedHasPreviewTextContent = this.cachedDisplayContent.length > 0
+    this.cachedHasMessageTextContent = this.message.content.trim().length > 0
+    this.cachedHasToolbarPayload = this.cachedHasMessageTextContent || this.message.hasAttachments()
+    this.cachedCurrentMessageModelIconResourcePath = this.computeCurrentMessageModelIconResourcePath()
+    this.cachedReadonlyMessageContent = this.convertTaskListToReadonly(this.message.content)
+    this.cachedReadonlyReasoningContent = this.convertTaskListToReadonly(this.message.reasoningContent)
+    this.cachedReadonlyTranslatedText = this.convertTaskListToReadonly(this.translatedText)
+    this.cachedHasHtmlSegments = !this.message.isGenerating && this.hasHtmlBlocks(this.message.content)
+    this.cachedContentSegments = this.cachedHasHtmlSegments ? this.splitContentToSegments(this.message.content) : []
+    this.cachedPreviewImageEntries = this.buildImageAttachmentEntries(this.previewAttachments)
+    this.cachedMessageImageEntries = this.buildImageAttachmentEntries(this.message.attachments)
+    this.cachedMessageFileAttachments = this.getFileAttachments(this.message.attachments)
+    this.cachedPreviewImageGridRows = this.buildImageGridRows(this.cachedPreviewImageEntries.length)
+    this.cachedMessageImageGridRows = this.buildImageGridRows(this.cachedMessageImageEntries.length)
   }
 
   // 判断是否应该显示跳动点动画
@@ -447,7 +559,6 @@ export struct MessageBubble {
     .width('100%')
     // 编辑模式高亮效果
     .scale(this.isEditing ? { x: 1.02, y: 1.02 } : { x: 1, y: 1 })
-    .animation({ duration: 200 })
     // 新消息入场动画：用户消息从右侧滑入，AI消息从左侧滑入
     .transition(
       TransitionEffect.asymmetric(
@@ -498,11 +609,16 @@ export struct MessageBubble {
   }
 
   // 获取显示内容（编辑模式下使用预览内容）
-  private getDisplayContent(): string {
+  private computeDisplayContent(): string {
     if (this.isEditing) {
       return this.previewContent
     }
     return this.message.content
+  }
+
+  private getDisplayContent(): string {
+    this.ensureDerivedRenderCaches()
+    return this.cachedDisplayContent
   }
 
   // 检查内容是否包含完整的 HTML 代码块
@@ -523,11 +639,14 @@ export struct MessageBubble {
       if (matchIndex > lastIndex) {
         const textContent = content.substring(lastIndex, matchIndex)
         if (textContent.trim().length > 0) {
-          segments.push({ isHtml: false, content: textContent } as ContentSegment)
+          segments.push({
+            isHtml: false,
+            renderContent: this.convertTaskListToReadonly(textContent)
+          } as ContentSegment)
         }
       }
       // 添加 HTML 代码块段
-      segments.push({ isHtml: true, content: match[1] } as ContentSegment)
+      segments.push({ isHtml: true, renderContent: match[1] } as ContentSegment)
       lastIndex = matchIndex + match[0].length
       match = pattern.exec(content)
     }
@@ -536,7 +655,10 @@ export struct MessageBubble {
     if (lastIndex < content.length) {
       const remaining = content.substring(lastIndex)
       if (remaining.trim().length > 0) {
-        segments.push({ isHtml: false, content: remaining } as ContentSegment)
+        segments.push({
+          isHtml: false,
+          renderContent: this.convertTaskListToReadonly(remaining)
+        } as ContentSegment)
       }
     }
 
@@ -545,10 +667,8 @@ export struct MessageBubble {
 
   // 是否有显示附件（编辑模式下使用预览附件）
   private hasDisplayAttachments(): boolean {
-    if (this.isEditing) {
-      return this.previewAttachments.length > 0
-    }
-    return this.message.hasAttachments()
+    this.ensureDerivedRenderCaches()
+    return this.cachedHasDisplayAttachments
   }
 
   // 获取附件图片数据源（优先 file://，其次 base64）
@@ -587,27 +707,73 @@ export struct MessageBubble {
   }
 
   private getPreviewImageEntries(): ImageAttachmentEntry[] {
-    return this.buildImageAttachmentEntries(this.previewAttachments)
+    this.ensureDerivedRenderCaches()
+    return this.cachedPreviewImageEntries
+  }
+
+  private getPreviewImageGridRows(): number[] {
+    this.ensureDerivedRenderCaches()
+    return this.cachedPreviewImageGridRows
   }
 
   private hasPreviewTextContent(): boolean {
-    return this.getDisplayContent().length > 0
+    this.ensureDerivedRenderCaches()
+    return this.cachedHasPreviewTextContent
   }
 
   private getMessageImageEntries(): ImageAttachmentEntry[] {
-    return this.buildImageAttachmentEntries(this.message.attachments)
+    this.ensureDerivedRenderCaches()
+    return this.cachedMessageImageEntries
+  }
+
+  private getMessageImageGridRows(): number[] {
+    this.ensureDerivedRenderCaches()
+    return this.cachedMessageImageGridRows
   }
 
   private getMessageFileAttachments(): MessageAttachment[] {
-    return this.getFileAttachments(this.message.attachments)
+    this.ensureDerivedRenderCaches()
+    return this.cachedMessageFileAttachments
   }
 
   private hasMessageTextContent(): boolean {
-    return this.message.content.trim().length > 0
+    this.ensureDerivedRenderCaches()
+    return this.cachedHasMessageTextContent
   }
 
   private hasToolbarPayload(): boolean {
-    return this.hasMessageTextContent() || this.message.hasAttachments()
+    this.ensureDerivedRenderCaches()
+    return this.cachedHasToolbarPayload
+  }
+
+  private getCurrentMessageModelIconResourcePath(): string {
+    this.ensureDerivedRenderCaches()
+    return this.cachedCurrentMessageModelIconResourcePath
+  }
+
+  private hasHtmlSegments(): boolean {
+    this.ensureDerivedRenderCaches()
+    return this.cachedHasHtmlSegments
+  }
+
+  private getContentSegments(): ContentSegment[] {
+    this.ensureDerivedRenderCaches()
+    return this.cachedContentSegments
+  }
+
+  private getReadonlyMessageContent(): string {
+    this.ensureDerivedRenderCaches()
+    return this.cachedReadonlyMessageContent
+  }
+
+  private getReadonlyReasoningContent(): string {
+    this.ensureDerivedRenderCaches()
+    return this.cachedReadonlyReasoningContent
+  }
+
+  private getReadonlyTranslatedText(): string {
+    this.ensureDerivedRenderCaches()
+    return this.cachedReadonlyTranslatedText
   }
 
   private shouldShowUserToolbar(): boolean {
@@ -760,7 +926,6 @@ export struct MessageBubble {
             width: this.isEditing ? 2 : 0.5,
             color: this.isEditing ? '#FFFFFF' : 'rgba(255, 255, 255, 0.15)'
           })
-          .animation({ duration: 200 })
 
           // 多选选中竖条
           if (this.isMultiSelectMode && this.isSelected) {
@@ -824,7 +989,6 @@ export struct MessageBubble {
     }
     .width('100%')
     .alignItems(HorizontalAlign.End)
-    .renderGroup(true)  // 减少渲染批次，优化性能
   }
 
   // 编辑模式下的简化附件预览（无手势交互）
@@ -838,7 +1002,7 @@ export struct MessageBubble {
         )
       } else if (this.getPreviewImageEntries().length > 1) {
         Column({ space: this.compactImageGap }) {
-          ForEach(this.buildImageGridRows(this.getPreviewImageEntries().length), (rowIndex: number) => {
+          ForEach(this.getPreviewImageGridRows(), (rowIndex: number) => {
             Row({ space: this.compactImageGap }) {
               this.CompactPreviewGridImage(this.getPreviewImageEntries()[rowIndex * 2].attachment)
 
@@ -936,7 +1100,7 @@ export struct MessageBubble {
         )
       } else if (this.getMessageImageEntries().length > 1) {
         Column({ space: this.compactImageGap }) {
-          ForEach(this.buildImageGridRows(this.getMessageImageEntries().length), (rowIndex: number) => {
+          ForEach(this.getMessageImageGridRows(), (rowIndex: number) => {
             Row({ space: this.compactImageGap }) {
               this.CompactGridImage(
                 this.getMessageImageEntries()[rowIndex * 2].attachment,
@@ -993,7 +1157,7 @@ export struct MessageBubble {
         )
       } else if (this.getMessageImageEntries().length > 1) {
         Column({ space: this.compactImageGap }) {
-          ForEach(this.buildImageGridRows(this.getMessageImageEntries().length), (rowIndex: number) => {
+          ForEach(this.getMessageImageGridRows(), (rowIndex: number) => {
             Row({ space: this.compactImageGap }) {
               this.CompactGridImage(
                 this.getMessageImageEntries()[rowIndex * 2].attachment,
@@ -1220,12 +1384,12 @@ export struct MessageBubble {
                 this.TypingIndicator()
               }
             } else {
-              if (!this.message.isGenerating && this.hasHtmlBlocks(this.message.content)) {
-                ForEach(this.splitContentToSegments(this.message.content),
+              if (this.hasHtmlSegments()) {
+                ForEach(this.getContentSegments(),
                   (segment: ContentSegment, index: number) => {
                     if (segment.isHtml) {
                       HtmlPreviewCard({
-                        htmlCode: segment.content,
+                        htmlCode: segment.renderContent,
                         onCopyCode: (code: string) => {
                           this.copyToClipboard(code)
                           showToast(this.getUIContext(), $r('app.string.copy_success'))
@@ -1234,7 +1398,7 @@ export struct MessageBubble {
                     } else {
                       Markdown({
                         controller: this.markdownController,
-                        text: this.convertTaskListToReadonly(segment.content)
+                        text: segment.renderContent
                       })
                         .width('100%')
                         .backgroundColor(Color.Transparent)
@@ -1247,7 +1411,7 @@ export struct MessageBubble {
               } else {
                 Markdown({
                   controller: this.markdownController,
-                  text: this.convertTaskListToReadonly(this.message.content)
+                  text: this.getReadonlyMessageContent()
                 })
                   .width('100%')
                   .backgroundColor(Color.Transparent)
@@ -1321,7 +1485,6 @@ export struct MessageBubble {
           .border({ width: 0.5, color: $r('app.color.bubble_border') })
           .shadow({ radius: 4, color: 'rgba(0, 0, 0, 0.04)', offsetX: 0, offsetY: 1 })
           .clip(true)
-          .renderGroup(true)
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
@@ -1499,7 +1662,7 @@ export struct MessageBubble {
             Column() {
               Markdown({
                 controller: this.translationMarkdownController,
-                text: this.convertTaskListToReadonly(this.translatedText)
+                text: this.getReadonlyTranslatedText()
               })
                 .constraintSize({ maxWidth: '100%' })
                 .backgroundColor(Color.Transparent)
@@ -1604,7 +1767,7 @@ export struct MessageBubble {
         Column() {
           Markdown({
             controller: this.reasoningMarkdownController,
-            text: this.convertTaskListToReadonly(this.message.reasoningContent)
+            text: this.getReadonlyReasoningContent()
           })
             .constraintSize({ maxWidth: '100%' })
             .backgroundColor(Color.Transparent)

@@ -3,9 +3,6 @@ import { SessionCard } from '../SessionCard'
 import { SessionListItemData } from '../../pages/index/IndexSessionListDataSource'
 import { getAppUiState } from '../../state/AppUiState'
 
-export const INDEX_SESSION_LIST_ITEM_REUSE_ID: string = 'index_session_list_item'
-
-@ReusableV2
 @ComponentV2
 export struct IndexSessionListItem {
   @Param item: SessionListItemData = new SessionListItemData(new ChatSession('', '', ''), false, false)
@@ -55,9 +52,10 @@ export struct IndexSessionListItem {
       .borderRadius(12)
       .clip(true)
       .border({
-        width: 1.5,
+        width: 2,
         color: this.item.isSelected || this.item.isActive ? this.themePrimary : Color.Transparent
       })
+      .opacity(this.isMultiSelectMode && !this.item.isSelected ? 0.5 : 1)
       .animation({ duration: 200 })
   }
 }

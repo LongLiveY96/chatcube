@@ -1,6 +1,6 @@
 import { ChatSession } from '../../models/ChatModels'
 import { SessionListGroupViewModel, SessionListItemData } from '../../pages/index/IndexSessionListDataSource'
-import { INDEX_SESSION_LIST_ITEM_REUSE_ID, IndexSessionListItem } from './IndexSessionListItem'
+import { IndexSessionListItem } from './IndexSessionListItem'
 import { getAppUiState } from '../../state/AppUiState'
 
 @ComponentV2
@@ -41,23 +41,27 @@ export struct IndexSessionListSection {
     Button() {
       Column() {
         SymbolGlyph(session.isFavorite ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
-          .fontSize(16)
+          .fontSize(18)
           .fontColor([Color.White])
 
         Text(session.isFavorite ? $r('app.string.menu_unfavorite') : $r('app.string.menu_favorite'))
-          .fontSize(10)
+          .fontSize(11)
+          .fontWeight(FontWeight.Medium)
           .fontColor(Color.White)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .textAlign(TextAlign.Center)
           .margin({ top: 2 })
       }
+      .width('100%')
+      .padding({ left: 4, right: 4 })
       .justifyContent(FlexAlign.Center)
       .alignItems(HorizontalAlign.Center)
     }
-    .width(64)
+    .width(72)
     .height('100%')
     .borderRadius({ topLeft: 12, bottomLeft: 12 })
-    .backgroundColor(session.isFavorite ? $r('app.color.status_error') : getAppUiState().themePrimary + 'B3')
+    .backgroundColor(session.isFavorite ? $r('app.color.status_error') : getAppUiState().themePrimary)
     .onClick(() => {
       this.sessionListScroller.closeAllSwipeActions()
       this.onToggleFavorite(session)
@@ -111,7 +115,6 @@ export struct IndexSessionListSection {
               this.onToggleFavorite(session)
             }
           })
-            .reuse({ reuseId: (): string => INDEX_SESSION_LIST_ITEM_REUSE_ID })
         }
         .margin({ left: 8, right: 8, top: index === 0 ? 4 : 0, bottom: 6 })
         .swipeAction(this.isMultiSelectMode ? undefined : {
@@ -130,11 +133,17 @@ export struct IndexSessionListSection {
       ForEach(this.sessionGroups, (group: SessionListGroupViewModel) => {
         this.SessionGroup(group)
       }, (group: SessionListGroupViewModel): string => group.key)
+
+      ListItem() {
+        Column()
+          .height(this.bottomSpacerHeight)
+      }
+      .focusable(false)
+      .selectable(false)
     }
     .sticky(StickyStyle.None)
     .width('100%')
-    .layoutWeight(1)
-    .padding({ bottom: this.bottomSpacerHeight })
+    .height('100%')
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
     .cachedCount(4)

@@ -1,5 +1,8 @@
 import { motion } from '@kit.MultimodalAwarenessKit'
 
+export const INDEX_NEW_CHAT_FAB_SIZE = 48
+export const INDEX_NEW_CHAT_FAB_BOTTOM_SPACING = 20
+
 export function isHandAdaptiveActiveForIndex(enabled: boolean, newChatEnabled: boolean): boolean {
   if (!enabled) {
     return false
@@ -22,9 +25,6 @@ export function getFabOffsetXForIndex(placeOnLeft: boolean): number {
   return -68
 }
 
-export function getFabOffsetYForIndex(bottomAvoidHeightVp: number): number {
-  const fabHeight = 48
-  const tabBarHeight = 56
-  const bottomSpacing = 20
-  return -(fabHeight + tabBarHeight + bottomAvoidHeightVp + bottomSpacing)
+export function getFabOffsetYForIndex(bottomOverlayHeightVp: number): number {
+  return -(INDEX_NEW_CHAT_FAB_SIZE + bottomOverlayHeightVp + INDEX_NEW_CHAT_FAB_BOTTOM_SPACING)
 }

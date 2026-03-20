@@ -30,6 +30,7 @@ import {
   isSelfOptimizedSearchEngineForChat,
   shouldApplyLlmQueryOptimizationForChat
 } from './ChatSearchDecisionHelper'
+import { syncChatMessageFromSource } from './ChatMessageActionHelper'
 
 export interface ChatManualSearchFlowDependencies {
   chatViewModel: ChatViewModel
@@ -215,11 +216,6 @@ export class ChatManualSearchFlow {
       const preferredEngineName = await this.deps.webSearchService.getPreferredEngineName(runtimeConfig)
       searchingAIMessage.searchQuery = query
       searchingAIMessage.searchEngine = preferredEngineName
-      const searchingIndex = this.deps.messages.findIndex((m: ChatMessage) => m.id === searchingAIMessage.id)
-      if (searchingIndex >= 0) {
-        this.deps.messages[searchingIndex] = searchingAIMessage
-        this.deps.onSyncMessages()
-      }
 
       if (this.deps.isSearchCancelled()) {
         this.removeSearchingAIMessage(searchingAIMessage)
@@ -304,11 +300,6 @@ export class ChatManualSearchFlow {
 
       if (optimizedQuery !== searchingAIMessage.searchQuery) {
         searchingAIMessage.searchQuery = optimizedQuery
-        const optimizedIndex = this.deps.messages.findIndex((m: ChatMessage) => m.id === searchingAIMessage.id)
-        if (optimizedIndex >= 0) {
-          this.deps.messages[optimizedIndex] = searchingAIMessage
-          this.deps.onSyncMessages()
-        }
       }
 
       if (this.deps.isSearchCancelled()) {
@@ -340,7 +331,6 @@ export class ChatManualSearchFlow {
       for (let i = 0; i < searchResult.references.length; i++) {
         userMessage.searchReferences.push(searchResult.references[i])
       }
-      this.deps.onSyncMessages()
 
       await this.sendSearchResultMessage(query, searchResult, attachmentsToSend, taskId)
     } catch (error) {
@@ -406,7 +396,6 @@ export class ChatManualSearchFlow {
       for (let i = 0; i < searchResult.references.length; i++) {
         userMessage.searchReferences.push(searchResult.references[i])
       }
-      this.deps.onSyncMessages()
 
       await this.sendSearchResultMessage('请分析这个网页', searchResult, attachmentsToSend, taskId)
     } catch (error) {
@@ -458,15 +447,15 @@ export class ChatManualSearchFlow {
         let found = false
         for (let i = allMessages.length - 1; i >= 0; i--) {
           if (allMessages[i].role === MessageRole.USER) {
-            allMessages[i] = userMessage
+            syncChatMessageFromSource(allMessages[i], userMessage)
             found = true
             break
           }
         }
         if (!found) {
           allMessages.push(userMessage)
+          this.deps.onSyncMessages()
         }
-        this.deps.onSyncMessages()
       },
       (aiMessage: ChatMessage): void => {
         this.deps.messages.push(aiMessage)
@@ -479,8 +468,7 @@ export class ChatManualSearchFlow {
           console.warn('ChatManualSearchFlow', `[sendSearchResultMessage] ai message not found: ${aiMessage.id}`)
           return
         }
-        this.deps.messages[index] = aiMessage
-        this.deps.onSyncMessages()
+        syncChatMessageFromSource(this.deps.messages[index], aiMessage)
         this.deps.onScrollBottom()
       },
       (): void => {

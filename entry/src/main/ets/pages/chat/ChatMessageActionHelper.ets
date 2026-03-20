@@ -67,3 +67,23 @@ export function collectAllMessageIds(messages: ChatMessage[]): string[] {
 export function toListScrollIndexForMessage(messageIndex: number): number {
   return messageIndex + 1
 }
+
+export function syncChatMessageFromSource(target: ChatMessage, source: ChatMessage): void {
+  target.id = source.id
+  target.role = source.role
+  target.content = source.content
+  target.timestamp = source.timestamp
+  target.modelName = source.modelName
+  target.modelId = source.modelId
+  target.reasoningContent = source.reasoningContent
+  target.attachments = source.attachments.slice()
+  target.isGenerating = source.isGenerating
+  target.searchReferences = source.searchReferences.slice()
+  target.searchQuery = source.searchQuery
+  target.searchEngine = source.searchEngine
+  target.searchSource = source.searchSource
+  target.isSearching = source.isSearching
+  target.toolCalls = source.toolCalls.slice()
+  target.toolResults = source.toolResults.slice()
+  target.toolCallId = source.toolCallId
+}

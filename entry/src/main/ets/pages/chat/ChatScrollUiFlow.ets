@@ -5,6 +5,8 @@ export interface ChatScrollUiFlowDependencies {
   messages: ChatMessage[]
   getBottomAnchorIndex: () => number
   getCurrentScrollOffset: () => number
+  syncCurrentScrollOffset: () => number
+  syncIsAtBottomBoundary: () => boolean
   getLastScrollOffset: () => number
   setLastScrollOffset: (value: number) => void
   getMaxScrollOffset: () => number
@@ -21,12 +23,17 @@ export interface ChatScrollUiFlowDependencies {
   onSetIsAtTopState: (value: boolean) => void
   onSetIsAtBottomState: (value: boolean) => void
   onSetInputBarVisibleState: (value: boolean) => void
+  onSetCurrentScrollOffsetState: (value: number) => void
   onSetScrollProgressState: (value: number) => void
   onAnimate: (duration: number, curve: Curve, updater: () => void) => void
 }
 
 export class ChatScrollUiFlow {
+  private static readonly BOTTOM_OFFSET_TOLERANCE_VP: number = 8
   private deps: ChatScrollUiFlowDependencies
+  private pinnedBottomAlignmentTimerIds: number[] = []
+  private pinnedBottomAlignmentCompletionTimerId: number = -1
+  private pendingPinnedBottomAlignment: boolean = false
 
   constructor(deps: ChatScrollUiFlowDependencies) {
     this.deps = deps
@@ -56,6 +63,26 @@ export class ChatScrollUiFlow {
     this.deps.onSetScrollProgressState(this.clampProgress(value))
   }
 
+  private setCurrentScrollOffset(value: number): void {
+    this.deps.onSetCurrentScrollOffsetState(this.normalizeScrollOffset(value))
+  }
+
+  private isWithinBottomTolerance(offset: number): boolean {
+    const maxScrollOffset = this.deps.getMaxScrollOffset()
+    if (maxScrollOffset <= 0) {
+      return false
+    }
+    return maxScrollOffset - offset <= ChatScrollUiFlow.BOTTOM_OFFSET_TOLERANCE_VP
+  }
+
+  private resolveStableBottomOffset(offset: number): number {
+    const maxScrollOffset = this.deps.getMaxScrollOffset()
+    if (maxScrollOffset <= 0) {
+      return offset
+    }
+    return Math.max(offset, maxScrollOffset)
+  }
+
   private getCurrentScrollProgress(): number {
     const maxScrollOffset = this.deps.getMaxScrollOffset()
     if (maxScrollOffset <= 0) {
@@ -66,20 +93,27 @@ export class ChatScrollUiFlow {
   }
 
   private updateScrollProgress(): void {
-    const normalizedOffset = this.normalizeScrollOffset(this.deps.getCurrentScrollOffset())
-    if (normalizedOffset <= 0 || this.deps.getIsAtTop()) {
+    const maxScrollOffset = this.deps.getMaxScrollOffset()
+    if (maxScrollOffset <= 0) {
       this.setScrollProgress(0)
       return
     }
-    const maxScrollOffset = this.deps.getMaxScrollOffset()
-    if (maxScrollOffset <= 0) {
+    if (this.deps.getIsAtBottom()) {
+      this.setScrollProgress(1)
+      return
+    }
+    const normalizedOffset = this.normalizeScrollOffset(this.deps.getCurrentScrollOffset())
+    if (normalizedOffset <= 0 || this.deps.getIsAtTop()) {
+      this.setScrollProgress(0)
       return
     }
     this.setScrollProgress(normalizedOffset / maxScrollOffset)
   }
 
   private captureBottomScrollBaseline(): void {
-    const currentOffset = this.normalizeScrollOffset(this.deps.getCurrentScrollOffset())
+    const currentOffset = this.normalizeScrollOffset(this.deps.syncCurrentScrollOffset())
+    this.setCurrentScrollOffset(currentOffset)
+    this.deps.setLastScrollOffset(currentOffset)
     if (currentOffset > this.deps.getMaxScrollOffset()) {
       this.deps.setMaxScrollOffset(currentOffset)
     }
@@ -94,6 +128,18 @@ export class ChatScrollUiFlow {
     if (currentOffset > 0) {
       this.setScrollProgress(1)
     }
+  }
+
+  private clearPinnedBottomAlignmentTimers(): void {
+    for (let i = 0; i < this.pinnedBottomAlignmentTimerIds.length; i++) {
+      clearTimeout(this.pinnedBottomAlignmentTimerIds[i])
+    }
+    this.pinnedBottomAlignmentTimerIds = []
+    if (this.pinnedBottomAlignmentCompletionTimerId >= 0) {
+      clearTimeout(this.pinnedBottomAlignmentCompletionTimerId)
+      this.pinnedBottomAlignmentCompletionTimerId = -1
+    }
+    this.pendingPinnedBottomAlignment = false
   }
 
   private syncBottomScrollBaselineAfterLayout(): void {
@@ -133,11 +179,33 @@ export class ChatScrollUiFlow {
     this.syncBottomScrollBaselineAfterLayout()
   }
 
+  private schedulePinnedBottomAlignmentAfterLayout(): void {
+    if (this.pendingPinnedBottomAlignment) {
+      return
+    }
+    this.pendingPinnedBottomAlignment = true
+    const delays: number[] = [0, 50]
+    for (let i = 0; i < delays.length; i++) {
+      const timerId = setTimeout(() => {
+        if (!this.pendingPinnedBottomAlignment || !this.deps.getIsAtBottom()) {
+          this.clearPinnedBottomAlignmentTimers()
+          return
+        }
+        this.scrollBottomAnchor(false)
+        this.captureBottomScrollBaseline()
+      }, delays[i])
+      this.pinnedBottomAlignmentTimerIds.push(timerId)
+    }
+    this.pinnedBottomAlignmentCompletionTimerId = setTimeout(() => {
+      this.clearPinnedBottomAlignmentTimers()
+    }, 120)
+  }
+
   alignToBottomIfPinned(): void {
     if (!this.deps.getIsAtBottom()) {
       return
     }
-    this.alignToBottomAfterLayout()
+    this.schedulePinnedBottomAlignmentAfterLayout()
   }
 
   setIsAtTop(value: boolean): void {
@@ -167,22 +235,39 @@ export class ChatScrollUiFlow {
     })
   }
 
-  handleMessageListDidScroll(scrollOffset: number, scrollState: ScrollState): void {
+  handleMessageListDidScroll(scrollOffset: number, scrollState: ScrollState): boolean {
     const lastScrollOffset = this.deps.getLastScrollOffset()
-    const offsetDelta = scrollOffset - lastScrollOffset
+    const measuredOffset = this.normalizeScrollOffset(this.deps.syncCurrentScrollOffset())
+    const reportedOffset = this.normalizeScrollOffset(scrollOffset)
+    const cumulativeOffset = measuredOffset > 0 ? measuredOffset : reportedOffset
+    const keepPinnedToBottom = this.deps.syncIsAtBottomBoundary() ||
+      (this.deps.getIsAtBottom() && this.isWithinBottomTolerance(cumulativeOffset))
+    const effectiveOffset = keepPinnedToBottom ? this.resolveStableBottomOffset(cumulativeOffset) : cumulativeOffset
 
-    if (scrollState === ScrollState.Scroll && this.deps.getIsAtBottom() && offsetDelta < 0) {
+    this.setCurrentScrollOffset(effectiveOffset)
+    const positionDelta = effectiveOffset - lastScrollOffset
+    const userScrolledAwayFromBottom = !keepPinnedToBottom && positionDelta < 0 &&
+      (scrollState === ScrollState.Scroll || scrollState === ScrollState.Fling)
+
+    if (userScrolledAwayFromBottom) {
+      this.clearPinnedBottomAlignmentTimers()
+    }
+
+    if (keepPinnedToBottom) {
+      this.setIsAtBottom(true)
+      this.setInputBarVisible(true)
+    } else if (userScrolledAwayFromBottom && this.deps.getIsAtBottom()) {
       this.setIsAtBottom(false)
     }
 
-    if (scrollState === ScrollState.Scroll && scrollOffset !== 0) {
+    if (scrollState === ScrollState.Scroll && effectiveOffset > 0) {
       this.setIsAtTop(false)
     }
 
     if (scrollState === ScrollState.Scroll || scrollState === ScrollState.Fling) {
-      if (offsetDelta > this.deps.getInputBarShowThreshold()) {
+      if (positionDelta > this.deps.getInputBarShowThreshold()) {
         this.setInputBarVisible(true)
-      } else if (offsetDelta < -this.deps.getInputBarHideThreshold()) {
+      } else if (positionDelta < -this.deps.getInputBarHideThreshold()) {
         if (!this.deps.getIsAtBottom() &&
           !this.deps.getIsSending() &&
           !this.deps.getIsEditingMessage() &&
@@ -191,9 +276,11 @@ export class ChatScrollUiFlow {
         }
       }
 
-      this.deps.setLastScrollOffset(scrollOffset)
+      this.deps.setLastScrollOffset(effectiveOffset)
       this.updateScrollProgress()
     }
+
+    return userScrolledAwayFromBottom
   }
 
   onDraftContentChanged(): void {
@@ -204,6 +291,7 @@ export class ChatScrollUiFlow {
   }
 
   scrollToBottomWithAnimation(): void {
+    this.clearPinnedBottomAlignmentTimers()
     this.setIsAtBottom(true)
     this.setIsAtTop(false)
     this.setInputBarVisible(true)
@@ -216,20 +304,26 @@ export class ChatScrollUiFlow {
     if (this.deps.messages.length <= 0) {
       return
     }
+    this.clearPinnedBottomAlignmentTimers()
     this.setIsAtTop(true)
     this.setIsAtBottom(false)
     this.setInputBarVisible(true)
+    this.setCurrentScrollOffset(0)
     this.setScrollProgress(0)
     this.deps.scroller.scrollEdge(Edge.Top)
     this.scrollEdgeAfterLayout(Edge.Top)
   }
 
   handleReachStart(): void {
+    this.setCurrentScrollOffset(0)
+    this.deps.setLastScrollOffset(0)
     this.setIsAtTop(true)
     this.setScrollProgress(0)
   }
 
   handleReachEnd(): void {
+    const cumulativeOffset = this.deps.syncCurrentScrollOffset()
+    this.deps.setLastScrollOffset(cumulativeOffset)
     this.setIsAtBottom(true)
     this.setInputBarVisible(true)
     this.captureBottomScrollBaseline()

@@ -42,10 +42,11 @@ export struct ChatToolbar {
         }
         .height(32)
         .padding({ left: 12, right: 12 })
+        .borderRadius(16)
         .backgroundColor(this.webSearchEnabled ? this.themePrimary : $r('app.color.surface'))
-        .border(this.webSearchEnabled ? undefined : {
-          width: 0.5,
-          color: $r('app.color.divider')
+        .border({
+          width: this.webSearchEnabled ? 1 : 0.5,
+          color: this.webSearchEnabled ? this.themePrimary : $r('app.color.divider')
         })
         .animation({ duration: 200, curve: Curve.EaseOut })
         .onClick(() => {
@@ -68,10 +69,11 @@ export struct ChatToolbar {
         }
         .height(32)
         .padding({ left: 12, right: 12 })
+        .borderRadius(16)
         .backgroundColor(this.hasSelectedTools ? this.themePrimary : $r('app.color.surface'))
-        .border(this.hasSelectedTools ? undefined : {
-          width: 0.5,
-          color: $r('app.color.divider')
+        .border({
+          width: this.hasSelectedTools ? 1 : 0.5,
+          color: this.hasSelectedTools ? this.themePrimary : $r('app.color.divider')
         })
         .margin({ left: this.webSearchAvailable ? 8 : 0 })
         .animation({ duration: 200, curve: Curve.EaseOut })
@@ -96,10 +98,11 @@ export struct ChatToolbar {
         }
         .height(32)
         .padding({ left: 12, right: 12 })
+        .borderRadius(16)
         .backgroundColor(this.isReasoningEnabled() ? this.themePrimary : $r('app.color.surface'))
-        .border(this.isReasoningEnabled() ? undefined : {
-          width: 0.5,
-          color: $r('app.color.divider')
+        .border({
+          width: this.isReasoningEnabled() ? 1 : 0.5,
+          color: this.isReasoningEnabled() ? this.themePrimary : $r('app.color.divider')
         })
         .margin({ left: this.webSearchAvailable || this.toolSelectionAvailable ? 8 : 0 })
         .animation({ duration: 200, curve: Curve.EaseOut })

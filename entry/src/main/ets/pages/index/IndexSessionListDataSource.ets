@@ -1,19 +1,26 @@
 import { ChatSession } from '../../models/ChatModels'
 import { SessionGroupData } from './IndexPageTypes'
+import { buildSessionRenderKeyForIndex } from './IndexSessionGroupHelper'
+
+export function buildSessionListItemRenderKey(session: ChatSession, isSelected: boolean, isActive: boolean): string {
+  return `${buildSessionRenderKeyForIndex(session)}_${isSelected ? '1' : '0'}_${isActive ? '1' : '0'}`
+}
 
 export class SessionListItemData {
   session: ChatSession
   isSelected: boolean
   isActive: boolean
+  private readonly renderKey: string
 
   constructor(session: ChatSession, isSelected: boolean, isActive: boolean) {
     this.session = session
     this.isSelected = isSelected
     this.isActive = isActive
+    this.renderKey = buildSessionListItemRenderKey(session, isSelected, isActive)
   }
 
   get key(): string {
-    return this.session.id
+    return this.renderKey
   }
 }
 
@@ -59,17 +66,17 @@ export class IndexSessionListDataSource implements IDataSource {
       }
     }
 
-    const changedIndexes: number[] = []
+    let hasAnyStateChange = false
     for (let i = 0; i < items.length; i++) {
       if (this.hasItemStateChanged(previousItems[i], items[i])) {
-        changedIndexes.push(i)
+        hasAnyStateChange = true
+        break
       }
     }
 
-    if (changedIndexes.length <= 0) {
-      return
+    if (hasAnyStateChange) {
+      this.notifyDataReloaded()
     }
-    this.notifyDataChanged(changedIndexes)
   }
 
   private notifyDataReloaded(): void {
