@@ -12,5 +12,6 @@ export enum SettingsRouteName {
   EXPORT_DATA = 'ExportDataPage',
   IMPORT_DATA = 'ImportDataPage',
   ABOUT = 'AboutPage',
+  PRIVACY_POLICY = 'PrivacyPolicyPage',
   SUPPORT_DEVELOPMENT = 'SupportDevelopmentPage'
 }

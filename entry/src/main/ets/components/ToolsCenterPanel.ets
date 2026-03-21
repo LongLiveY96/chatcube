@@ -26,6 +26,7 @@ class McpHeaderEntry {
 @ComponentV2
 export struct ToolsCenterPanel {
   @Param showHeader: boolean = true
+  @Param contentBottomPadding: number = 24
   @Local builtinTools: ToolConfig[] = []
   @Local searchServiceEnabled: boolean = false
   @Local searchEngine: SearchEngine = SearchEngine.BING
@@ -1933,7 +1934,7 @@ export struct ToolsCenterPanel {
               }
             }
             .width('100%')
-            .padding({ left: 16, right: 16, top: 8, bottom: 24 })
+            .padding({ left: 16, right: 16, top: 8, bottom: this.contentBottomPadding })
           }
           .width('100%')
           .layoutWeight(1)

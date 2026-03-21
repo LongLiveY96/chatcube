@@ -33,3 +33,19 @@ export function getCompactTabsBarHeightForIndex(bottomAvoidHeightVp: number): nu
   // Keep the top-level tabs host stable. Inner settings drill-down belongs to Navigation, not HdsTabs layout.
   return INDEX_COMPACT_TABS_BAR_BASE_HEIGHT + bottomAvoidHeightVp
 }
+
+export function getSettingsPageCompactTabsOverlayInset(bottomAvoidHeightVp: number,
+  settingsDetailPresentationMode: string): number {
+  if (settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE) {
+    return 0
+  }
+  return getCompactTabsBarHeightForIndex(bottomAvoidHeightVp) - bottomAvoidHeightVp
+}
+
+export function getSettingsPageCompactTabsTotalInset(bottomAvoidHeightVp: number,
+  settingsDetailPresentationMode: string): number {
+  if (settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE) {
+    return 0
+  }
+  return getCompactTabsBarHeightForIndex(bottomAvoidHeightVp)
+}

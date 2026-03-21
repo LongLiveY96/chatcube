@@ -1,7 +1,7 @@
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { PreferenceKeys } from '../services/PreferencesService'
 import { normalizeSystemPromptTemplate, SystemPromptTemplateDefaults } from '../utils/SystemPromptTemplateUtils'
-import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
+import { getSettingsPageContentMaxWidth, getSettingsPageCompactTabsTotalInset } from '../utils/SettingsPageLayoutHelper'
 import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getAppUiState } from '../state/AppUiState'
@@ -13,6 +13,9 @@ let systemPromptSettingsPathStack: NavPathStack | null = null
 struct SystemPromptSettingsPage {
   private get topAvoidHeight(): number {
     return getAppUiState().topAvoidHeight
+  }
+  private get bottomAvoidHeight(): number {
+    return getAppUiState().bottomAvoidHeight
   }
   private get layoutSizeClass(): string {
     return getAppUiState().layoutSizeClass
@@ -34,6 +37,10 @@ struct SystemPromptSettingsPage {
   @Local systemPromptEnabled: boolean = true
 
   private preferencesService = ServiceRegistry.preferences()
+
+  private px2vp(px: number): number {
+    return px / (this.getUIContext().getHostContext()?.resourceManager.getDeviceCapabilitySync().screenDensity ?? 3) * 160
+  }
 
   aboutToAppear(): void {
     this.loadSystemPrompt()
@@ -58,6 +65,11 @@ struct SystemPromptSettingsPage {
 
   private isDetailPaneMode(): boolean {
     return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
+  }
+
+  private getContentBottomPadding(): number {
+    return 24 + getSettingsPageCompactTabsTotalInset(this.px2vp(this.bottomAvoidHeight),
+      this.settingsDetailPresentationMode)
   }
 
   private saveSystemPrompt(): void {
@@ -163,7 +175,7 @@ struct SystemPromptSettingsPage {
     .width('100%')
     .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
-    .padding({ left: 16, right: 16, bottom: 24 })
+    .padding({ left: 16, right: 16, bottom: this.getContentBottomPadding() })
   }
 
   @Builder

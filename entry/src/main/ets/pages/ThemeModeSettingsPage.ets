@@ -4,7 +4,7 @@ import { ALL_THEMES, ColorTheme, getThemeColors, ThemeColorConfig, ThemeInfo } f
 import { ThemeMode } from '../services/PreferencesService'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { SettingsCompactPageHeader } from '../components/settings/SettingsCompactPageHeader'
-import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
+import { getSettingsPageContentMaxWidth, getSettingsPageCompactTabsTotalInset } from '../utils/SettingsPageLayoutHelper'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getAppUiState } from '../state/AppUiState'
 
@@ -14,6 +14,9 @@ let themeModeSettingsPathStack: NavPathStack | null = null
 export struct ThemeAppearanceSettingsView {
   private get topAvoidHeight(): number {
     return getAppUiState().topAvoidHeight
+  }
+  private get bottomAvoidHeight(): number {
+    return getAppUiState().bottomAvoidHeight
   }
   private get layoutSizeClass(): string {
     return getAppUiState().layoutSizeClass
@@ -46,6 +49,10 @@ export struct ThemeAppearanceSettingsView {
 
   private settingsManager = ServiceRegistry.settings()
 
+  private px2vp(px: number): number {
+    return px / (this.getUIContext().getHostContext()?.resourceManager.getDeviceCapabilitySync().screenDensity ?? 3) * 160
+  }
+
   aboutToAppear(): void {
     this.currentThemeMode = this.settingsManager.getThemeMode()
     this.currentColorTheme = this.settingsManager.getColorTheme()
@@ -59,6 +66,11 @@ export struct ThemeAppearanceSettingsView {
 
   private isDetailPaneMode(): boolean {
     return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
+  }
+
+  private getScrollBottomPadding(): number {
+    return 24 + getSettingsPageCompactTabsTotalInset(this.px2vp(this.bottomAvoidHeight),
+      this.settingsDetailPresentationMode)
   }
 
   private getResolvedDarkMode(mode: ThemeMode = this.currentThemeMode): boolean {
@@ -511,7 +523,7 @@ export struct ThemeAppearanceSettingsView {
       }
       .width('100%')
       .justifyContent(FlexAlign.Center)
-      .padding({ left: 16, right: 16, bottom: 24 })
+      .padding({ left: 16, right: 16, bottom: this.getScrollBottomPadding() })
     }
     .width('100%')
     .layoutWeight(1)

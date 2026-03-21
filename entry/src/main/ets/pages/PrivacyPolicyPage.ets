@@ -1,46 +1,34 @@
-import { ToolsCenterPanel } from '../components/ToolsCenterPanel'
+import { webview } from '@kit.ArkWeb'
 import { SettingsCompactPageHeader } from '../components/settings/SettingsCompactPageHeader'
-import { AppStorageKeys } from '../config/AppStorageKeys'
-import { LayoutSizeClass } from '../config/LayoutProfile'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
-import { getSettingsPageContentMaxWidth, getSettingsPageCompactTabsTotalInset } from '../utils/SettingsPageLayoutHelper'
+import { getSettingsPageCompactTabsTotalInset } from '../utils/SettingsPageLayoutHelper'
 import { getAppUiState } from '../state/AppUiState'
 
-let toolsCenterPagePathStack: NavPathStack | null = null
+const PRIVACY_POLICY_URL = 'https://agreement-drcn.hispace.dbankcloud.cn/index.html?lang=zh&agreementId=1906111586003597632'
+
+let privacyPolicyPagePathStack: NavPathStack | null = null
 
 @Entry
 @ComponentV2
-struct ToolsCenterPage {
+struct PrivacyPolicyPage {
   private get topAvoidHeight(): number {
     return getAppUiState().topAvoidHeight
   }
   private get bottomAvoidHeight(): number {
     return getAppUiState().bottomAvoidHeight
   }
-  private get layoutSizeClass(): string {
-    return getAppUiState().layoutSizeClass
-  }
-  private get windowWidthVp(): number {
-    return getAppUiState().windowWidthVp
-  }
-  private get windowHeightVp(): number {
-    return getAppUiState().windowHeightVp
-  }
   private get settingsDetailPresentationMode(): string {
     return getAppUiState().settingsDetailPresentationMode
   }
+  @Computed
+  get appIsDarkMode(): boolean {
+    return getAppUiState().isDarkMode
+  }
+
+  private privacyPolicyWebController: webview.WebviewController = new webview.WebviewController()
 
   private px2vp(px: number): number {
     return px / (this.getUIContext().getHostContext()?.resourceManager.getDeviceCapabilitySync().screenDensity ?? 3) * 160
-  }
-
-  private getContentMaxWidth(): number {
-    return getSettingsPageContentMaxWidth(this.layoutSizeClass, this.windowWidthVp, this.settingsDetailPresentationMode,
-      this.windowHeightVp)
-  }
-
-  private isDetailPaneMode(): boolean {
-    return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
   }
 
   private getContentBottomPadding(): number {
@@ -48,37 +36,39 @@ struct ToolsCenterPage {
       this.settingsDetailPresentationMode)
   }
 
+  private isDetailPaneMode(): boolean {
+    return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
+  }
+
   private handleBack(): void {
-    if (toolsCenterPagePathStack !== null && toolsCenterPagePathStack.size() > 0) {
-      toolsCenterPagePathStack.pop()
+    if (privacyPolicyPagePathStack !== null && privacyPolicyPagePathStack.size() > 0) {
+      privacyPolicyPagePathStack.pop()
     }
   }
 
   @Builder
   private PageContent() {
-    Row() {
-      Column() {
-        ToolsCenterPanel({
-          showHeader: false,
-          contentBottomPadding: this.getContentBottomPadding()
-        })
-      }
-      .width('100%')
-      .layoutWeight(1)
-      .constraintSize({ maxWidth: this.getContentMaxWidth() })
+    Column() {
+      Web({ src: PRIVACY_POLICY_URL, controller: this.privacyPolicyWebController })
+        .width('100%')
+        .layoutWeight(1)
+        .javaScriptAccess(true)
+        .domStorageAccess(true)
+        .darkMode(this.appIsDarkMode ? WebDarkMode.On : WebDarkMode.Off)
+        .forceDarkAccess(this.appIsDarkMode)
+        .backgroundColor($r('app.color.background'))
     }
     .width('100%')
     .layoutWeight(1)
-    .justifyContent(FlexAlign.Center)
-    .alignItems(VerticalAlign.Top)
-    .padding({ left: 16, right: 16 })
+    .backgroundColor($r('app.color.background'))
+    .padding({ bottom: this.getContentBottomPadding() })
   }
 
   @Builder
   private DetailPaneHeader() {
     Column() {
       Row() {
-        Text($r('app.string.tools_center_title'))
+        Text($r('app.string.settings_privacy_policy'))
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
@@ -106,7 +96,7 @@ struct ToolsCenterPage {
       } else {
         Column() {
           SettingsCompactPageHeader({
-            title: $r('app.string.tools_center_title'),
+            title: $r('app.string.settings_privacy_policy'),
             topAvoidHeight: this.topAvoidHeight,
             onBack: () => {
               this.handleBack()
@@ -126,20 +116,19 @@ struct ToolsCenterPage {
 }
 
 @Builder
-export function ToolsCenterPageBuilder(name: string, param: Object) {
+export function PrivacyPolicyPageBuilder(name: string, param: Object) {
   NavDestination() {
-    ToolsCenterPage()
+    PrivacyPolicyPage()
   }
   .hideTitleBar(true)
   .hideBackButton(true)
   .onReady((context: NavDestinationContext) => {
-    toolsCenterPagePathStack = context.pathStack
+    privacyPolicyPagePathStack = context.pathStack
   })
   .onBackPressed((): boolean => {
-    if (toolsCenterPagePathStack !== null && toolsCenterPagePathStack.size() > 0) {
-      toolsCenterPagePathStack.pop()
+    if (privacyPolicyPagePathStack !== null && privacyPolicyPagePathStack.size() > 0) {
+      privacyPolicyPagePathStack.pop()
     }
     return true
   })
 }
-

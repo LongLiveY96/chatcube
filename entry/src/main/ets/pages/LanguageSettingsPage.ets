@@ -6,7 +6,7 @@ import { IndexSettingsSheetContent } from '../components/index/IndexSettingsShee
 import { SettingsCompactPageHeader } from '../components/settings/SettingsCompactPageHeader'
 import { IndexSettingsSheetActionCallbacks } from './index/IndexSettingsSheetCoordinator'
 import { SettingsSheetType } from './index/IndexPageTypes'
-import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
+import { getSettingsPageContentMaxWidth, getSettingsPageCompactTabsTotalInset } from '../utils/SettingsPageLayoutHelper'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getAppUiState } from '../state/AppUiState'
 
@@ -17,6 +17,9 @@ let languageSettingsPathStack: NavPathStack | null = null
 struct LanguageSettingsPage {
   private get topAvoidHeight(): number {
     return getAppUiState().topAvoidHeight
+  }
+  private get bottomAvoidHeight(): number {
+    return getAppUiState().bottomAvoidHeight
   }
   private get layoutSizeClass(): string {
     return getAppUiState().layoutSizeClass
@@ -35,6 +38,10 @@ struct LanguageSettingsPage {
 
   private settingsManager = ServiceRegistry.settings()
 
+  private px2vp(px: number): number {
+    return px / (this.getUIContext().getHostContext()?.resourceManager.getDeviceCapabilitySync().screenDensity ?? 3) * 160
+  }
+
   aboutToAppear(): void {
     this.currentLanguage = this.settingsManager.getLanguage()
   }
@@ -46,6 +53,11 @@ struct LanguageSettingsPage {
 
   private isDetailPaneMode(): boolean {
     return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
+  }
+
+  private getScrollBottomPadding(): number {
+    return 24 + getSettingsPageCompactTabsTotalInset(this.px2vp(this.bottomAvoidHeight),
+      this.settingsDetailPresentationMode)
   }
 
   private handleBack(): void {
@@ -85,7 +97,7 @@ struct LanguageSettingsPage {
       }
       .width('100%')
       .justifyContent(FlexAlign.Center)
-      .padding({ left: 16, right: 16, bottom: 24 })
+      .padding({ left: 16, right: 16, bottom: this.getScrollBottomPadding() })
     }
     .width('100%')
     .layoutWeight(1)

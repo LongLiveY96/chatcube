@@ -9,7 +9,7 @@ import { IndexSettingsSheetContent } from '../components/index/IndexSettingsShee
 import { SettingsCompactPageHeader } from '../components/settings/SettingsCompactPageHeader'
 import { IndexSettingsSheetActionCallbacks } from './index/IndexSettingsSheetCoordinator'
 import { SettingsSheetType } from './index/IndexPageTypes'
-import { getSettingsPageContentMaxWidth } from '../utils/SettingsPageLayoutHelper'
+import { getSettingsPageContentMaxWidth, getSettingsPageCompactTabsTotalInset } from '../utils/SettingsPageLayoutHelper'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
 import { getAppUiState } from '../state/AppUiState'
 
@@ -20,6 +20,9 @@ let handAdaptiveSettingsPathStack: NavPathStack | null = null
 struct HandAdaptiveSettingsPage {
   private get topAvoidHeight(): number {
     return getAppUiState().topAvoidHeight
+  }
+  private get bottomAvoidHeight(): number {
+    return getAppUiState().bottomAvoidHeight
   }
   private get layoutSizeClass(): string {
     return getAppUiState().layoutSizeClass
@@ -41,6 +44,10 @@ struct HandAdaptiveSettingsPage {
   private preferencesService = ServiceRegistry.preferences()
   private readonly probeHoldingHandCallback = (_status: motion.HoldingHandStatus): void => {}
 
+  private px2vp(px: number): number {
+    return px / (this.getUIContext().getHostContext()?.resourceManager.getDeviceCapabilitySync().screenDensity ?? 3) * 160
+  }
+
   aboutToAppear(): void {
     this.loadSettings()
   }
@@ -52,6 +59,11 @@ struct HandAdaptiveSettingsPage {
 
   private isDetailPaneMode(): boolean {
     return this.settingsDetailPresentationMode === SettingsPagePresentationMode.DETAIL_PANE
+  }
+
+  private getScrollBottomPadding(): number {
+    return 24 + getSettingsPageCompactTabsTotalInset(this.px2vp(this.bottomAvoidHeight),
+      this.settingsDetailPresentationMode)
   }
 
   private handleBack(): void {
@@ -140,7 +152,7 @@ struct HandAdaptiveSettingsPage {
       }
       .width('100%')
       .justifyContent(FlexAlign.Center)
-      .padding({ left: 16, right: 16, bottom: 24 })
+      .padding({ left: 16, right: 16, bottom: this.getScrollBottomPadding() })
     }
     .width('100%')
     .layoutWeight(1)

@@ -1,5 +1,5 @@
 import { curves } from '@kit.ArkUI'
-import { ConfigurationConstant, Want, common } from '@kit.AbilityKit'
+import { ConfigurationConstant, common } from '@kit.AbilityKit'
 import { notificationManager } from '@kit.NotificationKit'
 import { motion } from '@kit.MultimodalAwarenessKit'
 import { BusinessError } from '@kit.BasicServicesKit'
@@ -66,8 +66,6 @@ import { getAppUiState, observeAppUiState, setAppUiStateValue } from '../state/A
 import { tryHandleProviderDetailInternalBack } from '../components/ProviderDetailSheet'
 import { tryHandleModelManageInternalBack } from './ModelManagePage'
 import { getCompactTabsBarHeightForIndex } from '../utils/SettingsPageLayoutHelper'
-
-const PRIVACY_POLICY_URL = 'https://agreement-drcn.hispace.dbankcloud.cn/index.html?lang=zh&agreementId=1906111586003597632'
 
 @Entry
 @ComponentV2
@@ -192,6 +190,7 @@ struct Index {
   private handAdaptiveLoadSeq: number = 0
   private sessionLoadSeq: number = 0
   private appUiStateDisposers: Array<() => void> = []
+  private searchInputFocusId: string = 'index_session_search_input'
   private holdingHandCallback: (status: motion.HoldingHandStatus) => void = (status: motion.HoldingHandStatus): void => {
     this.currentHoldingHand = status
   }
@@ -370,21 +369,8 @@ struct Index {
     this.settingsNavPathStack.pushPath({ name: routeName })
   }
 
-  private async openPrivacyPolicy(): Promise<void> {
-    try {
-      const hostContext = this.getUIContext().getHostContext()
-      if (!hostContext) {
-        return
-      }
-      const want: Want = {
-        action: 'ohos.want.action.viewData',
-        entities: ['entity.system.browsable'],
-        uri: PRIVACY_POLICY_URL
-      }
-      await (hostContext as common.UIAbilityContext).startAbility(want)
-    } catch (err) {
-      console.error('Index', `Open privacy policy failed: ${JSON.stringify(err)}`)
-    }
+  private openPrivacyPolicy(): void {
+    this.openSettingsDestination(SettingsRouteName.PRIVACY_POLICY)
   }
 
   private clearSettingsDestination(animated: boolean = false): void {
@@ -904,11 +890,12 @@ struct Index {
   private handleSettingsSheetWillDismiss(dismissAction: DismissSheetAction): void {
     if (dismissAction.reason === DismissReason.PRESS_BACK || dismissAction.reason === DismissReason.SLIDE_DOWN) {
       dismissAction.dismiss()
-      return
     }
-    if (dismissAction.reason === DismissReason.CLOSE_BUTTON) {
-      dismissAction.dismiss()
-    }
+  }
+
+  private handleSettingsSheetWillSpringBackWhenDismiss(_springBackAction: SpringBackAction): void {
+    // ArkUI defaults to a spring-back before dismiss once onWillDismiss is registered.
+    // Keep drag-to-close single-phase for this compact settings sheet.
   }
 
   async loadSessions(): Promise<void> {
@@ -1086,6 +1073,9 @@ struct Index {
             onWillDismiss: (dismissAction: DismissSheetAction) => {
               this.handleSettingsSheetWillDismiss(dismissAction)
             },
+            onWillSpringBackWhenDismiss: (springBackAction: SpringBackAction) => {
+              this.handleSettingsSheetWillSpringBackWhenDismiss(springBackAction)
+            },
             onDisappear: () => {
               // Closing 结束：如果有排队的打开请求，直接重开并切换内容。
               this.settingsSheetClosing = false
@@ -1113,6 +1103,7 @@ struct Index {
               this.showSystemPromptSheet = false
             }
           })
+
       }
       .width('100%')
       .height('100%')
@@ -1372,6 +1363,12 @@ struct Index {
       curve: curves.interpolatingSpring(0, 1, 342, 38)
     }, () => {
       this.isSearchExpanded = true
+      // 输入框是动态挂载的，等一帧再抢焦点，系统才会跟着弹软键盘。
+      setTimeout(() => {
+        if (this.isSearchExpanded) {
+          this.getUIContext().getFocusController().requestFocus(this.searchInputFocusId)
+        }
+      }, 60)
     })
   }
 
@@ -1445,6 +1442,7 @@ struct Index {
                 .fontColor([$r('app.color.text_tertiary')])
 
               TextInput({ text: this.searchText, placeholder: $r('app.string.search_sessions_placeholder') })
+                .id(this.searchInputFocusId)
                 .layoutWeight(1)
                 .height(36)
                 .fontSize(14)

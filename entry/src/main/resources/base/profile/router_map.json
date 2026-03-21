@@ -71,6 +71,11 @@
       "buildFunction": "ImportDataPageBuilder"
     },
     {
+      "name": "PrivacyPolicyPage",
+      "pageSourceFile": "src/main/ets/pages/PrivacyPolicyPage.ets",
+      "buildFunction": "PrivacyPolicyPageBuilder"
+    },
+    {
       "name": "AboutPage",
       "pageSourceFile": "src/main/ets/pages/AboutPage.ets",
       "buildFunction": "AboutPageBuilder"
