@@ -140,7 +140,8 @@ export function showSnackBar(context: UIContext, options: SnackBarDisplayOptions
     }
     const style: SnackBarStyleOptions = {
       duration: options.duration,
-      pressBackCallback: dismissCurrentSnackBar
+      pressBackCallback: dismissCurrentSnackBar,
+      isHeightAdaptive: true
     }
     snackBar.show(icon, messageOptions, operation, style)
     scheduleActiveSnackBarClear(token, options.duration)

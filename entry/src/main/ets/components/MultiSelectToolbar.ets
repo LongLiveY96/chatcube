@@ -1,4 +1,5 @@
-import { HdsActionBar, ActionBarButton } from '@kit.UIDesignKit'
+import { LengthMetrics } from '@kit.ArkUI'
+import { HdsActionBar, ActionBarButton, ActionBarStyle } from '@kit.UIDesignKit'
 
 /**
  * 多选工具栏组件
@@ -54,21 +55,28 @@ export struct MultiSelectToolbar {
     return buttons
   }
 
+  private buildActionBarStyle(): ActionBarStyle {
+    return new ActionBarStyle({
+      margin: LengthMetrics.vp(16)
+    })
+  }
+
   build() {
     Column() {
       Text(`已选 ${this.selectedCount} 条`)
         .fontSize(13)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.text_primary'))
-        .margin({ bottom: 6 })
+        .margin({ left: 16, right: 16, bottom: 6 })
 
       HdsActionBar({
         startButtons: this.buildStartButtons(),
-        endButtons: this.buildEndButtons()
+        endButtons: this.buildEndButtons(),
+        actionBarStyle: this.buildActionBarStyle()
       })
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 10, bottom: 10 })
+    .padding({ top: 10, bottom: 10 })
     .backgroundColor($r('app.color.background'))
     .shadow({
       radius: 8,

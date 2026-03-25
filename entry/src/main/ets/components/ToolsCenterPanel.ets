@@ -2123,7 +2123,14 @@ struct BuiltinToolCardItem {
         customBuilder: (): void => { this.ToolCardText() }
       },
       cardBackgroundColor: $r('app.color.surface'),
-      cardBorderRadius: 12
+      cardBorderRadius: 12,
+      accessibilityOptions: {
+        accessibilityText: this.tool.name,
+        accessibilityDescription: this.tool.description,
+        accessibilityGroup: {
+          isGroup: true
+        }
+      }
     })
     .margin({ bottom: 8 })
   }
@@ -2448,4 +2455,3 @@ struct McpServerCardItem {
     })
   }
 }
-
