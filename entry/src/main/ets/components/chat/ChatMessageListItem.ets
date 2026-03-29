@@ -34,6 +34,7 @@ export struct ChatMessageListItem {
     (_content: string, _targetLang: string, _callback: (result: string, errorMessage: string) => void): void => {}
   @Event onImageClick: (images: Array<string>, imageIndex: number) => void =
     (_images: Array<string>, _imageIndex: number): void => {}
+  @Event onOpenLink: (title: string, url: string) => void = (_title: string, _url: string): void => {}
   @Event onTTS: (messageId: string, content: string) => void = (_messageId: string, _content: string): void => {}
   @Event onTTSStop: () => void = (): void => {}
   @Event onSelect: (messageId: string) => void = (_messageId: string): void => {}
@@ -83,6 +84,9 @@ export struct ChatMessageListItem {
           },
           onImageClick: (images: Array<string>, imageIndex: number): void => {
             this.onImageClick(images, imageIndex)
+          },
+          onOpenLink: (title: string, url: string): void => {
+            this.onOpenLink(title, url)
           },
           onTTS: (messageId: string, content: string): void => {
             this.onTTS(messageId, content)

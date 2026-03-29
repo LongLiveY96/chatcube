@@ -1,5 +1,6 @@
 import { PromptAction } from '@kit.ArkUI'
 import {
+  BlurStrategy,
   HdsSnackBar,
   SnackBarIconOptions,
   SnackBarIconType,
@@ -141,7 +142,11 @@ export function showSnackBar(context: UIContext, options: SnackBarDisplayOptions
     const style: SnackBarStyleOptions = {
       duration: options.duration,
       pressBackCallback: dismissCurrentSnackBar,
-      isHeightAdaptive: true
+      isHeightAdaptive: true,
+      // API 23 高级材质效果 - 自适应沉浸式毛玻璃
+      backgroundBlurStyle: BlurStyle.COMPONENT_REGULAR,
+      blurStrategy: BlurStrategy.ADAPTIVE,
+      themeColorMode: ThemeColorMode.SYSTEM
     }
     snackBar.show(icon, messageOptions, operation, style)
     scheduleActiveSnackBarClear(token, options.duration)

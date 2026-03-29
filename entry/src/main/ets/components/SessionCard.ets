@@ -1,7 +1,5 @@
 import { ChatSession } from '../models/ChatModels'
-import { curves } from '@kit.ArkUI'
 import { hdsEffect } from '@kit.UIDesignKit'
-import { Markdown, MarkdownController } from '@luvi/lv-markdown-in'
 import {
   getSessionDisplayPreviewText,
   getSessionPreviewBodyText,
@@ -15,7 +13,6 @@ export struct SessionCard {
   @Param session: ChatSession = new ChatSession('', '', '')
   @Param enableAnimation: boolean = true
   @Param enableContextMenu: boolean = true
-  @Param themeRenderKey: string = ''
   @Local scaleValue: number = 1
   private get themePrimary(): string {
     return getAppUiState().themePrimary
@@ -24,66 +21,11 @@ export struct SessionCard {
     return getAppUiState().themePrimaryLight
   }
   @Param uiVisualEnhanced: boolean = false
-  private get isDarkMode(): boolean {
-    return getAppUiState().isDarkMode
-  }
-  private titleMarkdownController: MarkdownController | null = null
   @Event onTap: () => void = () => {}
   @Event onDelete: () => void = () => {}
   @Event onMultiSelect: () => void = () => {}
   @Event onShare: () => void = () => {}
   @Event onToggleFavorite: () => void = () => {}
-
-  aboutToAppear(): void {
-    if (this.titleContainsLatex()) {
-      this.configureTitleMarkdownStyles()
-    }
-  }
-
-  @Monitor('themeRenderKey')
-  onThemeRenderKeyChange(): void {
-    this.configureTitleMarkdownStyles()
-  }
-
-  aboutToDisappear(): void {
-  }
-
-  private configureTitleMarkdownStyles(): void {
-    if (this.titleMarkdownController === null) {
-      return
-    }
-    const textColor = $r('app.color.text_primary')
-    const latexTextColor = this.isDarkMode ? 0xFFE0E0E0 : 0xFF333333
-
-    this.titleMarkdownController
-      .setTitleColor(textColor)
-      .setTextColor(textColor)
-      .setTextSize(13)
-      .setTextLineHeight(18)
-      .setLatexMathTextColor(latexTextColor)
-      .setLatexMathTextSize(14)
-  }
-
-  private getTitleMarkdownController(): MarkdownController {
-    if (this.titleMarkdownController === null) {
-      this.titleMarkdownController = new MarkdownController()
-      this.configureTitleMarkdownStyles()
-    }
-    return this.titleMarkdownController
-  }
-
-  private titleContainsLatex(): boolean {
-    return /\$.+?\$/.test(this.session.title) ||
-      this.session.title.includes('\\(') ||
-      this.session.title.includes('\\[')
-  }
-
-  private normalizeLatexInTitle(title: string): string {
-    let result = title
-    result = result.replace(/\\\[([\s\S]*?)\\\]/g, (_match: string, p1: string): string => `$$${p1}$$`)
-    result = result.replace(/\\\(([\s\S]*?)\\\)/g, (_match: string, p1: string): string => `$${p1}$`)
-    return result
-  }
 
   private getFavoriteMenuText(): Resource {
     if (this.session.isFavorite) {
@@ -172,22 +114,12 @@ export struct SessionCard {
       .alignItems(HorizontalAlign.Center)
 
       Column() {
-        if (this.titleContainsLatex()) {
-          Markdown({
-            controller: this.getTitleMarkdownController(),
-            text: this.normalizeLatexInTitle(this.session.title)
-          })
-            .constraintSize({ maxHeight: 22 })
-            .clip(true)
-            .backgroundColor(Color.Transparent)
-        } else {
-          Text(this.session.title)
-            .fontSize(14)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.text_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
+        Text(this.session.title)
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
 
         if (this.getPreviewText() !== '') {
           Row() {
@@ -233,24 +165,13 @@ export struct SessionCard {
   private MiddleContent() {
     Column() {
       Row() {
-        if (this.titleContainsLatex()) {
-          Markdown({
-            controller: this.getTitleMarkdownController(),
-            text: this.normalizeLatexInTitle(this.session.title)
-          })
-            .layoutWeight(1)
-            .constraintSize({ maxHeight: 22 })
-            .clip(true)
-            .backgroundColor(Color.Transparent)
-        } else {
-          Text(this.session.title)
-            .fontSize(14)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.text_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .layoutWeight(1)
-        }
+        Text(this.session.title)
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
 
         this.RelativeTimeText()
       }

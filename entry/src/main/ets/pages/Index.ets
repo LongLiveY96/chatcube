@@ -3,7 +3,7 @@ import { ConfigurationConstant, common } from '@kit.AbilityKit'
 import { notificationManager } from '@kit.NotificationKit'
 import { motion } from '@kit.MultimodalAwarenessKit'
 import { BusinessError } from '@kit.BasicServicesKit'
-import { HdsTabs, HdsTabsController, HdsBarStyle, HdsTabsFloatingStyle } from '@kit.UIDesignKit'
+import { HdsTabs, HdsTabsFloatingStyle, hdsMaterial } from '@kit.UIDesignKit'
 import { ChatSession, ChatMessage } from '../models/ChatModels'
 import { ChatViewModel } from '../viewmodels/ChatViewModel'
 import { SettingsChangeCallback } from '../viewmodels/SettingsManager'
@@ -65,13 +65,11 @@ import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentati
 import { getAppUiState, observeAppUiState, setAppUiStateValue } from '../state/AppUiState'
 import { tryHandleProviderDetailInternalBack } from '../components/ProviderDetailSheet'
 import { tryHandleModelManageInternalBack } from './ModelManagePage'
-import { getCompactTabsBarHeightForIndex } from '../utils/SettingsPageLayoutHelper'
-
 @Entry
 @ComponentV2
 struct Index {
-  private static readonly COMPACT_TABS_FLOATING_SIDE_MARGIN: number = 12
-  private static readonly COMPACT_TABS_FLOATING_BOTTOM_MARGIN: number = 8
+  private static readonly COMPACT_TABS_BAR_HEIGHT: number = 56
+  private static readonly COMPACT_TABS_FLOATING_SIDE_MARGIN: number = 16
   @Local currentTabIndex: number = 1
   @Local sessions: ChatSession[] = []
   @Local isLoading: boolean = false
@@ -177,8 +175,6 @@ struct Index {
   // Settings Sheet 关闭动画期间的状态机（避免“关闭回调晚到”误关新弹窗）
   private settingsSheetClosing: boolean = false
   private pendingSettingsSheetType: SettingsSheetType = SettingsSheetType.NONE
-  private compactTabsController: HdsTabsController = new HdsTabsController()
-  @Local compactTabsBarStyle: HdsBarStyle = HdsBarStyle.EXPAND
   private navPathStack: NavPathStack = new NavPathStack()
   private tabletChatDetailPathStack: NavPathStack = new NavPathStack()
   private settingsNavPathStack: NavPathStack = new NavPathStack()
@@ -318,7 +314,6 @@ struct Index {
     if (index !== 2) {
       this.dismissSettingsSheetForNavigation()
     }
-    this.compactTabsBarStyle = HdsBarStyle.EXPAND
     this.currentTabIndex = index
     if (index === 1) {
       this.loadSessions()
@@ -1129,11 +1124,7 @@ struct Index {
           .height(this.px2vp(this.topAvoidHeight))
       }
 
-      HdsTabs({
-        controller: this.compactTabsController,
-        barPosition: BarPosition.End,
-        index: this.currentTabIndex
-      }) {
+      HdsTabs({ barPosition: BarPosition.End, index: this.currentTabIndex }) {
         TabContent() {
           this.AssistantTab()
         }
@@ -1155,22 +1146,9 @@ struct Index {
       .barHeight(this.getCompactTabsBarHeight())
       .barOverlap(true)
       .barBackgroundColor(Color.Transparent)
-      .barBackgroundBlurStyle(BlurStyle.COMPONENT_THIN)
       .barFloatingStyle(this.getCompactTabsFloatingStyle())
       .scrollable(false)
       .cachedMaxCount(3, TabsCacheMode.CACHE_LATEST_SWITCHED)
-      .onTabBarClick((index: number) => {
-        if (index === this.currentTabIndex) {
-          this.applyCompactTabsBarStyle(HdsBarStyle.COLLAPSE)
-        } else {
-          this.applyCompactTabsBarStyle(HdsBarStyle.EXPAND)
-        }
-      })
-      .onSelected((index: number) => {
-        if (this.currentTabIndex !== index) {
-          this.switchToTab(index)
-        }
-      })
       .onChange((index: number) => {
         if (this.currentTabIndex !== index) {
           this.switchToTab(index)
@@ -1313,94 +1291,27 @@ struct Index {
   }
 
   private getCompactTabsBottomInset(): number {
-    return this.getCompactTabsBarHeight() + Index.COMPACT_TABS_FLOATING_BOTTOM_MARGIN
+    return this.getCompactTabsBarHeight() + this.getCompactTabsFloatingBottomMargin()
   }
 
-  private applyCompactTabsBarStyle(style: HdsBarStyle): void {
-    if (this.compactTabsBarStyle === style) {
-      return
-    }
-    this.compactTabsBarStyle = style
-    this.compactTabsController.applyMiniBarStyle(style)
+  private getCompactTabsFloatingBottomMargin(): number {
+    return this.px2vp(this.bottomAvoidHeight) > 0 ? 24 : 12
   }
 
   private getCompactTabsFloatingStyle(): HdsTabsFloatingStyle {
     return {
+      barWidth: {
+        smallWidth: 248,
+        mediumWidth: 284,
+        largeWidth: 320
+      },
       barSideMargin: Index.COMPACT_TABS_FLOATING_SIDE_MARGIN,
-      barBottomMargin: Index.COMPACT_TABS_FLOATING_BOTTOM_MARGIN,
-      miniBar: {
-        miniBarBuilder: (): void => {
-          this.CompactMiniTabBar()
-        },
-        miniBarStyle: this.compactTabsBarStyle
+      barBottomMargin: this.getCompactTabsFloatingBottomMargin(),
+      systemMaterialEffect: {
+        materialType: hdsMaterial.MaterialType.IMMERSIVE,
+        materialLevel: hdsMaterial.MaterialLevel.EXQUISITE
       }
     }
-  }
-
-  @Builder
-  private CompactMiniTabBarSummary() {
-    Row({ space: 6 }) {
-      if (this.currentTabIndex === 0) {
-        SymbolGlyph($r('sys.symbol.person_fill'))
-          .fontSize(18)
-          .fontColor([this.themePrimary])
-
-        Text($r('app.string.tab_assistant'))
-          .fontSize(12)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.themePrimary)
-      } else if (this.currentTabIndex === 1) {
-        SymbolGlyph($r('sys.symbol.ellipsis_message_fill'))
-          .fontSize(18)
-          .fontColor([this.themePrimary])
-
-        Text($r('app.string.tab_chat'))
-          .fontSize(12)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.themePrimary)
-      } else {
-        SymbolGlyph($r('sys.symbol.gearshape_fill'))
-          .fontSize(18)
-          .fontColor([this.themePrimary])
-
-        Text($r('app.string.tab_settings'))
-          .fontSize(12)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.themePrimary)
-      }
-    }
-    .padding({ left: 12, right: 10, top: 9, bottom: 9 })
-    .borderRadius(18)
-    .backgroundColor($r('app.color.surface'))
-    .onClick(() => {
-      this.applyCompactTabsBarStyle(HdsBarStyle.EXPAND)
-    })
-  }
-
-  @Builder
-  private CompactMiniTabBar() {
-    Row({ space: 8 }) {
-      this.CompactMiniTabBarSummary()
-
-      Row() {
-        SymbolGlyph($r('sys.symbol.plus'))
-          .fontSize(16)
-          .fontColor([Color.White])
-      }
-      .width(36)
-      .height(36)
-      .borderRadius(18)
-      .backgroundColor(this.themePrimary)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(VerticalAlign.Center)
-      .onClick(() => {
-        this.applyCompactTabsBarStyle(HdsBarStyle.EXPAND)
-        this.openChatRoute({} as ChatPageRouteParams)
-      })
-    }
-    .padding(4)
-    .borderRadius(22)
-    .backgroundColor($r('app.color.surface'))
   }
 
   @Builder
@@ -1728,7 +1639,6 @@ struct Index {
             isMultiSelectMode: this.isMultiSelectMode,
             topSpacerHeight: topSpacerHeight,
             bottomSpacerHeight: this.isMultiSelectMode ? 16 : this.getChatListBottomSpacerHeight(),
-            themeRenderKey: this.sessionListThemeRenderKey,
             onGetGroupTitle: (groupKey: string): Resource => {
               return this.getSessionGroupTitle(groupKey)
             },
@@ -2093,7 +2003,7 @@ struct Index {
   }
 
   private getCompactTabsBarHeight(): number {
-    return getCompactTabsBarHeightForIndex(this.px2vp(this.bottomAvoidHeight))
+    return Index.COMPACT_TABS_BAR_HEIGHT
   }
 
   @Builder

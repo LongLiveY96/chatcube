@@ -7,7 +7,6 @@ import { getAppUiState } from '../../state/AppUiState'
 export struct IndexSessionListItem {
   @Param item: SessionListItemData = new SessionListItemData(new ChatSession('', '', ''), false, false)
   @Param isMultiSelectMode: boolean = false
-  @Param themeRenderKey: string = ''
   @Event onToggleSelection: (sessionId: string) => void = (_sessionId: string): void => {}
   @Event onOpenSession: (sessionId: string) => void = (_sessionId: string): void => {}
   @Event onDeleteSession: (sessionId: string) => void = (_sessionId: string): void => {}
@@ -32,7 +31,6 @@ export struct IndexSessionListItem {
       session: this.item.session,
       enableAnimation: false,
       enableContextMenu: !this.isMultiSelectMode,
-      themeRenderKey: this.themeRenderKey,
       onTap: (): void => {
         this.handleTap()
       },

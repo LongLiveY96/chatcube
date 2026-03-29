@@ -22,6 +22,10 @@ export class SessionListItemData {
   get key(): string {
     return this.renderKey
   }
+
+  get stableId(): string {
+    return this.session.id
+  }
 }
 
 export class IndexSessionListDataSource implements IDataSource {
@@ -66,16 +70,15 @@ export class IndexSessionListDataSource implements IDataSource {
       }
     }
 
-    let hasAnyStateChange = false
+    const changedIndexes: number[] = []
     for (let i = 0; i < items.length; i++) {
       if (this.hasItemStateChanged(previousItems[i], items[i])) {
-        hasAnyStateChange = true
-        break
+        changedIndexes.push(i)
       }
     }
 
-    if (hasAnyStateChange) {
-      this.notifyDataReloaded()
+    if (changedIndexes.length > 0) {
+      this.notifyDataChanged(changedIndexes)
     }
   }
 
@@ -95,7 +98,8 @@ export class IndexSessionListDataSource implements IDataSource {
   }
 
   private hasItemStateChanged(previousItem: SessionListItemData, nextItem: SessionListItemData): boolean {
-    return previousItem.session !== nextItem.session ||
+    return previousItem.key !== nextItem.key ||
+      previousItem.session !== nextItem.session ||
       previousItem.isSelected !== nextItem.isSelected ||
       previousItem.isActive !== nextItem.isActive
   }

@@ -34,6 +34,7 @@ import { ServiceRegistry } from '../services/ServiceRegistry'
 import { registerBuiltinTools } from '../config/BuiltinTools'
 import { AppStorageKeys } from '../config/AppStorageKeys'
 import { inputMethod } from '@kit.IMEKit'
+import { webview } from '@kit.ArkWeb'
 import { dismissActiveSnackBarOnBack, showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { ChatModelSelectorSheetContent } from '../components/chat/ChatModelSelectorSheetContent'
@@ -123,8 +124,8 @@ export struct ChatPage {
   @Local isAtTop: boolean = false
   @Local currentScrollOffsetVp: number = 0
   @Local scrollProgress: number = 0
-  @Local firstVisibleListIndex: number = 0
-  @Local lastVisibleListIndex: number = 0
+  private firstVisibleListIndex: number = 0
+  private lastVisibleListIndex: number = 0
   // 输入框显示状态（true=显示，false=隐藏）
   @Local isInputBarVisible: boolean = true
   @Local inputAreaHeightVp: number = 0
@@ -147,6 +148,10 @@ export struct ChatPage {
   @Local showImagePreview: boolean = false
   @Local previewImages: Array<string> = []
   @Local previewImageIndex: number = 0
+  @Local showMessageWebSheet: boolean = false
+  @Local messageWebSheetUrl: string = ''
+  @Local messageWebSheetTitle: string = ''
+  private messageSheetWebController: webview.WebviewController = new webview.WebviewController()
   // 当前正在朗读的消息ID
   private get speakingMessageId(): string {
     return getAppUiState().speakingMessageId
@@ -240,6 +245,7 @@ export struct ChatPage {
   private scroller: Scroller = new Scroller()
   private maxScrollOffset: number = 0
   private readonly floatingScrollButtonBottomOffsetVp: number = 128
+  private readonly scrollOffsetUiSyncStepVp: number = 96
   private mcpToolAvailabilityRefreshTask: Promise<void> | null = null
   private chatViewModel: ChatViewModel = ServiceRegistry.chat()
   private providerViewModel: ProviderViewModel = ServiceRegistry.provider()
@@ -597,9 +603,47 @@ export struct ChatPage {
     this.isAtTop = false
     this.isAtBottom = false
     this.scrollProgress = 0
+    this.firstVisibleListIndex = 0
+    this.lastVisibleListIndex = 0
     this.maxScrollOffset = 0
     this.scroller = new Scroller()
     this.scrollUiFlow = null
+  }
+
+  private shouldSyncScrollOffsetToUi(value: number): boolean {
+    if (this.isAtTop || this.isAtBottom) {
+      return true
+    }
+    return Math.abs(this.currentScrollOffsetVp - value) >= this.scrollOffsetUiSyncStepVp
+  }
+
+  private handleMessageLinkOpen(title: string, url: string): void {
+    this.messageWebSheetTitle = title
+    this.messageWebSheetUrl = url
+    this.showMessageWebSheet = true
+  }
+
+  @Builder
+  private MessageWebSheetBuilder() {
+    Column() {
+      if (this.messageWebSheetUrl !== '') {
+        Web({ src: this.messageWebSheetUrl, controller: this.messageSheetWebController })
+          .width('100%')
+          .layoutWeight(1)
+      } else {
+        Column() {
+          Text($r('app.string.common_invalid_link'))
+            .fontSize(14)
+            .fontColor($r('app.color.text_secondary'))
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.background'))
   }
 
   private scheduleInitialBottomAlignmentRetries(force: boolean = false): void {
@@ -1461,7 +1505,9 @@ export struct ChatPage {
         }
       },
       onSetCurrentScrollOffsetState: (value: number): void => {
-        this.currentScrollOffsetVp = value
+        if (this.shouldSyncScrollOffsetToUi(value)) {
+          this.currentScrollOffsetVp = value
+        }
       },
       onSetScrollProgressState: (value: number): void => {
         this.scrollProgress = value
@@ -1687,6 +1733,9 @@ export struct ChatPage {
           },
           onImageClick: (images: Array<string>, imageIndex: number): void => {
             this.handleImagePreview(images, imageIndex)
+          },
+          onOpenLink: (title: string, url: string): void => {
+            this.handleMessageLinkOpen(title, url)
           },
           onTTS: (messageId: string, content: string): void => {
             this.handleTTS(messageId, content)
@@ -1931,12 +1980,27 @@ export struct ChatPage {
         }
 
         // 分享预览 Sheet 宿主（bindContentCover 和 bindSheet 不能在同一组件上，否则会冲突）
-        Column()
-          .width(0)
-          .height(0)
-          .bindSheet($$this.showSharePreview, this.SharePreviewBuilder(), {
-            height: SheetSize.LARGE,
-            dragBar: true,
+      Column()
+        .width(0)
+        .height(0)
+        .bindSheet($$this.showMessageWebSheet, this.MessageWebSheetBuilder(), {
+          height: SheetSize.LARGE,
+          detents: [SheetSize.LARGE],
+          dragBar: true,
+          showClose: true,
+          title: { title: this.messageWebSheetTitle !== '' ? this.messageWebSheetTitle : $r('app.string.common_web_page') },
+          onDisappear: () => {
+            this.messageWebSheetUrl = ''
+            this.messageWebSheetTitle = ''
+            this.showMessageWebSheet = false
+          }
+        })
+      Column()
+        .width(0)
+        .height(0)
+        .bindSheet($$this.showSharePreview, this.SharePreviewBuilder(), {
+          height: SheetSize.LARGE,
+          dragBar: true,
             showClose: false,
             backgroundColor: $r('app.color.background'),
             blurStyle: BlurStyle.Thick,

@@ -9,7 +9,6 @@ export struct IndexSessionListSection {
   @Param isMultiSelectMode: boolean = false
   @Param topSpacerHeight: number = 0
   @Param bottomSpacerHeight: number = 100
-  @Param themeRenderKey: string = ''
   @Event onGetGroupTitle: (groupKey: string) => Resource = (_groupKey: string): Resource => $r('app.string.group_older')
   @Event onToggleSelection: (sessionId: string) => void = (_sessionId: string): void => {}
   @Event onOpenSession: (sessionId: string) => void = (_sessionId: string): void => {}
@@ -96,7 +95,6 @@ export struct IndexSessionListSection {
           IndexSessionListItem({
             item: item,
             isMultiSelectMode: this.isMultiSelectMode,
-            themeRenderKey: this.themeRenderKey,
             onToggleSelection: (sessionId: string): void => {
               this.onToggleSelection(sessionId)
             },

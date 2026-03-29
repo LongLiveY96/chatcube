@@ -7,7 +7,6 @@ import { SearchReferenceCard } from './SearchReferenceCard'
 import { ToolCallCard } from './ToolCallCard'
 import { HtmlPreviewCard } from './HtmlPreviewCard'
 import { hilog } from '@kit.PerformanceAnalysisKit'
-import { webview } from '@kit.ArkWeb'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { getAppUiState } from '../state/AppUiState'
 import {
@@ -78,12 +77,6 @@ export struct MessageBubble {
   // 聊天字体大小
   @Param chatFontSize: number = 15
 
-  // Markdown 链接：统一用半模态 Web Sheet 打开
-  @Local showWebSheet: boolean = false
-  @Local webSheetUrl: string = ''
-  @Local webSheetTitle: string = ''
-  private sheetWebController: webview.WebviewController = new webview.WebviewController()
-
   // ========== Markdown 配置 ==========
   // MarkdownController 实例
   private markdownController: MarkdownController = new MarkdownController()
@@ -131,6 +124,7 @@ export struct MessageBubble {
   @Event onTranslate: (content: string, targetLang: string, callback: (result: string, errorMessage: string) => void) => void = () => {}
   // 图片点击预览回调
   @Event onImageClick: (images: Array<string>, index: number) => void = () => {}
+  @Event onOpenLink: (title: string, url: string) => void = () => {}
   // TTS朗读回调
   @Event onTTS: (messageId: string, content: string) => void = () => {}
   @Event onTTSStop: () => void = () => {}
@@ -251,9 +245,6 @@ export struct MessageBubble {
     this.showTranslation = false
     this.isTranslationExpanded = true
     this.currentTranslateLang = ''
-    this.showWebSheet = false
-    this.webSheetUrl = ''
-    this.webSheetTitle = ''
   }
 
   private buildAttachmentSignature(attachments: MessageAttachment[]): string {
@@ -374,7 +365,11 @@ export struct MessageBubble {
     const compactQuotePadding = getMarkdownQuotePadding(compactTextSize, true)
 
     // 配置主内容 Markdown
-    this.markdownController
+    const markdownController = this.markdownController
+    const reasoningMarkdownController = this.reasoningMarkdownController
+    const translationMarkdownController = this.translationMarkdownController
+
+    markdownController
       .setTitleColor(titleColor)
       .setTextColor(textColor)
       .setTextSize(mainTextSize)
@@ -405,10 +400,10 @@ export struct MessageBubble {
       .setCodeCopyListener((code: string) => {
         this.copyToClipboard(code)
       })
-    this.markdownController.setBlockSpacing(mainBlockSpacing)
+    markdownController.setBlockSpacing(mainBlockSpacing)
 
     // 配置推理内容 Markdown（更紧凑）
-    this.reasoningMarkdownController
+    reasoningMarkdownController
       .setTitleColor(reasoningTextColor)
       .setTextColor(reasoningTextColor)
       .setTextSize(compactTextSize)
@@ -439,10 +434,10 @@ export struct MessageBubble {
       .setCodeCopyListener((code: string) => {
         this.copyToClipboard(code)
       })
-    this.reasoningMarkdownController.setBlockSpacing(compactBlockSpacing)
+    reasoningMarkdownController.setBlockSpacing(compactBlockSpacing)
 
     // 配置翻译内容 Markdown
-    this.translationMarkdownController
+    translationMarkdownController
       .setTitleColor(titleColor)
       .setTextColor(textColor)
       .setTextSize(compactTextSize)
@@ -473,7 +468,7 @@ export struct MessageBubble {
       .setCodeCopyListener((code: string) => {
         this.copyToClipboard(code)
       })
-    this.translationMarkdownController.setBlockSpacing(compactBlockSpacing)
+    translationMarkdownController.setBlockSpacing(compactBlockSpacing)
   }
 
   @Monitor('themeRenderKey')
@@ -548,8 +543,6 @@ export struct MessageBubble {
       }
     }
     .width('100%')
-    // 编辑模式高亮效果
-    .scale(this.isEditing ? { x: 1.02, y: 1.02 } : { x: 1, y: 1 })
     // 新消息入场动画：用户消息从右侧滑入，AI消息从左侧滑入
     .transition(
       TransitionEffect.asymmetric(
@@ -561,17 +554,6 @@ export struct MessageBubble {
         TransitionEffect.OPACITY
       ).animation({ duration: 250, curve: Curve.EaseOut })
     )
-    .bindSheet($$this.showWebSheet, this.WebSheetBuilder(), {
-      height: SheetSize.LARGE,
-      detents: [SheetSize.LARGE],
-      dragBar: true,
-      showClose: true,
-      title: { title: this.webSheetTitle !== '' ? this.webSheetTitle : $r('app.string.common_web_page') },
-      onDisappear: () => {
-        this.webSheetUrl = ''
-        this.webSheetTitle = ''
-      }
-    })
   }
 
   // 处理翻译
@@ -840,34 +822,8 @@ export struct MessageBubble {
       }
     }
 
-    const trimmedTitle = title.trim()
-    this.webSheetTitle = trimmedTitle
-    this.webSheetUrl = url
-    this.showWebSheet = true
+    this.onOpenLink(title.trim(), url)
     return true
-  }
-
-  @Builder
-  WebSheetBuilder() {
-    Column() {
-      if (this.webSheetUrl !== '') {
-        Web({ src: this.webSheetUrl, controller: this.sheetWebController })
-          .width('100%')
-          .layoutWeight(1)
-      } else {
-        Column() {
-          Text($r('app.string.common_invalid_link'))
-            .fontSize(14)
-            .fontColor($r('app.color.text_secondary'))
-        }
-        .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-      }
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('app.color.background'))
   }
 
   @Builder
@@ -907,12 +863,6 @@ export struct MessageBubble {
           })
           .clip(true)
           .constraintSize({ maxWidth: '75%' })
-          .shadow({
-            radius: this.isEditing ? 24 : 12,
-            color: this.isEditing ? this.themePrimary + '80' : this.themePrimary + '20',
-            offsetX: 0,
-            offsetY: this.isEditing ? 6 : 4
-          })
           .border({
             width: this.isEditing ? 2 : 0.5,
             color: this.isEditing ? '#FFFFFF' : 'rgba(255, 255, 255, 0.15)'
@@ -1474,7 +1424,6 @@ export struct MessageBubble {
             : this.themeAiBubble)
           .borderRadius(16)
           .border({ width: 0.5, color: $r('app.color.bubble_border') })
-          .shadow({ radius: 4, color: 'rgba(0, 0, 0, 0.04)', offsetX: 0, offsetY: 1 })
           .clip(true)
       }
       .layoutWeight(1)
