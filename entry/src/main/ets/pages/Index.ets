@@ -1271,9 +1271,9 @@ struct Index {
   private getCompactTabsFloatingStyle(): HdsTabsFloatingStyle {
     return {
       barWidth: {
-        smallWidth: 248,
-        mediumWidth: 284,
-        largeWidth: 320
+        smallWidth: 188,
+        mediumWidth: 212,
+        largeWidth: 236
       },
       barSideMargin: Index.COMPACT_TABS_FLOATING_SIDE_MARGIN,
       barBottomMargin: this.getCompactTabsFloatingBottomMargin(),
