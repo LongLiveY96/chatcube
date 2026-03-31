@@ -100,7 +100,7 @@
 
 ### 环境要求
 
-- HarmonyOS NEXT（API 21+）
+- HarmonyOS NEXT（API 23）
 - DevEco Studio 5.0+
 
 ### 构建运行

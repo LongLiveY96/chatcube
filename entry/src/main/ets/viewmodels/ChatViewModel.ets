@@ -521,7 +521,8 @@ export class ChatViewModel {
     attachments: MessageAttachment[] = [],
     contextStartIndex: number = 0,
     reasoningLevel: ReasoningLevel = ReasoningLevel.OFF,
-    apiPath?: string  // 可选的自定义 API 路径
+    apiPath?: string,  // 可选的自定义 API 路径
+    customHeadersJson?: string
   ): Promise<void> {
     const cancelSnapshot = this.cancelToken
     // 首次发送消息时，先持久化待处理的会话
@@ -616,7 +617,8 @@ export class ChatViewModel {
       apiStyle: apiStyle,
       apiKey: getEffectiveApiKey(providerId, apiKey),
       baseUrl: baseUrl,
-      apiPath: apiPath
+      apiPath: apiPath,
+      customHeadersJson: customHeadersJson
     }
 
     const modelParams = this.getCurrentModelParameters(providerId, modelId)
@@ -822,7 +824,8 @@ export class ChatViewModel {
     onAIMessageUpdated: (message: ChatMessage) => void,
     onComplete: () => void,
     onError: (error: string) => void,
-    apiPath?: string  // 可选的自定义 API 路径
+    apiPath?: string,
+    customHeadersJson?: string
   ): Promise<void> {
     const cancelSnapshot = this.cancelToken
     await this.persistPendingSession()
@@ -909,7 +912,9 @@ ${webContext.content}
       providerType: providerType,
       apiStyle: apiStyle,
       apiKey: apiKey,
-      baseUrl: baseUrl
+      baseUrl: baseUrl,
+      apiPath: apiPath,
+      customHeadersJson: customHeadersJson
     }
     apiConfig.modelReasoningStrategyOverride = this.getCurrentModelReasoningStrategyOverride(providerId, modelId)
 
@@ -1103,7 +1108,8 @@ ${webContext.content}
     onComplete: () => void,
     onError: (error: string) => void,
     reasoningLevel: ReasoningLevel = ReasoningLevel.OFF,
-    apiPath?: string  // 可选的自定义 API 路径
+    apiPath?: string,
+    customHeadersJson?: string
   ): Promise<void> {
     const cancelSnapshot = this.cancelToken
     await this.persistPendingSession()
@@ -1218,7 +1224,9 @@ ${limitedSearchContext}
       providerType: providerType,
       apiStyle: apiStyle,
       apiKey: apiKey,
-      baseUrl: baseUrl
+      baseUrl: baseUrl,
+      apiPath: apiPath,
+      customHeadersJson: customHeadersJson
     }
     apiConfig.modelReasoningStrategyOverride = this.getCurrentModelReasoningStrategyOverride(providerId, modelId)
 
@@ -1414,7 +1422,8 @@ ${limitedSearchContext}
     reasoningLevel: ReasoningLevel = ReasoningLevel.OFF,
     tools: ToolDefinition[] = [],
     toolCallbacks?: ToolCallCallbacks,
-    apiPath?: string  // 可选的自定义 API 路径
+    apiPath?: string,
+    customHeadersJson?: string
   ): Promise<void> {
     const cancelSnapshot = this.cancelToken
     // 首次发送消息时，先持久化待处理的会话
@@ -1538,7 +1547,8 @@ ${limitedSearchContext}
       apiStyle: apiStyle,
       apiKey: getEffectiveApiKey(providerId, apiKey),
       baseUrl: baseUrl,
-      apiPath: apiPath
+      apiPath: apiPath,
+      customHeadersJson: customHeadersJson
     }
 
     const modelParams = this.getCurrentModelParameters(providerId, modelId)
@@ -2469,7 +2479,8 @@ ${limitedSearchContext}
     apiStyle: ApiStyle,
     apiKey: string,
     baseUrl: string,
-    modelId: string
+    modelId: string,
+    customHeadersJson?: string
   ): Promise<string> {
     try {
       const cleanedUserQuery = this.cleanSearchQuery(userQuery)
@@ -2511,7 +2522,8 @@ ${context !== '' ? context : '(无历史对话)'}
         providerType: providerType,
         apiStyle: apiStyle,
         apiKey: apiKey,
-        baseUrl: baseUrl
+        baseUrl: baseUrl,
+        customHeadersJson: customHeadersJson
       }
 
       const messages: RequestMessage[] = [

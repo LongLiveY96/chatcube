@@ -732,6 +732,7 @@ export class ModelProvider {
   @Trace isPreset: boolean     // 是否为预设供应商（不可删除）
   @Trace iconPath: string      // SVG 图标路径（相对于 assets/icons/）
   @Trace apiPath: string       // API 路径（可选，如 /chat/completions）
+  @Trace customHeadersJson: string  // 服务商级自定义请求头 JSON
   // 图标类型相关字段
   @Trace iconType: ProviderIconType = ProviderIconType.SVG
   @Trace textIcon: string = ''
@@ -763,6 +764,7 @@ export class ModelProvider {
     this.isPreset = false
     this.iconPath = ''
     this.apiPath = ''
+    this.customHeadersJson = ''
     // 初始化图标类型字段
     this.iconType = ProviderIconType.SVG
     this.textIcon = ''

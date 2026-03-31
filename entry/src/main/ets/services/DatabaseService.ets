@@ -221,7 +221,8 @@ export class DatabaseService {
         brand_color TEXT,
         sort_order INTEGER DEFAULT 0,
         is_preset INTEGER DEFAULT 0,
-        icon_path TEXT DEFAULT ''
+        icon_path TEXT DEFAULT '',
+        custom_headers_json TEXT DEFAULT ''
       )
     `
 
@@ -274,6 +275,7 @@ export class DatabaseService {
       // 尝试添加 is_preset 和 icon_path 字段（用于供应商图标管理）
       await this.addProviderIconColumnsIfNeeded()
       await this.addApiPathColumnIfNeeded()
+      await this.addProviderCustomHeadersColumnIfNeeded()
       await this.addProviderRequiresApiKeyColumnIfNeeded()
       // 尝试添加同步相关字段（为 WebDAV 同步预留）
       await this.addSyncColumnsIfNeeded()
@@ -820,6 +822,17 @@ export class DatabaseService {
       await this.rdbStore.update(valueBucket, predicates)
     } catch (error) {
       console.error('DatabaseService', `Failed to update session: ${JSON.stringify(error)}`)
+    }
+  }
+
+  private async addProviderCustomHeadersColumnIfNeeded(): Promise<void> {
+    if (this.rdbStore === null) {
+      return
+    }
+    try {
+      await this.rdbStore.executeSql(`ALTER TABLE ${TableNames.PROVIDERS} ADD COLUMN custom_headers_json TEXT DEFAULT ''`)
+    } catch (error) {
+      console.info('DatabaseService', 'custom_headers_json column may already exist')
     }
   }
 
@@ -1589,6 +1602,7 @@ export class DatabaseService {
       is_preset: provider.isPreset ? 1 : 0,
       icon_path: provider.iconPath,
       api_path: provider.apiPath,
+      custom_headers_json: provider.customHeadersJson,
       icon_type: provider.iconType,
       text_icon: provider.textIcon,
       text_icon_bg_color: provider.textIconBgColor,
@@ -1695,6 +1709,12 @@ export class DatabaseService {
         } catch (e) {
           customImagePath = ''
         }
+        let customHeadersJson = ''
+        try {
+          customHeadersJson = resultSet.getString(resultSet.getColumnIndex('custom_headers_json'))
+        } catch (e) {
+          customHeadersJson = ''
+        }
         let requiresApiKey = true
         try {
           requiresApiKey = resultSet.getLong(resultSet.getColumnIndex('requires_api_key')) === 1
@@ -1717,6 +1737,7 @@ export class DatabaseService {
           isPreset: isPreset,
           iconPath: iconPath,
           apiPath: apiPath,
+          customHeadersJson: customHeadersJson,
           iconType: iconType,
           textIcon: textIcon,
           textIconBgColor: textIconBgColor,
@@ -2079,6 +2100,7 @@ export interface ProviderConfig {
   isPreset: boolean   // 是否为预设供应商
   iconPath: string    // 图标文件路径
   apiPath: string     // API 路径（可选）
+  customHeadersJson: string  // 自定义请求头 JSON
   iconType: string    // 图标类型
   textIcon: string    // 文字图标内容
   textIconBgColor: string  // 文字图标背景色

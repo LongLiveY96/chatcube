@@ -22,6 +22,7 @@ import {
   resolveProviderCompatibilityProfile,
   resolveReasoningRequestStrategyWithOverride
 } from './ProviderCompatibilityRegistry'
+import { normalizeCustomHeaderName, parseCustomHeadersMap } from '../utils/CustomHeaderUtils'
 
 // URL 解析工具类
 class ApiUrlResolver {
@@ -322,6 +323,7 @@ export interface AIApiConfig {
   apiKey: string
   baseUrl: string
   apiPath?: string  // 可选的自定义 API 路径（如 /v1/chat/completions）
+  customHeadersJson?: string  // 可选的服务商级自定义请求头
   modelReasoningStrategyOverride?: string
   // 模型参数（可选）
   topP?: number
@@ -540,6 +542,14 @@ export interface ToolCallDelta {
 // AI API 服务
 export class AIApiService {
   private static instance: AIApiService | null = null
+  private readonly managedProviderHeaderNames: string[] = [
+    'authorization',
+    'content-type',
+    'accept',
+    'api-key',
+    'x-api-key',
+    'anthropic-version'
+  ]
   private httpService: HttpService
   // DeepSeek-R1 <think> 标签解析状态
   private isInThinkingBlock: boolean = false
@@ -938,7 +948,21 @@ export class AIApiService {
       headers['Authorization'] = `Bearer ${config.apiKey}`
     }
 
+    const customHeaders = parseCustomHeadersMap(config.customHeadersJson !== undefined ? config.customHeadersJson : '')
+    const customHeaderNames = Object.keys(customHeaders)
+    for (let i = 0; i < customHeaderNames.length; i++) {
+      const headerName = customHeaderNames[i]
+      if (this.isManagedProviderHeaderName(headerName)) {
+        continue
+      }
+      headers[headerName] = customHeaders[headerName]
+    }
+
     return headers
+  }
+
+  private isManagedProviderHeaderName(name: string): boolean {
+    return this.managedProviderHeaderNames.includes(normalizeCustomHeaderName(name))
   }
 
   private async postWithResolvedAuth(

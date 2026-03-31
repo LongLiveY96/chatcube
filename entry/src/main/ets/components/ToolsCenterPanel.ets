@@ -9,6 +9,13 @@ import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/Toa
 import { HdsListItemCard } from '@kit.UIDesignKit'
 import { getAppUiState } from '../state/AppUiState'
 import { formatLocalizedCount, pickLocalizedText } from '../utils/LocalizedTextUtils'
+import {
+  buildCustomHeadersJson,
+  isSensitiveCustomHeaderName,
+  normalizeCustomHeaderName,
+  parseCustomHeaderEntries,
+  validateCustomHeaderEntries
+} from '../utils/CustomHeaderUtils'
 
 @ObservedV2
 class McpHeaderEntry {
@@ -48,6 +55,7 @@ export struct ToolsCenterPanel {
   @Local mcpFormAuthToken: string = ''
   @Local mcpFormCustomHeadersJson: string = ''
   @Local mcpFormCustomHeaderEntries: McpHeaderEntry[] = []
+  @Local showMcpCustomHeadersEditor: boolean = false
   @Local mcpFormEnabled: boolean = true
   @Local mcpFormAuthType: string = McpAuthType.NONE
   @Local mcpAuthTypeSelectedIndex: number = 0
@@ -495,6 +503,7 @@ export struct ToolsCenterPanel {
     this.mcpFormAuthToken = ''
     this.mcpFormCustomHeadersJson = ''
     this.mcpFormCustomHeaderEntries = []
+    this.showMcpCustomHeadersEditor = false
     this.mcpFormEnabled = true
     this.mcpFormAuthType = McpAuthType.NONE
     this.mcpAuthTypeSelectedIndex = 0
@@ -513,6 +522,7 @@ export struct ToolsCenterPanel {
     this.mcpFormAuthToken = server.authToken
     this.mcpFormCustomHeadersJson = server.customHeadersJson
     this.mcpFormCustomHeaderEntries = this.parseMcpHeaderEntries(server.customHeadersJson)
+    this.showMcpCustomHeadersEditor = this.mcpFormCustomHeaderEntries.length > 0
     this.mcpFormEnabled = server.enabled
     this.mcpFormAuthType = server.authType
     this.mcpAuthTypeSelectedIndex = server.authType === McpAuthType.BEARER ? 1 : 0
@@ -569,17 +579,6 @@ export struct ToolsCenterPanel {
     return this.mcpFormAuthType === McpAuthType.BEARER ? 'Bearer' : pickLocalizedText('无认证', 'No auth')
   }
 
-  private getMcpFormHeaderCount(): number {
-    return this.mcpFormCustomHeaderEntries.length
-  }
-
-  private getMcpFormHeaderLabel(): string {
-    const count = this.getMcpFormHeaderCount()
-    return count > 0
-      ? formatLocalizedCount(count, '个自定义请求头', 'custom header', 'custom headers')
-      : pickLocalizedText('无自定义请求头', 'No custom headers')
-  }
-
   private getMcpFormEnableLabel(): string {
     return this.mcpFormEnabled ? pickLocalizedText('自动启用', 'Auto enable') : pickLocalizedText('暂不启用', 'Save disabled')
   }
@@ -605,7 +604,7 @@ export struct ToolsCenterPanel {
   }
 
   private normalizeMcpHeaderName(name: string): string {
-    return name.trim().toLowerCase()
+    return normalizeCustomHeaderName(name)
   }
 
   private isReservedMcpHeaderName(name: string): boolean {
@@ -613,26 +612,16 @@ export struct ToolsCenterPanel {
   }
 
   private isSensitiveMcpHeaderName(name: string): boolean {
-    const normalized = this.normalizeMcpHeaderName(name)
-    return normalized.includes('token') || normalized.includes('secret') || normalized.includes('key')
-      || normalized.includes('auth') || normalized === 'authorization'
+    return isSensitiveCustomHeaderName(name)
   }
 
   private parseMcpHeaderEntries(raw: string): McpHeaderEntry[] {
-    if (raw.trim() === '') {
-      return []
+    const parsedEntries = parseCustomHeaderEntries(raw)
+    const entries: McpHeaderEntry[] = []
+    for (let i = 0; i < parsedEntries.length; i++) {
+      entries.push(this.createMcpHeaderEntry(parsedEntries[i].name, parsedEntries[i].value))
     }
-    try {
-      const parsed = JSON.parse(raw) as Record<string, Object>
-      const keys = Object.keys(parsed)
-      const entries: McpHeaderEntry[] = []
-      for (let i = 0; i < keys.length; i++) {
-        entries.push(this.createMcpHeaderEntry(keys[i], `${parsed[keys[i]]}`))
-      }
-      return entries
-    } catch (_error) {
-      return []
-    }
+    return entries
   }
 
   private syncMcpCustomHeadersJsonFromEntries(): void {
@@ -640,54 +629,24 @@ export struct ToolsCenterPanel {
   }
 
   private buildMcpCustomHeadersJson(): string {
-    const headers = JSON.parse('{}') as Record<string, string>
-    let count = 0
-    for (let i = 0; i < this.mcpFormCustomHeaderEntries.length; i++) {
-      const name = this.mcpFormCustomHeaderEntries[i].name.trim()
-      const value = this.mcpFormCustomHeaderEntries[i].value.trim()
-      if (name === '' && value === '') {
-        continue
-      }
-      headers[name] = value
-      count = count + 1
-    }
-    if (count === 0) {
-      return ''
-    }
-    return JSON.stringify(headers)
+    return buildCustomHeadersJson(this.mcpFormCustomHeaderEntries)
   }
 
   private validateMcpHeaderEntries(): string {
-    const seenNames: string[] = []
-    for (let i = 0; i < this.mcpFormCustomHeaderEntries.length; i++) {
-      const entry = this.mcpFormCustomHeaderEntries[i]
-      const name = entry.name.trim()
-      const value = entry.value.trim()
-      if (name === '' && value === '') {
-        continue
-      }
-      if (name === '' || value === '') {
-        return pickLocalizedText(
-          '自定义请求头的名称和值都不能为空',
-          'Custom header name and value are both required'
-        )
-      }
-      const normalizedName = this.normalizeMcpHeaderName(name)
-      if (this.isReservedMcpHeaderName(normalizedName)) {
-        return pickLocalizedText(
-          `请求头 ${name} 由系统管理，请勿手动填写`,
-          `Header ${name} is managed by the system and should not be set manually`
-        )
-      }
-      if (seenNames.includes(normalizedName)) {
-        return pickLocalizedText(
-          `请求头 ${name} 重复，请保留一项`,
-          `Header ${name} is duplicated; keep only one entry`
-        )
-      }
-      seenNames.push(normalizedName)
-    }
-    return ''
+    return validateCustomHeaderEntries(this.mcpFormCustomHeaderEntries, this.reservedMcpHeaderNames, {
+      emptyEntryMessage: pickLocalizedText(
+        '自定义请求头的名称和值都不能为空',
+        'Custom header name and value are both required'
+      ),
+      reservedHeaderMessage: (name: string): string => pickLocalizedText(
+        `请求头 ${name} 由系统管理，请勿手动填写`,
+        `Header ${name} is managed by the system and should not be set manually`
+      ),
+      duplicateHeaderMessage: (name: string): string => pickLocalizedText(
+        `请求头 ${name} 重复，请保留一项`,
+        `Header ${name} is duplicated; keep only one entry`
+      )
+    })
   }
 
   private getMcpRefreshFailedMessage(error: Object): string {
@@ -728,6 +687,7 @@ export struct ToolsCenterPanel {
   }
 
   private addMcpHeaderEntry(): void {
+    this.showMcpCustomHeadersEditor = true
     this.mcpFormCustomHeaderEntries = [...this.mcpFormCustomHeaderEntries, this.createMcpHeaderEntry()]
     this.syncMcpCustomHeadersJsonFromEntries()
   }
@@ -740,6 +700,9 @@ export struct ToolsCenterPanel {
       }
     }
     this.mcpFormCustomHeaderEntries = nextEntries
+    if (this.mcpFormCustomHeaderEntries.length === 0) {
+      this.showMcpCustomHeadersEditor = false
+    }
     this.syncMcpCustomHeadersJsonFromEntries()
   }
 
@@ -1298,14 +1261,6 @@ export struct ToolsCenterPanel {
                 .borderRadius(999)
                 .backgroundColor(`${this.themePrimary}${this.isDarkMode ? '20' : '10'}`)
 
-              Text(this.getMcpFormHeaderLabel())
-                .fontSize(11)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('app.color.text_secondary'))
-                .padding({ left: 10, right: 10, top: 6, bottom: 6 })
-                .borderRadius(999)
-                .backgroundColor($r('app.color.background'))
-
               Text(this.getMcpFormEnableLabel())
                 .fontSize(11)
                 .fontWeight(FontWeight.Medium)
@@ -1511,97 +1466,50 @@ export struct ToolsCenterPanel {
           .backgroundColor($r('app.color.surface'))
 
           Column({ space: 12 }) {
-            Row({ space: 12 }) {
-              Column({ space: 4 }) {
-                Text(pickLocalizedText('自定义请求头', 'Custom Headers'))
-                  .fontSize(15)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('app.color.text_primary'))
-
-                Text(pickLocalizedText('仅在服务要求时填写。', 'Only fill these when the server requires them.'))
-                  .fontSize(12)
-                  .lineHeight(18)
-                  .fontColor($r('app.color.text_secondary'))
-                  .width('100%')
-              }
-              .layoutWeight(1)
-              .alignItems(HorizontalAlign.Start)
-
-              Button() {
-                Row({ space: 4 }) {
-                  SymbolGlyph($r('sys.symbol.plus'))
-                    .fontSize(13)
-                    .fontColor([Color.White])
-                  Text(pickLocalizedText('新增请求头', 'Add header'))
-                    .fontSize(12)
-                    .fontWeight(FontWeight.Medium)
-                    .fontColor(Color.White)
-                }
-              }
-              .height(32)
-              .padding({ left: 14, right: 14 })
-              .type(ButtonType.Capsule)
-              .stateEffect(false)
-              .backgroundColor(this.themePrimary)
-              .onClick(() => {
-                this.addMcpHeaderEntry()
-              })
-            }
-            .width('100%')
-
             Row({ space: 8 }) {
-              Text(pickLocalizedText('系统请求头会自动处理', 'System headers are handled automatically'))
-                .fontSize(11)
-                .fontColor($r('app.color.text_tertiary'))
-                .padding({ left: 10, right: 10, top: 6, bottom: 6 })
-                .borderRadius(999)
-                .backgroundColor($r('app.color.background'))
+              Text(pickLocalizedText('自定义请求头', 'Custom Headers'))
+                .fontSize(15)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.text_primary'))
+                .layoutWeight(1)
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-              if (this.mcpFormAuthType === McpAuthType.BEARER) {
-                Text(pickLocalizedText('Bearer 已启用', 'Bearer enabled'))
-                  .fontSize(11)
-                  .fontColor(this.themePrimary)
-                  .padding({ left: 10, right: 10, top: 6, bottom: 6 })
-                  .borderRadius(999)
-                  .backgroundColor(`${this.themePrimary}${this.isDarkMode ? '20' : '10'}`)
-              }
+              Toggle({ type: ToggleType.Switch, isOn: this.showMcpCustomHeadersEditor })
+                .selectedColor(this.themePrimary)
+                .onChange((isOn: boolean) => {
+                  this.showMcpCustomHeadersEditor = isOn
+                })
             }
             .width('100%')
 
-            if (this.mcpFormCustomHeaderEntries.length === 0) {
-              Row({ space: 12 }) {
-                Column() {
-                  SymbolGlyph($r('sys.symbol.line_3_horizontal'))
-                    .fontSize(18)
-                    .fontColor([this.themePrimary])
+            if (this.showMcpCustomHeadersEditor) {
+              Row() {
+                Button() {
+                  Row({ space: 4 }) {
+                    SymbolGlyph($r('sys.symbol.plus'))
+                      .fontSize(13)
+                      .fontColor([Color.White])
+                    Text(pickLocalizedText('新增请求头', 'Add header'))
+                      .fontSize(12)
+                      .fontWeight(FontWeight.Medium)
+                      .fontColor(Color.White)
+                  }
                 }
-                .width(34)
-                .height(34)
-                .borderRadius(17)
-                .backgroundColor(`${this.themePrimary}${this.isDarkMode ? '20' : '10'}`)
-                .justifyContent(FlexAlign.Center)
-
-                Column({ space: 4 }) {
-                  Text(pickLocalizedText('暂无自定义请求头', 'No custom headers yet'))
-                    .fontSize(13)
-                    .fontWeight(FontWeight.Medium)
-                    .fontColor($r('app.color.text_primary'))
-
-                  Text(pickLocalizedText('需要时再添加。', 'Add them only when you need to.'))
-                    .fontSize(11)
-                    .lineHeight(16)
-                    .fontColor($r('app.color.text_secondary'))
-                    .width('100%')
-                }
-                .layoutWeight(1)
-                .alignItems(HorizontalAlign.Start)
+                .height(32)
+                .padding({ left: 14, right: 14 })
+                .type(ButtonType.Capsule)
+                .stateEffect(false)
+                .backgroundColor(this.themePrimary)
+                .onClick(() => {
+                  this.addMcpHeaderEntry()
+                })
+                Blank()
               }
               .width('100%')
-              .padding(14)
-              .borderRadius(16)
-              .backgroundColor($r('app.color.background'))
-              .border({ width: 1, color: $r('app.color.divider') })
-            } else {
+            }
+
+            if (this.showMcpCustomHeadersEditor) {
               ForEach(this.mcpFormCustomHeaderEntries, (entry: McpHeaderEntry, index: number) => {
                 Column({ space: 10 }) {
                   Row() {

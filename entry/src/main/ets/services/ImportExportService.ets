@@ -93,6 +93,7 @@ export interface ProviderExportData {
   isPreset: boolean
   iconPath: string
   apiPath: string
+  customHeadersJson: string
   iconType: string
   textIcon: string
   textIconBgColor: string
@@ -394,6 +395,7 @@ export class ImportExportService {
         isPreset: p.isPreset,
         iconPath: p.iconPath,
         apiPath: p.apiPath,
+        customHeadersJson: p.customHeadersJson,
         iconType: p.iconType,
         textIcon: p.textIcon,
         textIconBgColor: p.textIconBgColor,
@@ -1066,6 +1068,7 @@ export class ImportExportService {
     provider.isPreset = providerData.isPreset
     provider.iconPath = providerData.iconPath
     provider.apiPath = providerData.apiPath
+    provider.customHeadersJson = providerData.customHeadersJson !== undefined ? providerData.customHeadersJson : ''
     provider.iconType = iconType
     provider.textIcon = providerData.textIcon
     provider.textIconBgColor = providerData.textIconBgColor

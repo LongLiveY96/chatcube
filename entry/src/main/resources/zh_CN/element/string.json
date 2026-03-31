@@ -845,6 +845,34 @@
       "value": "例如: /chat/completions"
     },
     {
+      "name": "provider_custom_headers_title",
+      "value": "自定义请求头"
+    },
+    {
+      "name": "provider_custom_headers_add",
+      "value": "新增请求头"
+    },
+    {
+      "name": "provider_custom_header_sensitive",
+      "value": "敏感"
+    },
+    {
+      "name": "provider_custom_header_name",
+      "value": "名称"
+    },
+    {
+      "name": "provider_custom_header_name_placeholder",
+      "value": "例如 HTTP-Referer"
+    },
+    {
+      "name": "provider_custom_header_value",
+      "value": "值"
+    },
+    {
+      "name": "provider_custom_header_value_placeholder",
+      "value": "输入 Header Value"
+    },
+    {
       "name": "provider_fetch_models",
       "value": "获取模型"
     },

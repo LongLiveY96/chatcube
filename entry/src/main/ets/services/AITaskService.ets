@@ -241,7 +241,8 @@ export class AITaskService {
       providerType: provider.type,
       apiStyle: provider.apiStyle,
       apiKey: effectiveApiKey,
-      baseUrl: provider.baseUrl
+      baseUrl: provider.baseUrl,
+      customHeadersJson: provider.customHeadersJson || undefined
     }
 
     // 构建 Prompt（使用 system + user 双消息模式）
@@ -312,7 +313,8 @@ export class AITaskService {
       providerType: provider.type,
       apiStyle: provider.apiStyle,
       apiKey: effectiveApiKey,
-      baseUrl: provider.baseUrl
+      baseUrl: provider.baseUrl,
+      customHeadersJson: provider.customHeadersJson || undefined
     }
 
     // 构建 Prompt

@@ -31,6 +31,26 @@ import { getAppUiState } from '../state/AppUiState'
 import { applyModelDraft } from '../utils/ModelDraftUtils'
 import { getSettingsPageCompactTabsTotalInset } from '../utils/SettingsPageLayoutHelper'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
+import { pickLocalizedText } from '../utils/LocalizedTextUtils'
+import {
+  buildCustomHeadersJson,
+  isSensitiveCustomHeaderName,
+  parseCustomHeaderEntries,
+  validateCustomHeaderEntries
+} from '../utils/CustomHeaderUtils'
+
+@ObservedV2
+class ProviderHeaderEntry {
+  @Trace id: string = ''
+  @Trace name: string = ''
+  @Trace value: string = ''
+
+  constructor(id: string = '', name: string = '', value: string = '') {
+    this.id = id
+    this.name = name
+    this.value = value
+  }
+}
 
 export enum ProviderDetailPresentationMode {
   SHEET = 'sheet',
@@ -128,6 +148,8 @@ export struct ProviderDetailPanel {
   @Local showColorPicker: boolean = false
   @Local tempTextIcon: string = ''
   @Local tempTextIconBgColor: string = ''
+  @Local providerCustomHeaderEntries: ProviderHeaderEntry[] = []
+  @Local showProviderCustomHeadersEditor: boolean = false
   // 手动添加模型相关状态
   @Local showAddModelInput: boolean = false
   @Local addModelIdText: string = ''
@@ -136,6 +158,14 @@ export struct ProviderDetailPanel {
 
   // API 风格选项（仅用于自定义服务商）
   private apiStyleOptions: ApiStyleOption[] = getDefaultApiStyleOptions()
+  private readonly reservedProviderHeaderNames: string[] = [
+    'authorization',
+    'content-type',
+    'accept',
+    'api-key',
+    'x-api-key',
+    'anthropic-version'
+  ]
 
   aboutToAppear(): void {
     providerDetailInternalBackHandler = (): boolean => {
@@ -164,6 +194,8 @@ export struct ProviderDetailPanel {
     this.showSheet = false
     this.activeSheet = 'none'
     this.fetchedModels = []
+    this.providerCustomHeaderEntries = []
+    this.showProviderCustomHeadersEditor = false
     this.showAddModelInput = false
     this.addModelIdText = ''
     this.loadProviderData()
@@ -192,6 +224,8 @@ export struct ProviderDetailPanel {
       provider.textIcon = iconConfig.text
       provider.textIconBgColor = iconConfig.bgColor
       this.provider = provider
+      this.providerCustomHeaderEntries = this.parseProviderHeaderEntries(provider.customHeadersJson)
+      this.showProviderCustomHeadersEditor = this.providerCustomHeaderEntries.length > 0
       this.isLoading = false
       return
     }
@@ -201,6 +235,8 @@ export struct ProviderDetailPanel {
     const provider = this.providerViewModel.getProviderById(this.providerId)
     if (provider !== null) {
       this.provider = provider
+      this.providerCustomHeaderEntries = this.parseProviderHeaderEntries(provider.customHeadersJson)
+      this.showProviderCustomHeadersEditor = this.providerCustomHeaderEntries.length > 0
       this.buildModelGroups()
     }
     this.isLoading = false
@@ -219,6 +255,93 @@ export struct ProviderDetailPanel {
 
   private showProviderToast(message: string | Resource, duration: number = 2000): void {
     showToast(this.getUIContext(), message, duration)
+  }
+
+  private buildNewProviderHeaderEntryId(): string {
+    return `provider_header_${Date.now()}_${Math.floor(Math.random() * 100000)}`
+  }
+
+  private createProviderHeaderEntry(name: string = '', value: string = ''): ProviderHeaderEntry {
+    return new ProviderHeaderEntry(this.buildNewProviderHeaderEntryId(), name, value)
+  }
+
+  private parseProviderHeaderEntries(raw: string): ProviderHeaderEntry[] {
+    const parsedEntries = parseCustomHeaderEntries(raw)
+    const entries: ProviderHeaderEntry[] = []
+    for (let i = 0; i < parsedEntries.length; i++) {
+      entries.push(this.createProviderHeaderEntry(parsedEntries[i].name, parsedEntries[i].value))
+    }
+    return entries
+  }
+
+  private syncProviderCustomHeadersJsonFromEntries(): void {
+    if (this.provider === null) {
+      return
+    }
+    this.provider.customHeadersJson = buildCustomHeadersJson(this.providerCustomHeaderEntries)
+  }
+
+  private validateProviderHeaderEntries(): string {
+    return validateCustomHeaderEntries(this.providerCustomHeaderEntries, this.reservedProviderHeaderNames, {
+      emptyEntryMessage: pickLocalizedText(
+        '自定义请求头的名称和值都不能为空',
+        'Custom header name and value are both required'
+      ),
+      reservedHeaderMessage: (name: string): string => pickLocalizedText(
+        `请求头 ${name} 由系统管理，请勿手动填写`,
+        `Header ${name} is managed by the system and should not be set manually`
+      ),
+      duplicateHeaderMessage: (name: string): string => pickLocalizedText(
+        `请求头 ${name} 重复，请保留一项`,
+        `Header ${name} is duplicated; keep only one entry`
+      )
+    })
+  }
+
+  private addProviderHeaderEntry(): void {
+    this.showProviderCustomHeadersEditor = true
+    this.providerCustomHeaderEntries = [...this.providerCustomHeaderEntries, this.createProviderHeaderEntry()]
+    this.syncProviderCustomHeadersJsonFromEntries()
+  }
+
+  private removeProviderHeaderEntry(entryId: string): void {
+    const nextEntries: ProviderHeaderEntry[] = []
+    for (let i = 0; i < this.providerCustomHeaderEntries.length; i++) {
+      if (this.providerCustomHeaderEntries[i].id !== entryId) {
+        nextEntries.push(this.providerCustomHeaderEntries[i])
+      }
+    }
+    this.providerCustomHeaderEntries = nextEntries
+    if (this.providerCustomHeaderEntries.length === 0) {
+      this.showProviderCustomHeadersEditor = false
+    }
+    this.syncProviderCustomHeadersJsonFromEntries()
+  }
+
+  private updateProviderHeaderEntryName(entryId: string, value: string): void {
+    for (let i = 0; i < this.providerCustomHeaderEntries.length; i++) {
+      if (this.providerCustomHeaderEntries[i].id === entryId) {
+        this.providerCustomHeaderEntries[i].name = value
+        break
+      }
+    }
+    this.providerCustomHeaderEntries = [...this.providerCustomHeaderEntries]
+    this.syncProviderCustomHeadersJsonFromEntries()
+  }
+
+  private updateProviderHeaderEntryValue(entryId: string, value: string): void {
+    for (let i = 0; i < this.providerCustomHeaderEntries.length; i++) {
+      if (this.providerCustomHeaderEntries[i].id === entryId) {
+        this.providerCustomHeaderEntries[i].value = value
+        break
+      }
+    }
+    this.providerCustomHeaderEntries = [...this.providerCustomHeaderEntries]
+    this.syncProviderCustomHeadersJsonFromEntries()
+  }
+
+  private isSensitiveProviderHeaderName(name: string): boolean {
+    return isSensitiveCustomHeaderName(name)
   }
 
   private async saveCurrentProvider(): Promise<void> {
@@ -522,6 +645,12 @@ export struct ProviderDetailPanel {
         this.showProviderToast($r('app.string.base_url_required'), 3000)
         return
       }
+    }
+
+    const customHeadersError = this.validateProviderHeaderEntries()
+    if (customHeadersError !== '') {
+      this.showProviderToast(customHeadersError, 3000)
+      return
     }
 
     this.isSaving = true
@@ -1862,6 +1991,156 @@ export struct ProviderDetailPanel {
               this.provider.apiPath = value
             }
           })
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16 })
+
+      Divider()
+        .color($r('app.color.divider'))
+        .margin({ left: 16, right: 16, top: 16, bottom: 16 })
+
+      Column({ space: 12 }) {
+        Row({ space: 8 }) {
+          Text($r('app.string.provider_custom_headers_title'))
+            .fontSize(13)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.text_secondary'))
+            .layoutWeight(1)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+          Toggle({ type: ToggleType.Switch, isOn: this.showProviderCustomHeadersEditor })
+            .selectedColor(this.themePrimary)
+            .onChange((isOn: boolean) => {
+              this.showProviderCustomHeadersEditor = isOn
+            })
+        }
+        .width('100%')
+
+        if (this.showProviderCustomHeadersEditor) {
+          Row() {
+            Button() {
+              Row({ space: 4 }) {
+                SymbolGlyph($r('sys.symbol.plus'))
+                  .fontSize(13)
+                  .fontColor([Color.White])
+                Text($r('app.string.provider_custom_headers_add'))
+                  .fontSize(12)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(Color.White)
+              }
+            }
+            .height(32)
+            .padding({ left: 14, right: 14 })
+            .type(ButtonType.Capsule)
+            .stateEffect(false)
+            .backgroundColor(this.themePrimary)
+            .onClick(() => {
+              this.addProviderHeaderEntry()
+            })
+            Blank()
+          }
+          .width('100%')
+        }
+
+        if (this.showProviderCustomHeadersEditor) {
+          ForEach(this.providerCustomHeaderEntries, (entry: ProviderHeaderEntry, index: number) => {
+            Column({ space: 10 }) {
+              Row() {
+                Text(`${pickLocalizedText('请求头 ', 'Header ')}${index + 1}`)
+                  .fontSize(12)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('app.color.text_primary'))
+                  .layoutWeight(1)
+
+                if (this.isSensitiveProviderHeaderName(entry.name)) {
+                  Text($r('app.string.provider_custom_header_sensitive'))
+                    .fontSize(10)
+                    .fontWeight(FontWeight.Medium)
+                    .fontColor('#D97757')
+                    .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+                    .borderRadius(999)
+                    .backgroundColor(this.isDarkMode ? '#4A2D1A' : '#FFF1E8')
+                    .margin({ right: 8 })
+                }
+
+                Button($r('app.string.delete'))
+                  .height(28)
+                  .fontSize(11)
+                  .type(ButtonType.Capsule)
+                  .stateEffect(false)
+                  .backgroundColor($r('app.color.surface'))
+                  .border({ width: 1, color: this.isDarkMode ? '#6A3139' : '#F2CBD2' })
+                  .fontColor('#D9485F')
+                  .onClick(() => {
+                    this.removeProviderHeaderEntry(entry.id)
+                  })
+              }
+              .width('100%')
+
+              Column({ space: 6 }) {
+                Text($r('app.string.provider_custom_header_name'))
+                  .fontSize(11)
+                  .fontColor($r('app.color.text_tertiary'))
+                  .width('100%')
+
+                TextInput({ text: entry.name, placeholder: $r('app.string.provider_custom_header_name_placeholder') })
+                  .onChange((value: string) => {
+                    this.updateProviderHeaderEntryName(entry.id, value)
+                  })
+                  .fontSize(14)
+                  .width('100%')
+                  .height(44)
+                  .borderRadius(14)
+                  .backgroundColor($r('app.color.background'))
+                  .border({ width: 1, color: $r('app.color.divider') })
+                  .padding({ left: 14, right: 14 })
+              }
+              .width('100%')
+
+              Column({ space: 6 }) {
+                Text($r('app.string.provider_custom_header_value'))
+                  .fontSize(11)
+                  .fontColor($r('app.color.text_tertiary'))
+                  .width('100%')
+
+                if (this.isSensitiveProviderHeaderName(entry.name)) {
+                  TextInput({ text: entry.value, placeholder: $r('app.string.provider_custom_header_value_placeholder') })
+                    .onChange((value: string) => {
+                      this.updateProviderHeaderEntryValue(entry.id, value)
+                    })
+                    .type(InputType.Password)
+                    .enableAutoFill(false)
+                    .fontSize(14)
+                    .width('100%')
+                    .height(44)
+                    .borderRadius(14)
+                    .backgroundColor($r('app.color.background'))
+                    .border({ width: 1, color: $r('app.color.divider') })
+                    .padding({ left: 14, right: 14 })
+                } else {
+                  TextInput({ text: entry.value, placeholder: $r('app.string.provider_custom_header_value_placeholder') })
+                    .onChange((value: string) => {
+                      this.updateProviderHeaderEntryValue(entry.id, value)
+                    })
+                    .fontSize(14)
+                    .width('100%')
+                    .height(44)
+                    .borderRadius(14)
+                    .backgroundColor($r('app.color.background'))
+                    .border({ width: 1, color: $r('app.color.divider') })
+                    .padding({ left: 14, right: 14 })
+                }
+              }
+              .width('100%')
+            }
+            .width('100%')
+            .padding(14)
+            .borderRadius(18)
+            .backgroundColor($r('app.color.background'))
+            .border({ width: 1, color: $r('app.color.divider') })
+          }, (entry: ProviderHeaderEntry) => entry.id)
+        }
       }
       .width('100%')
       .padding({ left: 16, right: 16, bottom: 16 })

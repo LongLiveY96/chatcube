@@ -53,6 +53,13 @@ import {
   ChatMessageRowData
 } from '../main/ets/components/chat/ChatMessageListDataSource'
 import { SessionListItemData } from '../main/ets/pages/index/IndexSessionListDataSource'
+import {
+  buildCustomHeadersJson,
+  isSensitiveCustomHeaderName,
+  parseCustomHeaderEntries,
+  parseCustomHeadersMap,
+  validateCustomHeaderEntries
+} from '../main/ets/utils/CustomHeaderUtils'
 
 class TestDataChangeListener implements DataChangeListener {
   reloadCount: number = 0
@@ -777,6 +784,58 @@ export default function refactorGuardTest() {
       expect(state.lastOffset).assertEqual(0)
       expect(state.isAtTop).assertEqual(true)
       expect(state.scrollProgress).assertEqual(0)
+    })
+
+    it('customHeaderUtils_should_build_and_parse_headers_json', 0, () => {
+      const raw = buildCustomHeadersJson([
+        { name: 'HTTP-Referer', value: 'https://chatbox.local' },
+        { name: '', value: '' },
+        { name: 'X-Title', value: '42' }
+      ])
+
+      expect(raw.includes('HTTP-Referer')).assertEqual(true)
+      const entries = parseCustomHeaderEntries(raw)
+      const headers = parseCustomHeadersMap(raw)
+
+      expect(entries.length).assertEqual(2)
+      expect(headers['HTTP-Referer']).assertEqual('https://chatbox.local')
+      expect(headers['X-Title']).assertEqual('42')
+    })
+
+    it('customHeaderUtils_should_validate_required_reserved_and_duplicate_headers', 0, () => {
+      const reserved = ['authorization', 'content-type']
+      const emptyError = validateCustomHeaderEntries([
+        { name: 'X-Test', value: '' }
+      ], reserved, {
+        emptyEntryMessage: 'empty',
+        reservedHeaderMessage: (_name: string): string => 'reserved',
+        duplicateHeaderMessage: (_name: string): string => 'duplicate'
+      })
+      const reservedError = validateCustomHeaderEntries([
+        { name: 'Authorization', value: 'Bearer token' }
+      ], reserved, {
+        emptyEntryMessage: 'empty',
+        reservedHeaderMessage: (_name: string): string => 'reserved',
+        duplicateHeaderMessage: (_name: string): string => 'duplicate'
+      })
+      const duplicateError = validateCustomHeaderEntries([
+        { name: 'X-Test', value: '1' },
+        { name: 'x-test', value: '2' }
+      ], reserved, {
+        emptyEntryMessage: 'empty',
+        reservedHeaderMessage: (_name: string): string => 'reserved',
+        duplicateHeaderMessage: (_name: string): string => 'duplicate'
+      })
+
+      expect(emptyError).assertEqual('empty')
+      expect(reservedError).assertEqual('reserved')
+      expect(duplicateError).assertEqual('duplicate')
+    })
+
+    it('customHeaderUtils_should_identify_sensitive_header_names', 0, () => {
+      expect(isSensitiveCustomHeaderName('Authorization')).assertEqual(true)
+      expect(isSensitiveCustomHeaderName('x-api-key')).assertEqual(true)
+      expect(isSensitiveCustomHeaderName('HTTP-Referer')).assertEqual(false)
     })
   })
 }

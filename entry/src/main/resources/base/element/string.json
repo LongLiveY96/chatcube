@@ -845,6 +845,34 @@
       "value": "e.g. /chat/completions"
     },
     {
+      "name": "provider_custom_headers_title",
+      "value": "Custom Headers"
+    },
+    {
+      "name": "provider_custom_headers_add",
+      "value": "Add header"
+    },
+    {
+      "name": "provider_custom_header_sensitive",
+      "value": "Sensitive"
+    },
+    {
+      "name": "provider_custom_header_name",
+      "value": "Name"
+    },
+    {
+      "name": "provider_custom_header_name_placeholder",
+      "value": "e.g. HTTP-Referer"
+    },
+    {
+      "name": "provider_custom_header_value",
+      "value": "Value"
+    },
+    {
+      "name": "provider_custom_header_value_placeholder",
+      "value": "Enter header value"
+    },
+    {
       "name": "provider_fetch_models",
       "value": "Fetch Models"
     },

@@ -189,6 +189,7 @@ export class ProviderViewModel {
     target.requiresApiKey = source.requiresApiKey
     target.baseUrl = source.baseUrl
     target.apiPath = source.apiPath
+    target.customHeadersJson = source.customHeadersJson
     target.apiStyle = source.apiStyle
     target.type = source.type
     target.models = source.models
@@ -280,6 +281,7 @@ export class ProviderViewModel {
     provider.isPreset = config.isPreset || isPresetProvider(config.id)
     provider.iconPath = config.iconPath !== '' ? config.iconPath : getPresetProviderIconPath(config.id)
     provider.apiPath = config.apiPath !== undefined ? config.apiPath : ''
+    provider.customHeadersJson = config.customHeadersJson !== undefined ? config.customHeadersJson : ''
 
     // 设置图标类型相关字段
     provider.iconType = (config.iconType !== undefined && config.iconType !== '') ? config.iconType as ProviderIconType : ProviderIconType.SVG
@@ -356,7 +358,8 @@ export class ProviderViewModel {
       apiStyle: provider.apiStyle,
       apiKey: getEffectiveApiKey(provider.id, provider.apiKey),
       baseUrl: provider.baseUrl,
-      apiPath: provider.apiPath || undefined  // 传递自定义 API 路径
+      apiPath: provider.apiPath || undefined,
+      customHeadersJson: provider.customHeadersJson || undefined  // 传递自定义请求头
     }
   }
 

@@ -391,7 +391,8 @@ export class ChatSendFlow {
         attachmentsToSend,
         0,
         this.deps.getReasoningLevel(),
-        currentProvider.apiPath || undefined
+        currentProvider.apiPath || undefined,
+        currentProvider.customHeadersJson || undefined
       )
     } catch (error) {
       const message = `发送失败: ${JSON.stringify(error)}`
@@ -463,7 +464,8 @@ export class ChatSendFlow {
         this.deps.getReasoningLevel(),
         tools,
         toolCallbacks,
-        currentProvider.apiPath || undefined
+        currentProvider.apiPath || undefined,
+        currentProvider.customHeadersJson || undefined
       )
     } catch (error) {
       const message = `发送失败: ${JSON.stringify(error)}`
