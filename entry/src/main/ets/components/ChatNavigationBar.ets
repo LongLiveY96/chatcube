@@ -52,7 +52,6 @@ export struct ChatNavigationBar {
   @Event onNewChat: () => void = () => {}
   @Event onRegenerateTitle: () => void = () => {}
   @Event onTitleChanged: (newTitle: string) => void = () => {}
-  @Event onNavigateToModelManage: () => void = () => {}
   @Event onDeleteChat: () => void = () => {}
 
   // 内部状态
@@ -472,14 +471,6 @@ export struct ChatNavigationBar {
       .enabled(!this.isTitleGenerating && !this.isSending)
       .onClick(() => {
         this.onRegenerateTitle()
-      })
-
-      MenuItem({
-        startIcon: $r('sys.symbol.gearshape'),
-        content: $r('app.string.model_manage_title')
-      })
-      .onClick(() => {
-        this.onNavigateToModelManage()
       })
 
       MenuItemGroup({ header: $r('app.string.danger_zone') }) {

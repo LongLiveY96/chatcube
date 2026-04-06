@@ -1819,9 +1819,6 @@ export struct ChatPage {
           onTitleChanged: (newTitle: string) => {
             this.handleSaveTitle(newTitle)
           },
-          onNavigateToModelManage: () => {
-            this.safePushUrl('pages/ModelManagePage')
-          },
           onDeleteChat: () => {
             this.handleDeleteChat()
           }
