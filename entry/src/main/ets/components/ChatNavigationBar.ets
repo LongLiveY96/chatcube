@@ -9,11 +9,9 @@ import {
   getButtonAnimation
 } from '../utils/ButtonAnimationUtils'
 import {
-  CHAT_NAVIGATION_BAR_MIN_HEIGHT,
-  CHAT_NAVIGATION_VISUAL_LAYER_MIN_HEIGHT
+  CHAT_NAVIGATION_BAR_MIN_HEIGHT
 } from '../config/ChatLayout'
 import { buildIconResourcePath, getModelIconPath, isNetworkIconPath, isSandboxIconPath } from '../utils/ProviderIconUtils'
-import { HdsVisualComponent, HdsSceneController, HdsSceneType, hdsEffect } from '@kit.UIDesignKit'
 import { Markdown, MarkdownController } from '@luvi/lv-markdown-in'
 import { getAppUiState, observeAppUiState } from '../state/AppUiState'
 
@@ -67,14 +65,11 @@ export struct ChatNavigationBar {
   private get isDarkMode(): boolean {
     return getAppUiState().isDarkMode
   }
-  @Param uiVisualEnhanced: boolean = false
-  private navSceneController: HdsSceneController = new HdsSceneController()
   private titleMarkdownController: MarkdownController = new MarkdownController()
   private themeObserverDisposer: (() => void) | null = null
 
   aboutToAppear(): void {
     this.configureTitleMarkdownStyles()
-    this.configureNavigationScene()
     if (this.themeObserverDisposer === null) {
       this.themeObserverDisposer = observeAppUiState(['isDarkMode', 'themePrimary'], (): void => {
         this.onNavThemeStateChange()
@@ -84,7 +79,6 @@ export struct ChatNavigationBar {
 
   onNavThemeStateChange(): void {
     this.configureTitleMarkdownStyles()
-    this.configureNavigationScene()
   }
 
   aboutToDisappear(): void {
@@ -105,22 +99,6 @@ export struct ChatNavigationBar {
       .setTextLineHeight(17)
       .setLatexMathTextColor(latexTextColor)
       .setLatexMathTextSize(16)
-  }
-
-  private configureNavigationScene(): void {
-    this.navSceneController = new HdsSceneController().setSceneParams({
-      backgroundMaskColors: ['#00000000', `${this.themePrimary}${this.isDarkMode ? '26' : '1A'}`, '#00000000'],
-      firstEdgeFlowLight: {
-        startPos: 0,
-        endPos: 0.48,
-        color: '#66FFFFFF'
-      },
-      secondEdgeFlowLight: {
-        startPos: 0,
-        endPos: -0.48,
-        color: `${this.themePrimary}${this.isDarkMode ? '66' : '33'}`
-      }
-    })
   }
 
   private hasCurrentModelIdentity(): boolean {
@@ -157,12 +135,6 @@ export struct ChatNavigationBar {
     return resourcePath !== '' && !isNetworkIconPath(resourcePath) && !isSandboxIconPath(resourcePath)
   }
 
-  private buildButtonPressEffect(pressed: boolean) {
-    return new hdsEffect.HdsEffectBuilder()
-      .pressShadow(pressed && this.uiVisualEnhanced ? hdsEffect.PressShadowType.BLEND_WHITE : hdsEffect.PressShadowType.NONE)
-      .buildEffect()
-  }
-
   private getEffectiveContentMaxWidth(): number {
     return this.contentMaxWidth > 0 ? this.contentMaxWidth : 99999
   }
@@ -170,19 +142,14 @@ export struct ChatNavigationBar {
   build() {
     Column() {
       Row() {
-        Stack({ alignContent: Alignment.Top }) {
-          if (this.uiVisualEnhanced) {
-            this.NavigationVisualLayer()
+        Column() {
+          if (this.topInsetHeight > 0) {
+            Column()
+              .width('100%')
+              .height(this.topInsetHeight)
           }
 
-          Column() {
-            if (this.topInsetHeight > 0) {
-              Column()
-                .width('100%')
-                .height(this.topInsetHeight)
-            }
-
-            Row() {
+          Row() {
             // 返回按钮
             Stack({ alignContent: Alignment.TopEnd }) {
               Button({ type: ButtonType.Circle }) {
@@ -199,7 +166,6 @@ export struct ChatNavigationBar {
                 offsetX: 0,
                 offsetY: this.backBtnPressed ? 2 : 0
               })
-              .visualEffect(this.buildButtonPressEffect(this.backBtnPressed))
               .scale(getButtonScale(this.backBtnPressed))
               .animation({ duration: 200, curve: Curve.EaseInOut })
               .onTouch(createButtonTouchHandler((pressed: boolean) => {
@@ -360,7 +326,6 @@ export struct ChatNavigationBar {
               .height(30)
               .backgroundColor($r('sys.color.comp_background_tertiary'))
               .margin({ left: 4 })
-              .visualEffect(this.buildButtonPressEffect(this.newChatBtnPressed))
               .scale(getButtonScale(this.newChatBtnPressed))
               .animation(getButtonAnimation())
               .onTouch(createButtonTouchHandler((pressed: boolean) => {
@@ -380,7 +345,6 @@ export struct ChatNavigationBar {
             .height(30)
             .backgroundColor($r('sys.color.comp_background_tertiary'))
             .margin({ left: 4 })
-            .visualEffect(this.buildButtonPressEffect(this.moreBtnPressed))
             .scale(getButtonScale(this.moreBtnPressed))
             .animation(getButtonAnimation())
             .onTouch(createButtonTouchHandler((pressed: boolean) => {
@@ -392,7 +356,6 @@ export struct ChatNavigationBar {
           .height(CHAT_NAVIGATION_BAR_MIN_HEIGHT)
           .alignItems(VerticalAlign.Center)
           .padding({ left: 8, right: 8 })
-          }
         }
         .width('100%')
         .constraintSize({ maxWidth: this.getEffectiveContentMaxWidth() })
@@ -402,18 +365,6 @@ export struct ChatNavigationBar {
     }
     .width('100%')
     .backgroundBlurStyle(BlurStyle.COMPONENT_THIN)
-  }
-
-  @Builder
-  private NavigationVisualLayer(): void {
-    HdsVisualComponent()
-      .scene(HdsSceneType.DUAL_EDGE_FLOW_LIGHT_WITH_BACKGROUND_MASK, this.navSceneController)
-      .width('100%')
-      .height('100%')
-      .constraintSize({ minHeight: CHAT_NAVIGATION_VISUAL_LAYER_MIN_HEIGHT })
-      .margin({ left: 10, right: 10 })
-      .borderRadius(12)
-      .opacity(this.isDarkMode ? 0.46 : 0.62)
   }
 
   // 获取当前模型标题
@@ -486,4 +437,3 @@ export struct ChatNavigationBar {
     }
   }
 }
-

@@ -1,3 +1,2 @@
 export const CHAT_NAVIGATION_BAR_DEFAULT_HEIGHT: number = 44
 export const CHAT_NAVIGATION_BAR_MIN_HEIGHT: number = 44
-export const CHAT_NAVIGATION_VISUAL_LAYER_MIN_HEIGHT: number = 44
