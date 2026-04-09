@@ -415,7 +415,7 @@ export struct ChatNavigationTitleContent {
       .layoutWeight(1)
       .height(CHAT_NAVIGATION_TITLE_STACK_BUILDER_HEIGHT)
       .padding({
-        left: this.isEditingTitle ? 8 : 6,
+        left: this.isEditingTitle ? 6 : 4,
         right: this.isEditingTitle ? 8 : 6,
         top: this.isEditingTitle ? 4 : 2,
         bottom: this.isEditingTitle ? 4 : 2
