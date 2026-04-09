@@ -2,8 +2,14 @@ import { Markdown, MarkdownController } from '@luvi/lv-markdown-in'
 import { ProviderIconSmall } from './ProviderIcon'
 import { getAppUiState, observeAppUiState } from '../state/AppUiState'
 import { buildIconResourcePath, getModelIconPath, isNetworkIconPath, isSandboxIconPath } from '../utils/ProviderIconUtils'
+import {
+  createButtonTouchHandler,
+  getButtonAnimation,
+  getButtonScale
+} from '../utils/ButtonAnimationUtils'
 
 export const CHAT_NAVIGATION_TITLE_STACK_BUILDER_HEIGHT = 56
+const CHAT_NAVIGATION_ACTION_BUTTON_SIZE = 28
 
 @ComponentV2
 export struct ChatNavigationTitleContent {
@@ -21,16 +27,21 @@ export struct ChatNavigationTitleContent {
   @Param isTitleGenerating: boolean = false
   @Param titleGenerateFailed: boolean = false
   @Param editRequestVersion: number = 0
-  @Param leftSafeInset: number = 48
-  @Param rightSafeInset: number = 48
-  @Param editLeftSafeInset: number = 60
-  @Param editRightSafeInset: number = 60
+  @Param leftActionLaneWidth: number = 44
+  @Param rightActionLaneWidth: number = 44
+  @Param showNewChatAction: boolean = false
 
+  @Event onBack: () => void = () => {}
   @Event onModelSelect: () => void = () => {}
+  @Event onNewChat: () => void = () => {}
+  @Event onMore: () => void = () => {}
   @Event onRegenerateTitle: () => void = () => {}
   @Event onWillEditTitle: () => void = () => {}
   @Event onTitleChanged: (newTitle: string) => void = (_newTitle: string): void => {}
 
+  @Local private backBtnPressed: boolean = false
+  @Local private newChatBtnPressed: boolean = false
+  @Local private moreBtnPressed: boolean = false
   @Local private isEditingTitle: boolean = false
   @Local private editingTitleInput: string = ''
   private readonly titleInputFocusId: string = 'chat_navigation_title_input'
@@ -86,6 +97,10 @@ export struct ChatNavigationTitleContent {
 
   private getModelIdentityChevronColor(): string {
     return this.isDarkMode ? '#C7CDD5' : '#5A6573'
+  }
+
+  private getNavigationActionButtonBackgroundColor(): string {
+    return this.isDarkMode ? '#30FFFFFF' : '#D9FFFFFF'
   }
 
   private hasCurrentModelIdentity(): boolean {
@@ -219,8 +234,79 @@ export struct ChatNavigationTitleContent {
     }
   }
 
+  @Builder
+  private BackButtonBuilder() {
+    Button({ type: ButtonType.Circle }) {
+      SymbolGlyph($r('sys.symbol.chevron_left'))
+        .fontSize(14)
+        .fontColor([$r('app.color.text_primary')])
+    }
+    .width(CHAT_NAVIGATION_ACTION_BUTTON_SIZE)
+    .height(CHAT_NAVIGATION_ACTION_BUTTON_SIZE)
+    .backgroundBlurStyle(BlurStyle.COMPONENT_REGULAR)
+    .backgroundColor(this.getNavigationActionButtonBackgroundColor())
+    .scale(getButtonScale(this.backBtnPressed))
+    .animation(getButtonAnimation())
+    .onTouch(createButtonTouchHandler((pressed: boolean): void => {
+      this.backBtnPressed = pressed
+    }))
+    .onClick(() => {
+      this.onBack()
+    })
+  }
+
+  @Builder
+  private NewChatButtonBuilder() {
+    Button({ type: ButtonType.Circle }) {
+      SymbolGlyph($r('sys.symbol.plus'))
+        .fontSize(14)
+        .fontColor([$r('app.color.text_primary')])
+    }
+    .width(CHAT_NAVIGATION_ACTION_BUTTON_SIZE)
+    .height(CHAT_NAVIGATION_ACTION_BUTTON_SIZE)
+    .backgroundBlurStyle(BlurStyle.COMPONENT_REGULAR)
+    .backgroundColor(this.getNavigationActionButtonBackgroundColor())
+    .scale(getButtonScale(this.newChatBtnPressed))
+    .animation(getButtonAnimation())
+    .onTouch(createButtonTouchHandler((pressed: boolean): void => {
+      this.newChatBtnPressed = pressed
+    }))
+    .onClick(() => {
+      this.onNewChat()
+    })
+  }
+
+  @Builder
+  private MoreButtonBuilder() {
+    Button({ type: ButtonType.Circle }) {
+      SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
+        .fontSize(13)
+        .fontColor([$r('app.color.text_primary')])
+    }
+    .width(CHAT_NAVIGATION_ACTION_BUTTON_SIZE)
+    .height(CHAT_NAVIGATION_ACTION_BUTTON_SIZE)
+    .backgroundBlurStyle(BlurStyle.COMPONENT_REGULAR)
+    .backgroundColor(this.getNavigationActionButtonBackgroundColor())
+    .scale(getButtonScale(this.moreBtnPressed))
+    .animation(getButtonAnimation())
+    .onTouch(createButtonTouchHandler((pressed: boolean): void => {
+      this.moreBtnPressed = pressed
+    }))
+    .onClick(() => {
+      this.onMore()
+    })
+  }
+
   build() {
-    Column() {
+    Row() {
+      Row() {
+        this.BackButtonBuilder()
+      }
+      .width(this.leftActionLaneWidth)
+      .height(CHAT_NAVIGATION_TITLE_STACK_BUILDER_HEIGHT)
+      .justifyContent(FlexAlign.Start)
+      .alignItems(VerticalAlign.Center)
+
       Column() {
         if (this.isEditingTitle) {
           TextInput({ text: this.editingTitleInput, placeholder: $r('app.string.chat_title_input_placeholder') })
@@ -233,9 +319,8 @@ export struct ChatNavigationTitleContent {
             .backgroundColor(Color.Transparent)
             .border({ width: { bottom: 1 }, color: this.themePrimary })
             .maxLength(50)
-            .height(34)
+            .height(36)
             .width('100%')
-            .margin({ left: 4, right: 4 })
             .onChange((value: string) => {
               this.editingTitleInput = value
             })
@@ -327,24 +412,31 @@ export struct ChatNavigationTitleContent {
           .alignItems(VerticalAlign.Center)
         }
       }
-      .width('100%')
+      .layoutWeight(1)
+      .height(CHAT_NAVIGATION_TITLE_STACK_BUILDER_HEIGHT)
       .padding({
-        left: this.isEditingTitle ? 12 : 10,
-        right: this.isEditingTitle ? 12 : 10,
-        top: this.isEditingTitle ? 5 : 4,
-        bottom: this.isEditingTitle ? 7 : 6
+        left: this.isEditingTitle ? 8 : 6,
+        right: this.isEditingTitle ? 8 : 6,
+        top: this.isEditingTitle ? 4 : 2,
+        bottom: this.isEditingTitle ? 4 : 2
       })
+      .justifyContent(FlexAlign.Center)
+      .backgroundColor(Color.Transparent)
+
+      Row({ space: 6 }) {
+        if (this.showNewChatAction) {
+          this.NewChatButtonBuilder()
+        }
+        this.MoreButtonBuilder()
+      }
+      .width(this.rightActionLaneWidth)
+      .height(CHAT_NAVIGATION_TITLE_STACK_BUILDER_HEIGHT)
+      .justifyContent(FlexAlign.End)
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
     .height(CHAT_NAVIGATION_TITLE_STACK_BUILDER_HEIGHT)
-    .padding({
-      left: this.isEditingTitle ? this.editLeftSafeInset : this.leftSafeInset,
-      right: this.isEditingTitle ? this.editRightSafeInset : this.rightSafeInset,
-      top: this.isEditingTitle ? 3 : 1,
-      bottom: this.isEditingTitle ? 7 : 5
-    })
-    .justifyContent(FlexAlign.Start)
+    .padding({ left: 12, right: 12 })
     .backgroundColor(Color.Transparent)
-    .hitTestBehavior(HitTestMode.Transparent)
   }
 }

@@ -4,10 +4,7 @@ import {
   BlurStrategy,
   HdsNavDestination,
   HdsNavDestinationTitleMode,
-  HdsNavigationMenuContentOptions,
-  HdsNavigationMenuItemOptions,
   HdsNavigationTitleBarOptions,
-  IconStyleMode,
   ScrollEffectType,
   hdsMaterial
 } from '@kit.UIDesignKit'
@@ -105,12 +102,9 @@ class EditedMessageToolContext {
 }
 
 const HDS_NAV_DESTINATION_MINI_TITLE_BAR_HEIGHT: number = 56
-const HDS_NAV_TITLE_CONTENT_LEFT_SAFE_INSET: number = 52
-const HDS_NAV_TITLE_CONTENT_RIGHT_SAFE_INSET_SINGLE: number = 52
-const HDS_NAV_TITLE_CONTENT_RIGHT_SAFE_INSET_DOUBLE: number = 96
-const HDS_NAV_TITLE_CONTENT_EDIT_LEFT_SAFE_INSET: number = 64
-const HDS_NAV_TITLE_CONTENT_EDIT_RIGHT_SAFE_INSET_SINGLE: number = 64
-const HDS_NAV_TITLE_CONTENT_EDIT_RIGHT_SAFE_INSET_DOUBLE: number = 108
+const HDS_NAV_TITLE_LEFT_ACTION_LANE_WIDTH: number = 44
+const HDS_NAV_TITLE_RIGHT_ACTION_LANE_WIDTH_SINGLE: number = 44
+const HDS_NAV_TITLE_RIGHT_ACTION_LANE_WIDTH_DOUBLE: number = 80
 
 @ComponentV2
 export struct ChatPage {
@@ -1741,16 +1735,22 @@ export struct ChatPage {
     return HDS_NAV_DESTINATION_MINI_TITLE_BAR_HEIGHT + this.getPageTopAvoidHeight()
   }
 
-  private getTitleContentRightSafeInset(): number {
+  private getTitleRightActionLaneWidth(): number {
     return this.shouldShowTitleBarNewChatAction() ?
-      HDS_NAV_TITLE_CONTENT_RIGHT_SAFE_INSET_DOUBLE :
-      HDS_NAV_TITLE_CONTENT_RIGHT_SAFE_INSET_SINGLE
+      HDS_NAV_TITLE_RIGHT_ACTION_LANE_WIDTH_DOUBLE :
+      HDS_NAV_TITLE_RIGHT_ACTION_LANE_WIDTH_SINGLE
   }
 
-  private getTitleContentEditRightSafeInset(): number {
-    return this.shouldShowTitleBarNewChatAction() ?
-      HDS_NAV_TITLE_CONTENT_EDIT_RIGHT_SAFE_INSET_DOUBLE :
-      HDS_NAV_TITLE_CONTENT_EDIT_RIGHT_SAFE_INSET_SINGLE
+  private getStatusBarContentColor(): string {
+    return this.isDarkMode ? '#F5F7FA' : '#1F2329'
+  }
+
+  private getTitleBarMaskExtraHeight(): number {
+    const visibleTopAvoidHeight = this.getPageTopAvoidHeight()
+    if (visibleTopAvoidHeight > 0) {
+      return visibleTopAvoidHeight
+    }
+    return 24
   }
 
   private isExistingSessionSeeded(): boolean {
@@ -1768,87 +1768,28 @@ export struct ChatPage {
     return !this.isNewChatTransition && this.sessionId.trim() !== ''
   }
 
-  private getTitleBarMenuOptions(): HdsNavigationMenuContentOptions {
-    const items = new Array<HdsNavigationMenuItemOptions>()
-    if (this.shouldShowTitleBarNewChatAction()) {
-      items.push({
-        content: {
-          label: $r('app.string.new_chat'),
-          icon: $r('sys.symbol.plus'),
-          type: IconStyleMode.SMALL,
-          action: (): void => {
-            void this.handleNewChat()
-          }
-        }
-      })
-    }
-    items.push({
-      content: {
-        label: $r('app.string.action_more'),
-        icon: $r('sys.symbol.dot_grid_2x2'),
-        type: IconStyleMode.SMALL,
-        action: (): void => {
-          this.showTitleActionSheet = true
-        }
-      }
-    })
-    return {
-      value: items,
-      maxCount: 2
-    }
-  }
-
   private getTitleBarOptions(): HdsNavigationTitleBarOptions {
     return {
       padding: {
-        start: LengthMetrics.vp(8),
-        end: LengthMetrics.vp(8)
+        start: LengthMetrics.vp(16),
+        end: LengthMetrics.vp(16)
       },
       content: {
         title: {
           mainTitle: ' '
         },
-        stackBuilder: (): void => this.ChatTitleStackBuilder(),
-        backIcon: {
-          label: $r('app.string.action_back'),
-          icon: $r('sys.symbol.chevron_left'),
-          type: IconStyleMode.SMALL,
-          isEnabled: true
-        },
-        menu: this.getTitleBarMenuOptions()
+        stackBuilder: (): void => this.ChatTitleStackBuilder()
       },
       style: {
         scrollEffectOpts: {
-          enableScrollEffect: true,
+          enableScrollEffect: false,
           scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
           blurEffectiveStartOffset: LengthMetrics.vp(0),
-          blurEffectiveEndOffset: LengthMetrics.vp(40)
-        },
-        originalStyle: {
-          backgroundStyle: {
-            backgroundColor: $r('sys.color.ohos_id_color_background')
-          },
-          contentStyle: {
-            menuStyle: {
-              backgroundColor: $r('sys.color.comp_background_tertiary')
-            },
-            backIconStyle: {
-              backgroundColor: $r('sys.color.comp_background_tertiary')
-            }
-          }
+          blurEffectiveEndOffset: LengthMetrics.vp(8)
         },
         scrollEffectStyle: {
           backgroundStyle: {
-            backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
-            maskExtraHeight: 180
-          },
-          contentStyle: {
-            menuStyle: {
-              backgroundColor: Color.Transparent
-            },
-            backIconStyle: {
-              backgroundColor: Color.Transparent
-            }
+            maskExtraHeight: this.getTitleBarMaskExtraHeight()
           }
         },
         blurStrategy: BlurStrategy.ENABLE,
@@ -1879,14 +1820,22 @@ export struct ChatPage {
       isTitleGenerating: this.isTitleGenerating,
       titleGenerateFailed: this.titleGenerateFailed,
       editRequestVersion: this.titleEditRequestVersion,
-      leftSafeInset: HDS_NAV_TITLE_CONTENT_LEFT_SAFE_INSET,
-      rightSafeInset: this.getTitleContentRightSafeInset(),
-      editLeftSafeInset: HDS_NAV_TITLE_CONTENT_EDIT_LEFT_SAFE_INSET,
-      editRightSafeInset: this.getTitleContentEditRightSafeInset(),
+      showNewChatAction: this.shouldShowTitleBarNewChatAction(),
+      leftActionLaneWidth: HDS_NAV_TITLE_LEFT_ACTION_LANE_WIDTH,
+      rightActionLaneWidth: this.getTitleRightActionLaneWidth(),
+      onBack: (): void => {
+        this.handleBack()
+      },
       onModelSelect: (): void => {
         this.safeStopInputSession()
         this.isModelSelectorVisible = true
         this.modelSheetActivePanel = 'selector'
+      },
+      onNewChat: (): void => {
+        void this.handleNewChat()
+      },
+      onMore: (): void => {
+        this.showTitleActionSheet = true
       },
       onRegenerateTitle: (): void => {
         void this.handleRegenerateTitle()
@@ -2349,7 +2298,11 @@ export struct ChatPage {
     .titleBar(this.getTitleBarOptions())
     .bindToScrollable([this.scroller])
     .titleMode(HdsNavDestinationTitleMode.MINI)
-    .hideBackButton(false)
+    .systemBarStyle(
+      { statusBarContentColor: this.getStatusBarContentColor() },
+      { statusBarContentColor: this.getStatusBarContentColor() }
+    )
+    .hideBackButton(true)
     .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
     .backgroundColor($r('app.color.background'))
     .onReady((context: NavDestinationContext) => {
