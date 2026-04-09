@@ -6,21 +6,26 @@ struct NewChatCard {
   @LocalStorageProp('title') title: string = '新对话';
   @LocalStorageProp('subtitle') subtitle: string = '点击开始聊天';
   @LocalStorageProp('themePrimary') themePrimary: string = '#0A59F7';
-  @LocalStorageProp('surfaceColor') surfaceColor: string = '#FFFFFF';
   @LocalStorageProp('textPrimary') textPrimary: string = '#191919';
+  @LocalStorageProp('textColor') textColor: string = '';
+  @LocalStorageProp('glassBgColor') glassBgColor: string = 'rgba(255,255,255,0.55)';
+  @LocalStorageProp('shadowColor') shadowColor: string = 'rgba(0,0,0,0.1)';
+  @LocalStorageProp('borderColor') glassBorderColor: string = 'rgba(0,0,0,0.06)';
+
+  private getEffectiveTextColor(): string {
+    return this.textColor || this.textPrimary;
+  }
 
   build() {
-    Column() {
+    Row() {
       Row() {
-        // 左侧文字区域
         Text('开始对话')
           .fontSize(14)
           .fontWeight(FontWeight.Medium)
-          .fontColor(this.textPrimary)
+          .fontColor(this.getEffectiveTextColor())
           .layoutWeight(1)
           .textAlign(TextAlign.Start)
 
-        // 右侧加号图标（参考电话卡片样式：白色图标 + 主题色实心背景）
         Row() {
           SymbolGlyph($r('sys.symbol.plus'))
             .fontSize(18)
@@ -39,9 +44,17 @@ struct NewChatCard {
     }
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .backgroundColor(this.surfaceColor)
     .clip(true)
+    .backgroundBlurStyle(BlurStyle.Regular)
+    .backgroundColor(this.glassBgColor)
+    .borderRadius(16)
+    .border({ width: 0.75, color: this.glassBorderColor })
+    .shadow({
+      radius: 14,
+      color: this.shadowColor,
+      offsetX: 0,
+      offsetY: 3
+    })
     .onClick(() => {
       postCardAction(this, {
         action: 'router',

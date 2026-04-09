@@ -9,6 +9,8 @@ import { getPreferencesService, PreferenceKeys, ThemeMode } from '../services/Pr
 const FORM_IDS_PREF_KEY = 'entry_form_ids_json'
 const PREFERENCES_NAME = 'chatbox_preferences'
 const DEFAULT_THEME_PRIMARY = '#0A59F7'
+const LIGHT_FORM_TEXT_COLOR = '#191919'
+const DARK_FORM_TEXT_COLOR = '#F5F5F7'
 
 class NewChatFormData {
   title: string = '新对话'
@@ -16,6 +18,10 @@ class NewChatFormData {
   themePrimary: string = DEFAULT_THEME_PRIMARY
   surfaceColor: string = '#FFFFFF'
   textPrimary: string = '#191919'
+  textColor: string = ''
+  glassBgColor: string = 'rgba(255,255,255,0.55)'
+  shadowColor: string = 'rgba(0,0,0,0.1)'
+  borderColor: string = 'rgba(255,255,255,0.2)'
 }
 
 function parseStoredFormIds(rawValue: string): string[] {
@@ -59,11 +65,25 @@ export function readFormIdFromWant(want: Want): string {
   return formId ?? ''
 }
 
-export function createNewChatFormBindingData(colors: ThemeColorConfig): formBindingData.FormBindingData {
+export function createNewChatFormBindingData(colors: ThemeColorConfig, isSystemDarkMode?: boolean): formBindingData.FormBindingData {
   const formData = new NewChatFormData()
   formData.themePrimary = colors.primary
   formData.surfaceColor = colors.surface
   formData.textPrimary = colors.textPrimary
+  // 玻璃色跟随系统深浅色，不跟随应用主题
+  if (isSystemDarkMode === true) {
+    formData.textColor = DARK_FORM_TEXT_COLOR
+    // 深色模式提高青色占比并略提不透明度，避免发灰。
+    formData.glassBgColor = 'rgba(46,77,81,0.80)'
+    formData.shadowColor = 'rgba(0,0,0,0.10)'
+    formData.borderColor = 'rgba(226,242,244,0.14)'
+  } else {
+    formData.textColor = LIGHT_FORM_TEXT_COLOR
+    // 浅色模式向运动健康的浅青玻璃靠近，同时避免纯白发飘。
+    formData.glassBgColor = 'rgba(224,243,245,0.52)'
+    formData.shadowColor = 'rgba(40,66,79,0.06)'
+    formData.borderColor = 'rgba(255,255,255,0.78)'
+  }
   return formBindingData.createFormBindingData(formData)
 }
 
@@ -113,24 +133,25 @@ export async function loadWidgetThemeColors(context: Context): Promise<ThemeColo
   return getThemeColors(themeId as ColorTheme, isDarkMode)
 }
 
-export async function refreshThemeAwareForm(formId: string, colors: ThemeColorConfig): Promise<void> {
+export async function refreshThemeAwareForm(formId: string, colors: ThemeColorConfig, isSystemDarkMode?: boolean): Promise<void> {
   if (formId === '') {
     return
   }
-  await formProvider.updateForm(formId, createNewChatFormBindingData(colors))
+  await formProvider.updateForm(formId, createNewChatFormBindingData(colors, isSystemDarkMode))
 }
 
 export async function refreshThemeAwareFormWithStoredTheme(context: Context, formId: string): Promise<void> {
   const colors = await loadWidgetThemeColors(context)
-  await refreshThemeAwareForm(formId, colors)
+  const isSystemDarkMode = context.resourceManager.getConfigurationSync().colorMode === resourceManager.ColorMode.DARK
+  await refreshThemeAwareForm(formId, colors, isSystemDarkMode)
 }
 
-export async function refreshAllThemeAwareForms(colors: ThemeColorConfig): Promise<void> {
+export async function refreshAllThemeAwareForms(colors: ThemeColorConfig, isSystemDarkMode?: boolean): Promise<void> {
   const rawValue = await getPreferencesService().getString(FORM_IDS_PREF_KEY, '[]')
   const formIds = parseStoredFormIds(rawValue)
   for (let i = 0; i < formIds.length; i++) {
     try {
-      await refreshThemeAwareForm(formIds[i], colors)
+      await refreshThemeAwareForm(formIds[i], colors, isSystemDarkMode)
     } catch (error) {
       console.error('FormThemeSyncUtils', `Failed to refresh form ${formIds[i]}: ${JSON.stringify(error)}`)
     }

@@ -11,11 +11,13 @@
         "autoDesignWidth": true
       },
       "colorMode": "auto",
+      "isDynamic": true,
       "isDefault": true,
       "updateEnabled": true,
       "updateDuration": 1,
-      "supportDimensions": ["1*2"],
-      "defaultDimension": "1*2"
+      "transparencyEnabled": true,
+      "defaultDimension": "1*2",
+      "supportDimensions": ["1*2"]
     }
   ]
 }

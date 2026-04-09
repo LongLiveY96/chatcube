@@ -1,6 +1,7 @@
 import { formBindingData, FormExtensionAbility, formInfo } from '@kit.FormKit';
 import { Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import resourceManager from '@ohos.resourceManager';
 import {
   createNewChatFormBindingData,
   readFormIdFromWant,
@@ -16,14 +17,15 @@ export default class EntryFormAbility extends FormExtensionAbility {
   onAddForm(want: Want): formBindingData.FormBindingData {
     hilog.info(DOMAIN, 'EntryFormAbility', 'onAddForm called');
     void this.registerAndRefreshForm(want);
-    return createNewChatFormBindingData(getThemeColors(ColorTheme.DEFAULT, false));
+    const darkMode = this.isSystemDarkMode()
+    return createNewChatFormBindingData(getThemeColors(ColorTheme.DEFAULT, darkMode), darkMode);
   }
 
   onCastToNormalForm(formId: string): void {
     hilog.info(DOMAIN, 'EntryFormAbility', 'onCastToNormalForm: %{public}s', formId);
   }
 
-  onUpdateForm(formId: string): void {
+  onUpdateForm(formId: string, _wantParams?: Record<string, Object>): void {
     hilog.info(DOMAIN, 'EntryFormAbility', 'onUpdateForm: %{public}s', formId);
     void this.refreshRegisteredForm(formId);
   }
@@ -39,9 +41,18 @@ export default class EntryFormAbility extends FormExtensionAbility {
     });
   }
 
-  onAcquireFormState(want: Want): formInfo.FormState {
+  onAcquireFormState(_want: Want): formInfo.FormState {
     hilog.info(DOMAIN, 'EntryFormAbility', 'onAcquireFormState called');
     return formInfo.FormState.READY;
+  }
+
+  private isSystemDarkMode(): boolean {
+    try {
+      const config = this.context.resourceManager.getConfigurationSync()
+      return config.colorMode === resourceManager.ColorMode.DARK
+    } catch (_) {
+      return false
+    }
   }
 
   private async registerAndRefreshForm(want: Want): Promise<void> {
