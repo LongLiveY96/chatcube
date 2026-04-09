@@ -1746,11 +1746,7 @@ export struct ChatPage {
   }
 
   private getTitleBarMaskExtraHeight(): number {
-    const visibleTopAvoidHeight = this.getPageTopAvoidHeight()
-    if (visibleTopAvoidHeight > 0) {
-      return visibleTopAvoidHeight
-    }
-    return 24
+    return 32
   }
 
   private isExistingSessionSeeded(): boolean {
@@ -1786,6 +1782,11 @@ export struct ChatPage {
           scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
           blurEffectiveStartOffset: LengthMetrics.vp(0),
           blurEffectiveEndOffset: LengthMetrics.vp(8)
+        },
+        originalStyle: {
+          backgroundStyle: {
+            maskExtraHeight: this.getTitleBarMaskExtraHeight()
+          }
         },
         scrollEffectStyle: {
           backgroundStyle: {

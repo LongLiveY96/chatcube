@@ -48,6 +48,10 @@ export struct ChatInputAreaSection {
     return this.contentMaxWidth > 0 ? this.contentMaxWidth : 99999
   }
 
+  private getBottomSpacerHeight(): number {
+    return this.bottomAvoidHeight + 4
+  }
+
   build() {
     Column() {
       Column() {
@@ -135,7 +139,7 @@ export struct ChatInputAreaSection {
 
         Column()
           .width('100%')
-          .height(this.bottomAvoidHeight)
+          .height(this.getBottomSpacerHeight())
       }
       .width('100%')
       .constraintSize({ maxWidth: this.getEffectiveContentMaxWidth() })

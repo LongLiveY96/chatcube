@@ -437,6 +437,7 @@ export struct ChatNavigationTitleContent {
     .width('100%')
     .height(CHAT_NAVIGATION_TITLE_STACK_BUILDER_HEIGHT)
     .padding({ left: 12, right: 12 })
+    .translate({ y: -2 })
     .backgroundColor(Color.Transparent)
   }
 }
