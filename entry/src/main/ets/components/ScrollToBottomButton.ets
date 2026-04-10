@@ -35,6 +35,22 @@ export struct ScrollToBottomButton {
     return getAppUiState().themePrimary
   }
 
+  private get isDark(): boolean {
+    return getAppUiState().isDarkMode
+  }
+
+  private get materialBg(): string {
+    return this.isDark ? 'rgba(30, 30, 30, 0.72)' : 'rgba(255, 255, 255, 0.72)'
+  }
+
+  private get materialBorder(): string {
+    return this.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'
+  }
+
+  private get materialShadowColor(): string {
+    return this.isDark ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.12)'
+  }
+
   private get ringTrackColor(): string {
     return '#00000000'
   }
@@ -77,10 +93,15 @@ export struct ScrollToBottomButton {
       }
       .width(40)
       .height(40)
-      .backgroundColor($r('app.color.surface'))
+      .backgroundColor(this.materialBg)
+      .backgroundBlurStyle(BlurStyle.COMPONENT_REGULAR)
+      .border({
+        width: 0.5,
+        color: this.materialBorder
+      })
       .shadow({
         radius: this.scrollBtnPressed ? 16 : 8,
-        color: this.scrollBtnPressed ? this.themePrimary + '33' : 'rgba(0, 0, 0, 0.15)',
+        color: this.scrollBtnPressed ? this.themePrimary + '33' : this.materialShadowColor,
         offsetX: 0,
         offsetY: this.scrollBtnPressed ? 4 : 2
       })

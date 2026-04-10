@@ -154,14 +154,14 @@ export struct ChatNavigationBar {
             Stack({ alignContent: Alignment.TopEnd }) {
               Button({ type: ButtonType.Circle }) {
                 SymbolGlyph($r('sys.symbol.chevron_left'))
-                  .fontSize(17)
+                  .fontSize(20)
                   .fontColor([$r('app.color.text_primary')])
               }
-              .width(30)
-              .height(30)
+              .width(36)
+              .height(36)
               .backgroundColor($r('sys.color.comp_background_tertiary'))
               .shadow({
-                radius: this.backBtnPressed ? 8 : 0,
+                radius: this.backBtnPressed ? 10 : 0,
                 color: 'rgba(0, 0, 0, 0.1)',
                 offsetX: 0,
                 offsetY: this.backBtnPressed ? 2 : 0
@@ -175,8 +175,8 @@ export struct ChatNavigationBar {
                 this.onBack()
               })
             }
-            .width(34)
-            .height(30)
+            .width(40)
+            .height(36)
 
             // 标题区域 - 点击可切换模型，长按编辑标题
             Row() {
@@ -319,13 +319,13 @@ export struct ChatNavigationBar {
             if (this.hasMessages) {
               Button({ type: ButtonType.Circle }) {
                 SymbolGlyph($r('sys.symbol.plus'))
-                  .fontSize(15)
+                  .fontSize(18)
                   .fontColor([$r('app.color.text_primary')])
               }
-              .width(30)
-              .height(30)
+              .width(36)
+              .height(36)
               .backgroundColor($r('sys.color.comp_background_tertiary'))
-              .margin({ left: 4 })
+              .margin({ left: 6 })
               .scale(getButtonScale(this.newChatBtnPressed))
               .animation(getButtonAnimation())
               .onTouch(createButtonTouchHandler((pressed: boolean) => {
@@ -338,13 +338,13 @@ export struct ChatNavigationBar {
 
             Button({ type: ButtonType.Circle }) {
               SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
-                .fontSize(15)
+                .fontSize(18)
                 .fontColor([$r('app.color.text_primary')])
             }
-            .width(30)
-            .height(30)
+            .width(36)
+            .height(36)
             .backgroundColor($r('sys.color.comp_background_tertiary'))
-            .margin({ left: 4 })
+            .margin({ left: 6 })
             .scale(getButtonScale(this.moreBtnPressed))
             .animation(getButtonAnimation())
             .onTouch(createButtonTouchHandler((pressed: boolean) => {

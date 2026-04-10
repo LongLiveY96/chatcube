@@ -24,6 +24,18 @@ export struct ScrollToBottomLoadingButton {
     return getAppUiState().themePrimary
   }
 
+  private get isDark(): boolean {
+    return getAppUiState().isDarkMode
+  }
+
+  private get materialBg(): string {
+    return this.isDark ? 'rgba(30, 30, 30, 0.72)' : 'rgba(255, 255, 255, 0.72)'
+  }
+
+  private get materialBorder(): string {
+    return this.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'
+  }
+
   aboutToAppear(): void {
     if (this.isVisible) {
       this.startLoadingRotation()
@@ -81,8 +93,13 @@ export struct ScrollToBottomLoadingButton {
         }
         .width(40)
         .height(40)
-        .backgroundColor($r('app.color.surface'))
-        .shadow({ radius: 8, color: 'rgba(0,0,0,0.15)', offsetX: 0, offsetY: 2 })
+        .backgroundColor(this.materialBg)
+        .backgroundBlurStyle(BlurStyle.COMPONENT_REGULAR)
+        .border({
+          width: 0.5,
+          color: this.materialBorder
+        })
+        .shadow({ radius: 8, color: this.isDark ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.12)', offsetX: 0, offsetY: 2 })
         .scale(getButtonScale(this.btnPressed))
         .animation(getButtonAnimation())
         .onTouch(createButtonTouchHandler((pressed: boolean) => {
