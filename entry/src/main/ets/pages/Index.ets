@@ -128,6 +128,9 @@ struct Index {
     return `${this.currentColorTheme}_${uiState.isDarkMode ? '1' : '0'}`
   }
   @Local chatFontSize: number = 15
+  @Local materialType: number = 100
+  @Local materialLevel: number = 10
+  @Local lightColorMode: string = 'default'
   // 监听从服务卡片打开新聊天的事件
   private get openNewChatTimestamp(): number {
     return getAppUiState().openNewChatTimestamp
@@ -609,6 +612,12 @@ struct Index {
       onChatFontSizeChanged: (size: number): void => {
         this.chatFontSize = size
         this.syncSettingsSummaryToStorage()
+      },
+      onMaterialSettingsChanged: (materialType: number, materialLevel: number, lightColorMode: string): void => {
+        this.materialType = materialType
+        this.materialLevel = materialLevel
+        this.lightColorMode = lightColorMode
+        this.syncSettingsSummaryToStorage()
       }
     }
     this.settingsManager.registerCallback(this.settingsCallback)
@@ -624,6 +633,9 @@ struct Index {
     this.notifyOnComplete = this.settingsManager.getNotifyOnCompleteEnabled()
     this.notifyOnFailed = this.settingsManager.getNotifyOnFailedEnabled()
     this.chatFontSize = this.settingsManager.getChatFontSize()
+    this.materialType = this.settingsManager.getMaterialType()
+    this.materialLevel = this.settingsManager.getMaterialLevel()
+    this.lightColorMode = this.settingsManager.getLightColorMode()
     await this.loadHandAdaptiveSettings()
     this.syncSettingsSummaryToStorage()
   }
@@ -636,6 +648,9 @@ struct Index {
     this.notifyOnComplete = this.settingsManager.getNotifyOnCompleteEnabled()
     this.notifyOnFailed = this.settingsManager.getNotifyOnFailedEnabled()
     this.chatFontSize = this.settingsManager.getChatFontSize()
+    this.materialType = this.settingsManager.getMaterialType()
+    this.materialLevel = this.settingsManager.getMaterialLevel()
+    this.lightColorMode = this.settingsManager.getLightColorMode()
     this.syncSettingsSummaryToStorage()
   }
 
@@ -650,6 +665,9 @@ struct Index {
     AppStorage.setOrCreate(AppStorageKeys.SETTING_HAND_ADAPTIVE_NEW_CHAT, this.handAdaptiveNewChat)
     AppStorage.setOrCreate(AppStorageKeys.SETTING_HAND_ADAPTIVE_UNSUPPORTED, this.handAdaptiveUnsupported)
     setAppUiStateValue(AppStorageKeys.CHAT_FONT_SIZE, this.chatFontSize)
+    setAppUiStateValue(AppStorageKeys.MATERIAL_TYPE, this.materialType)
+    setAppUiStateValue(AppStorageKeys.MATERIAL_LEVEL, this.materialLevel)
+    setAppUiStateValue(AppStorageKeys.LIGHT_COLOR_MODE, this.lightColorMode)
   }
 
   private async loadHandAdaptiveSettings(): Promise<void> {
@@ -1284,9 +1302,10 @@ struct Index {
       barSideMargin: Index.COMPACT_TABS_FLOATING_SIDE_MARGIN,
       barBottomMargin: this.getCompactTabsFloatingBottomMargin(),
       systemMaterialEffect: {
-        materialType: hdsMaterial.MaterialType.ADAPTIVE,
-        materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-      }
+        materialType: this.materialType as hdsMaterial.MaterialType,
+        materialLevel: this.materialLevel as hdsMaterial.MaterialLevel
+      },
+      lightColor: this.lightColorMode === 'theme' ? this.themePrimary : undefined
     }
   }
 

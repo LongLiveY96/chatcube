@@ -1567,6 +1567,66 @@
     {
       "name": "provider_model_id_duplicate",
       "value": "Model ID already exists"
+    },
+    {
+      "name": "material_effect_title",
+      "value": "Material Effect"
+    },
+    {
+      "name": "material_effect_desc",
+      "value": "Control the blur and transparency style of tab bar and title bar"
+    },
+    {
+      "name": "material_type_none",
+      "value": "None"
+    },
+    {
+      "name": "material_type_adaptive",
+      "value": "Adaptive"
+    },
+    {
+      "name": "material_type_immersive",
+      "value": "Immersive"
+    },
+    {
+      "name": "material_level_title",
+      "value": "Material Level"
+    },
+    {
+      "name": "material_level_desc",
+      "value": "Adjust the intensity of the material effect"
+    },
+    {
+      "name": "material_level_exquisite",
+      "value": "Exquisite"
+    },
+    {
+      "name": "material_level_gentle",
+      "value": "Gentle"
+    },
+    {
+      "name": "material_level_smooth",
+      "value": "Smooth"
+    },
+    {
+      "name": "material_level_adaptive",
+      "value": "Adaptive"
+    },
+    {
+      "name": "light_color_mode_title",
+      "value": "Tab Light Effect"
+    },
+    {
+      "name": "light_color_mode_desc",
+      "value": "Set the light glow effect along the tab bar edge"
+    },
+    {
+      "name": "light_color_mode_default",
+      "value": "System Default"
+    },
+    {
+      "name": "light_color_mode_theme",
+      "value": "Follow Theme Color"
     }
   ]
 }

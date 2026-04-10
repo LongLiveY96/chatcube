@@ -53,4 +53,9 @@ export class AppStorageKeys {
 
   // 聊天字体大小
   static readonly CHAT_FONT_SIZE: string = 'chat_font_size'
+
+  // 材质效果
+  static readonly MATERIAL_TYPE: string = 'material_type'
+  static readonly MATERIAL_LEVEL: string = 'material_level'
+  static readonly LIGHT_COLOR_MODE: string = 'light_color_mode'
 }

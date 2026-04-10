@@ -73,6 +73,11 @@ export class PreferenceKeys {
 
   // 聊天字体大小
   static readonly CHAT_FONT_SIZE: string = 'chat_font_size'
+
+  // 材质效果
+  static readonly MATERIAL_TYPE: string = 'material_type'
+  static readonly MATERIAL_LEVEL: string = 'material_level'
+  static readonly LIGHT_COLOR_MODE: string = 'light_color_mode'
 }
 
 // 主题模式枚举
@@ -411,6 +416,36 @@ export class PreferencesService {
   // 设置聊天字体大小
   async setChatFontSize(size: number): Promise<void> {
     await this.setNumber(PreferenceKeys.CHAT_FONT_SIZE, size)
+  }
+
+  // 获取材质类型
+  async getMaterialType(): Promise<number> {
+    return await this.getNumber(PreferenceKeys.MATERIAL_TYPE, 100) // ADAPTIVE
+  }
+
+  // 设置材质类型
+  async setMaterialType(materialType: number): Promise<void> {
+    await this.setNumber(PreferenceKeys.MATERIAL_TYPE, materialType)
+  }
+
+  // 获取材质级别
+  async getMaterialLevel(): Promise<number> {
+    return await this.getNumber(PreferenceKeys.MATERIAL_LEVEL, 10) // ADAPTIVE
+  }
+
+  // 设置材质级别
+  async setMaterialLevel(materialLevel: number): Promise<void> {
+    await this.setNumber(PreferenceKeys.MATERIAL_LEVEL, materialLevel)
+  }
+
+  // 获取光效颜色模式
+  async getLightColorMode(): Promise<string> {
+    return await this.getString(PreferenceKeys.LIGHT_COLOR_MODE, 'default')
+  }
+
+  // 设置光效颜色模式
+  async setLightColorMode(mode: string): Promise<void> {
+    await this.setString(PreferenceKeys.LIGHT_COLOR_MODE, mode)
   }
 }
 

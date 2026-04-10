@@ -3,6 +3,7 @@ import { getPreferencesService, ThemeMode, AppLanguage } from '../services/Prefe
 import { ColorTheme, ThemeColorConfig } from '../models/ThemeColors'
 import { getThemeService } from '../services/ThemeService'
 import { setAppUiStateValue } from '../state/AppUiState'
+import { AppStorageKeys } from '../config/AppStorageKeys'
 
 // 设置变化回调接口
 export interface SettingsChangeCallback {
@@ -11,6 +12,7 @@ export interface SettingsChangeCallback {
   onColorThemeChanged?: (theme: ColorTheme, colors: ThemeColorConfig) => void
   onNotificationSettingsChanged?: (enabled: boolean, notifyOnComplete: boolean, notifyOnFailed: boolean) => void
   onChatFontSizeChanged?: (size: number) => void
+  onMaterialSettingsChanged?: (materialType: number, materialLevel: number, lightColorMode: string) => void
 }
 
 // 设置管理器 - 单例模式
@@ -22,6 +24,9 @@ export class SettingsManager {
   private notifyOnComplete: boolean = true
   private notifyOnFailed: boolean = true
   private chatFontSize: number = 15
+  private materialType: number = 100    // ADAPTIVE
+  private materialLevel: number = 10    // ADAPTIVE
+  private lightColorMode: string = 'default'
   private callbacks: SettingsChangeCallback[] = []
   private isInitialized: boolean = false
   private initPromise: Promise<void> | null = null
@@ -58,6 +63,9 @@ export class SettingsManager {
     this.notifyOnComplete = await preferencesService.getNotifyOnComplete()
     this.notifyOnFailed = await preferencesService.getNotifyOnFailed()
     this.chatFontSize = await preferencesService.getChatFontSize()
+    this.materialType = await preferencesService.getMaterialType()
+    this.materialLevel = await preferencesService.getMaterialLevel()
+    this.lightColorMode = await preferencesService.getLightColorMode()
     this.isInitialized = true
   }
 
@@ -70,6 +78,9 @@ export class SettingsManager {
     this.notifyOnComplete = await preferencesService.getNotifyOnComplete()
     this.notifyOnFailed = await preferencesService.getNotifyOnFailed()
     this.chatFontSize = await preferencesService.getChatFontSize()
+    this.materialType = await preferencesService.getMaterialType()
+    this.materialLevel = await preferencesService.getMaterialLevel()
+    this.lightColorMode = await preferencesService.getLightColorMode()
   }
 
   // 等待初始化完成
@@ -252,12 +263,68 @@ export class SettingsManager {
 
     this.chatFontSize = size
     await getPreferencesService().setChatFontSize(size)
-    setAppUiStateValue('chat_font_size', size)
+    setAppUiStateValue(AppStorageKeys.CHAT_FONT_SIZE, size)
 
     for (let i = 0; i < this.callbacks.length; i++) {
       const callback = this.callbacks[i]
       if (callback.onChatFontSizeChanged !== undefined) {
         callback.onChatFontSizeChanged(size)
+      }
+    }
+  }
+
+  // ========== 材质效果相关方法 ==========
+
+  getMaterialType(): number {
+    return this.materialType
+  }
+
+  getMaterialLevel(): number {
+    return this.materialLevel
+  }
+
+  getLightColorMode(): string {
+    return this.lightColorMode
+  }
+
+  async setMaterialType(materialType: number): Promise<void> {
+    if (this.materialType === materialType) {
+      return
+    }
+
+    this.materialType = materialType
+    await getPreferencesService().setMaterialType(materialType)
+    setAppUiStateValue(AppStorageKeys.MATERIAL_TYPE, materialType)
+    this.notifyMaterialSettingsChanged()
+  }
+
+  async setMaterialLevel(materialLevel: number): Promise<void> {
+    if (this.materialLevel === materialLevel) {
+      return
+    }
+
+    this.materialLevel = materialLevel
+    await getPreferencesService().setMaterialLevel(materialLevel)
+    setAppUiStateValue(AppStorageKeys.MATERIAL_LEVEL, materialLevel)
+    this.notifyMaterialSettingsChanged()
+  }
+
+  async setLightColorMode(mode: string): Promise<void> {
+    if (this.lightColorMode === mode) {
+      return
+    }
+
+    this.lightColorMode = mode
+    await getPreferencesService().setLightColorMode(mode)
+    setAppUiStateValue(AppStorageKeys.LIGHT_COLOR_MODE, mode)
+    this.notifyMaterialSettingsChanged()
+  }
+
+  private notifyMaterialSettingsChanged(): void {
+    for (let i = 0; i < this.callbacks.length; i++) {
+      const callback = this.callbacks[i]
+      if (callback.onMaterialSettingsChanged !== undefined) {
+        callback.onMaterialSettingsChanged(this.materialType, this.materialLevel, this.lightColorMode)
       }
     }
   }

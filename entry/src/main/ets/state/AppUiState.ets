@@ -48,6 +48,9 @@ export class AppUiState {
   @Trace themeMarkdownTableAltBg: string = '#FAFBFC'
   @Trace themeMarkdownTableBorder: string = '#E5E7EB'
   @Trace chatFontSize: number = 15
+  @Trace materialType: number = 100   // ADAPTIVE
+  @Trace materialLevel: number = 10   // ADAPTIVE
+  @Trace lightColorMode: string = 'default'
 }
 
 function readStorageValue<T>(key: string, fallback: T): T {
@@ -180,6 +183,15 @@ function applyAppUiStateValue<T extends string | number | boolean>(state: AppUiS
     case AppStorageKeys.CHAT_FONT_SIZE:
       state.chatFontSize = value as number
       return
+    case AppStorageKeys.MATERIAL_TYPE:
+      state.materialType = value as number
+      return
+    case AppStorageKeys.MATERIAL_LEVEL:
+      state.materialLevel = value as number
+      return
+    case AppStorageKeys.LIGHT_COLOR_MODE:
+      state.lightColorMode = value as string
+      return
     default:
       return
   }
@@ -260,6 +272,12 @@ function createAppUiStateFromStorage(): AppUiState {
   applyAppUiStateValue(state, AppStorageKeys.THEME_MARKDOWN_TABLE_BORDER,
     readStorageValue<string>(AppStorageKeys.THEME_MARKDOWN_TABLE_BORDER, state.themeMarkdownTableBorder))
   applyAppUiStateValue(state, AppStorageKeys.CHAT_FONT_SIZE, readStorageValue<number>(AppStorageKeys.CHAT_FONT_SIZE, 15))
+  applyAppUiStateValue(state, AppStorageKeys.MATERIAL_TYPE,
+    readStorageValue<number>(AppStorageKeys.MATERIAL_TYPE, 100))
+  applyAppUiStateValue(state, AppStorageKeys.MATERIAL_LEVEL,
+    readStorageValue<number>(AppStorageKeys.MATERIAL_LEVEL, 10))
+  applyAppUiStateValue(state, AppStorageKeys.LIGHT_COLOR_MODE,
+    readStorageValue<string>(AppStorageKeys.LIGHT_COLOR_MODE, 'default'))
   return state
 }
 
@@ -315,6 +333,9 @@ export function syncAppUiStateFromStorage(): void {
   state.themeMarkdownTableAltBg = freshState.themeMarkdownTableAltBg
   state.themeMarkdownTableBorder = freshState.themeMarkdownTableBorder
   state.chatFontSize = freshState.chatFontSize
+  state.materialType = freshState.materialType
+  state.materialLevel = freshState.materialLevel
+  state.lightColorMode = freshState.lightColorMode
 }
 
 export function applyThemeToAppUiState(themeId: string, colors: ThemeColorConfig): void {
@@ -425,6 +446,12 @@ function resolveAppUiStatePath(path: string): string {
       return 'themeMarkdownTableBorder'
     case AppStorageKeys.CHAT_FONT_SIZE:
       return 'chatFontSize'
+    case AppStorageKeys.MATERIAL_TYPE:
+      return 'materialType'
+    case AppStorageKeys.MATERIAL_LEVEL:
+      return 'materialLevel'
+    case AppStorageKeys.LIGHT_COLOR_MODE:
+      return 'lightColorMode'
     default:
       return path
   }

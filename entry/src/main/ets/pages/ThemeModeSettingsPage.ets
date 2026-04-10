@@ -46,6 +46,9 @@ export struct ThemeAppearanceSettingsView {
   @Local currentThemeMode: ThemeMode = ThemeMode.SYSTEM
   @Local currentColorTheme: ColorTheme = ColorTheme.DEFAULT
   @Local chatFontSize: number = 15
+  @Local materialType: number = 100
+  @Local materialLevel: number = 10
+  @Local lightColorMode: string = 'default'
 
   private settingsManager = ServiceRegistry.settings()
 
@@ -57,6 +60,9 @@ export struct ThemeAppearanceSettingsView {
     this.currentThemeMode = this.settingsManager.getThemeMode()
     this.currentColorTheme = this.settingsManager.getColorTheme()
     this.chatFontSize = this.settingsManager.getChatFontSize()
+    this.materialType = this.settingsManager.getMaterialType()
+    this.materialLevel = this.settingsManager.getMaterialLevel()
+    this.lightColorMode = this.settingsManager.getLightColorMode()
   }
 
   private getContentMaxWidth(): number {
@@ -190,6 +196,39 @@ export struct ThemeAppearanceSettingsView {
     })
   }
 
+  private async handleMaterialTypeSelected(type: number): Promise<void> {
+    const previous = this.materialType
+    this.materialType = type
+    try {
+      await this.settingsManager.setMaterialType(type)
+    } catch (error) {
+      console.error('ThemeAppearanceSettingsView', `Failed to set material type: ${JSON.stringify(error)}`)
+      this.materialType = previous
+    }
+  }
+
+  private async handleMaterialLevelSelected(level: number): Promise<void> {
+    const previous = this.materialLevel
+    this.materialLevel = level
+    try {
+      await this.settingsManager.setMaterialLevel(level)
+    } catch (error) {
+      console.error('ThemeAppearanceSettingsView', `Failed to set material level: ${JSON.stringify(error)}`)
+      this.materialLevel = previous
+    }
+  }
+
+  private async handleLightColorModeSelected(mode: string): Promise<void> {
+    const previous = this.lightColorMode
+    this.lightColorMode = mode
+    try {
+      await this.settingsManager.setLightColorMode(mode)
+    } catch (error) {
+      console.error('ThemeAppearanceSettingsView', `Failed to set light color mode: ${JSON.stringify(error)}`)
+      this.lightColorMode = previous
+    }
+  }
+
   @Builder
   private SectionHeader(title: Resource, subtitle: Resource) {
     Column({ space: 4 }) {
@@ -268,6 +307,114 @@ export struct ThemeAppearanceSettingsView {
     .borderRadius(24)
     .border({ width: 1, color: $r('app.color.divider') })
     .padding({ top: 6, bottom: 6 })
+  }
+
+  @Builder
+  private MaterialTypeRadioRow(type: number, title: Resource) {
+    Row({ space: 12 }) {
+      Column({ space: 2 }) {
+        Text(title)
+          .fontSize(15)
+          .fontWeight(FontWeight.Regular)
+          .fontColor($r('app.color.text_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Radio({ value: `${type}`, group: 'materialType' })
+        .checked(this.materialType === type)
+        .radioStyle({
+          checkedBackgroundColor: this.themePrimary,
+          indicatorColor: Color.White
+        })
+        .onChange((isChecked: boolean) => {
+          if (isChecked && this.materialType !== type) {
+            this.handleMaterialTypeSelected(type)
+          }
+        })
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor(Color.Transparent)
+    .onClick(() => {
+      if (this.materialType !== type) {
+        this.handleMaterialTypeSelected(type)
+      }
+    })
+  }
+
+  @Builder
+  private MaterialLevelRadioRow(level: number, title: Resource) {
+    Row({ space: 12 }) {
+      Column({ space: 2 }) {
+        Text(title)
+          .fontSize(15)
+          .fontWeight(FontWeight.Regular)
+          .fontColor($r('app.color.text_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Radio({ value: `${level}`, group: 'materialLevel' })
+        .checked(this.materialLevel === level)
+        .radioStyle({
+          checkedBackgroundColor: this.themePrimary,
+          indicatorColor: Color.White
+        })
+        .onChange((isChecked: boolean) => {
+          if (isChecked && this.materialLevel !== level) {
+            this.handleMaterialLevelSelected(level)
+          }
+        })
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor(Color.Transparent)
+    .onClick(() => {
+      if (this.materialLevel !== level) {
+        this.handleMaterialLevelSelected(level)
+      }
+    })
+  }
+
+  @Builder
+  private LightColorModeRadioRow(mode: string, title: Resource) {
+    Row({ space: 12 }) {
+      Column({ space: 2 }) {
+        Text(title)
+          .fontSize(15)
+          .fontWeight(FontWeight.Regular)
+          .fontColor($r('app.color.text_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Radio({ value: mode, group: 'lightColorMode' })
+        .checked(this.lightColorMode === mode)
+        .radioStyle({
+          checkedBackgroundColor: this.themePrimary,
+          indicatorColor: Color.White
+        })
+        .onChange((isChecked: boolean) => {
+          if (isChecked && this.lightColorMode !== mode) {
+            this.handleLightColorModeSelected(mode)
+          }
+        })
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor(Color.Transparent)
+    .onClick(() => {
+      if (this.lightColorMode !== mode) {
+        this.handleLightColorModeSelected(mode)
+      }
+    })
   }
 
   @Builder
@@ -517,6 +664,54 @@ export struct ThemeAppearanceSettingsView {
           .padding(18)
           .backgroundColor($r('app.color.surface'))
           .borderRadius(24)
+
+          this.SectionHeader($r('app.string.material_effect_title'),
+            $r('app.string.material_effect_desc'))
+
+          Column() {
+            this.MaterialTypeRadioRow(0, $r('app.string.material_type_none'))
+            Divider().color($r('app.color.divider')).margin({ left: 16, right: 16 })
+            this.MaterialTypeRadioRow(100, $r('app.string.material_type_adaptive'))
+            Divider().color($r('app.color.divider')).margin({ left: 16, right: 16 })
+            this.MaterialTypeRadioRow(101, $r('app.string.material_type_immersive'))
+          }
+          .width('100%')
+          .backgroundColor($r('app.color.surface'))
+          .borderRadius(24)
+          .border({ width: 1, color: $r('app.color.divider') })
+          .padding({ top: 6, bottom: 6 })
+
+          this.SectionHeader($r('app.string.material_level_title'),
+            $r('app.string.material_level_desc'))
+
+          Column() {
+            this.MaterialLevelRadioRow(0, $r('app.string.material_level_exquisite'))
+            Divider().color($r('app.color.divider')).margin({ left: 16, right: 16 })
+            this.MaterialLevelRadioRow(1, $r('app.string.material_level_gentle'))
+            Divider().color($r('app.color.divider')).margin({ left: 16, right: 16 })
+            this.MaterialLevelRadioRow(2, $r('app.string.material_level_smooth'))
+            Divider().color($r('app.color.divider')).margin({ left: 16, right: 16 })
+            this.MaterialLevelRadioRow(10, $r('app.string.material_level_adaptive'))
+          }
+          .width('100%')
+          .backgroundColor($r('app.color.surface'))
+          .borderRadius(24)
+          .border({ width: 1, color: $r('app.color.divider') })
+          .padding({ top: 6, bottom: 6 })
+
+          this.SectionHeader($r('app.string.light_color_mode_title'),
+            $r('app.string.light_color_mode_desc'))
+
+          Column() {
+            this.LightColorModeRadioRow('default', $r('app.string.light_color_mode_default'))
+            Divider().color($r('app.color.divider')).margin({ left: 16, right: 16 })
+            this.LightColorModeRadioRow('theme', $r('app.string.light_color_mode_theme'))
+          }
+          .width('100%')
+          .backgroundColor($r('app.color.surface'))
+          .borderRadius(24)
+          .border({ width: 1, color: $r('app.color.divider') })
+          .padding({ top: 6, bottom: 6 })
         }
         .width('100%')
         .constraintSize({ maxWidth: this.getContentMaxWidth() })

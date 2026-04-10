@@ -237,6 +237,12 @@ export struct ChatPage {
   private get chatFontSize(): number {
     return getAppUiState().chatFontSize
   }
+  private get materialType(): number {
+    return getAppUiState().materialType
+  }
+  private get materialLevel(): number {
+    return getAppUiState().materialLevel
+  }
   private get messageThemeRenderKey(): string {
     const uiState = getAppUiState()
     return `${uiState.colorTheme}_${uiState.isDarkMode ? '1' : '0'}`
@@ -1817,8 +1823,8 @@ export struct ChatPage {
         },
         blurStrategy: BlurStrategy.ENABLE,
         systemMaterialEffect: {
-          materialType: hdsMaterial.MaterialType.ADAPTIVE,
-          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+          materialType: this.materialType as hdsMaterial.MaterialType,
+          materialLevel: this.materialLevel as hdsMaterial.MaterialLevel
         }
       },
       avoidLayoutSafeArea: true,

@@ -1567,6 +1567,66 @@
     {
       "name": "provider_model_id_duplicate",
       "value": "该模型 ID 已存在"
+    },
+    {
+      "name": "material_effect_title",
+      "value": "材质效果"
+    },
+    {
+      "name": "material_effect_desc",
+      "value": "控制标签栏和标题栏的模糊透明样式"
+    },
+    {
+      "name": "material_type_none",
+      "value": "无"
+    },
+    {
+      "name": "material_type_adaptive",
+      "value": "自适应"
+    },
+    {
+      "name": "material_type_immersive",
+      "value": "沉浸"
+    },
+    {
+      "name": "material_level_title",
+      "value": "材质级别"
+    },
+    {
+      "name": "material_level_desc",
+      "value": "调整材质效果的强度"
+    },
+    {
+      "name": "material_level_exquisite",
+      "value": "精致"
+    },
+    {
+      "name": "material_level_gentle",
+      "value": "柔和"
+    },
+    {
+      "name": "material_level_smooth",
+      "value": "平滑"
+    },
+    {
+      "name": "material_level_adaptive",
+      "value": "自适应"
+    },
+    {
+      "name": "light_color_mode_title",
+      "value": "标签光效"
+    },
+    {
+      "name": "light_color_mode_desc",
+      "value": "设置标签栏边缘的光晕效果"
+    },
+    {
+      "name": "light_color_mode_default",
+      "value": "系统默认"
+    },
+    {
+      "name": "light_color_mode_theme",
+      "value": "跟随主题色"
     }
   ]
 }
