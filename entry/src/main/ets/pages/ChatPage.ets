@@ -431,33 +431,21 @@ export struct ChatPage {
   }
 
   /**
-   * 状态栏联动：
-   * - 输入框隐藏 → 隐藏状态栏（setSpecificSystemBarEnabled）
-   * - 图片预览 → 保持状态栏启用，背景+图标全黑融入预览层（纯属性切换，零延迟）
-   *
-   * 不再对图片预览使用 setSpecificSystemBarEnabled(false/true)，
-   * 因为该 API 的 true 恢复有系统级渲染延迟，提前调用也无法消除。
+   * 状态栏联动：仅图片预览时隐藏状态栏。
+   * 输入框、标题栏、状态栏始终显示（用户要求）。
    */
   private updateStatusBar(): void {
+    this.setChatStatusBarVisible(!this.showImagePreview)
+  }
+
+  private setChatStatusBarVisible(visible: boolean): void {
     const hostContext = this.getUIContext().getHostContext()
     if (hostContext === undefined || hostContext === null) {
       return
     }
     const context = hostContext as common.UIAbilityContext
     const mainWindow = context.windowStage.getMainWindowSync()
-
-    if (this.showImagePreview) {
-      // 全黑融入：背景黑色 + 图标黑色 = 状态栏区域完全不可见
-      // 关闭时只需切回正常模式，不涉及 show/hide 切换，瞬间完成
-      mainWindow.setWindowSystemBarProperties({
-        statusBarColor: '#000000',
-        statusBarContentColor: '#000000'
-      }).catch((): void => {})
-      mainWindow.setSpecificSystemBarEnabled('status', true).catch((): void => {})
-    } else {
-      // 正常模式：根据输入框显隐控制状态栏
-      mainWindow.setSpecificSystemBarEnabled('status', this.isInputBarVisible).catch((): void => {})
-    }
+    mainWindow.setSpecificSystemBarEnabled('status', visible).catch((): void => {})
   }
 
   aboutToDisappear(): void {
@@ -473,13 +461,7 @@ export struct ChatPage {
     this.unregisterAppUiStateObservers()
     this.syncActiveSessionBinding()
     // 离开页面时确保状态栏恢复
-    const hostContext = this.getUIContext().getHostContext()
-    if (hostContext !== undefined && hostContext !== null) {
-      const ctx = hostContext as common.UIAbilityContext
-      ctx.windowStage.getMainWindowSync()
-        .setSpecificSystemBarEnabled('status', true)
-        .catch((): void => {})
-    }
+    this.setChatStatusBarVisible(true)
 
     if (this.shouldDeleteEmptySessionOnDisappear()) {
       this.chatViewModel.deleteSession(this.sessionId)
@@ -1582,13 +1564,8 @@ export struct ChatPage {
       onSetIsAtBottomState: (value: boolean): void => {
         this.isAtBottom = value
       },
-      onSetInputBarVisibleState: (value: boolean): void => {
-        this.isInputBarVisible = value
-        if (!value) {
-          this.isInputFocused = false
-          inputMethod.getController().stopInputSession()
-        }
-        this.updateStatusBar()
+      onSetInputBarVisibleState: (_value: boolean): void => {
+        // 输入框始终显示，不再响应滚动隐藏/显示
       },
       onSetCurrentScrollOffsetState: (value: number): void => {
         if (this.shouldSyncScrollOffsetToUi(value)) {
@@ -2022,7 +1999,7 @@ export struct ChatPage {
         // AI 生成中的底部中间 loading 回到底部按钮
         ScrollToBottomLoadingButton({
           isVisible: this.shouldShowScrollToBottomLoadingButton(),
-          isInputBarVisible: this.isInputBarVisible,
+          isInputBarVisible: true,
           bottomAvoidHeight: this.px2vp(this.bottomAvoidHeight),
           onScrollToBottom: () => {
             this.scrollToBottomWithAnimation()
@@ -2111,11 +2088,7 @@ export struct ChatPage {
             }
           })
             .position({ x: 0, y: '100%' })
-            .translate({
-              y: this.isInputBarVisible ? '-100%' : '0%',
-              x: 0
-            })
-            .opacity(this.isInputBarVisible ? 1 : 0)
+            .translate({ y: '-100%', x: 0 })
             .onAreaChange((_oldArea: Area, newArea: Area) => {
               this.handleInputAreaHeightChange(newArea)
             })
@@ -2269,7 +2242,7 @@ export struct ChatPage {
     .titleBar(this.getTitleBarOptions())
     .bindToScrollable([this.scroller])
     .titleMode(HdsNavDestinationTitleMode.MINI)
-    .hideTitleBar(this.showImagePreview || !this.isInputBarVisible, true)
+    .hideTitleBar(this.showImagePreview, true)
     .systemBarStyle(
       { statusBarContentColor: this.getStatusBarContentColor() },
       { statusBarContentColor: this.getStatusBarContentColor() }
@@ -2672,7 +2645,7 @@ export struct ChatPage {
     const previousHeight = this.inputAreaHeightVp
     this.inputAreaHeightVp = nextHeight
     this.syncBottomAlignmentAfterOverlayHeightChange(previousHeight, nextHeight,
-      !this.isMultiSelectMode && this.isInputBarVisible)
+      !this.isMultiSelectMode)
   }
 
   private handleMultiSelectToolbarHeightChange(area: Area): void {
@@ -2686,10 +2659,7 @@ export struct ChatPage {
     if (this.isMultiSelectMode) {
       return this.multiSelectToolbarHeightVp
     }
-    if (this.isInputBarVisible) {
-      return this.inputAreaHeightVp
-    }
-    return 0
+    return this.inputAreaHeightVp
   }
 
   // 计算列表底部留白高度：优先跟随底部遮挡层的实测高度，避免和输入区布局漂移
