@@ -1810,7 +1810,7 @@ struct Index {
     .scale(getButtonScale(this.fabPressed))
     .animation(getButtonAnimation())
     .shadow({
-      radius: 10,
+      radius: this.fabPressed ? 16 : 10,
       color: this.themePrimary + '4D',
       offsetX: 0,
       offsetY: 4
