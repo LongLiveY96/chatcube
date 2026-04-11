@@ -38,6 +38,7 @@ export struct ChatInputAreaSection {
   @Event onSend: () => void = () => {}
   @Event onStop: () => void = () => {}
   @Event onModelIconClick: () => void = () => {}
+  @Param isAttachmentPanelOpen: boolean = false
   @Event onAttachmentClick: () => void = () => {}
   @Event onInputFocus: () => void = () => {}
   @Event onInputBlur: () => void = () => {}
@@ -87,6 +88,7 @@ export struct ChatInputAreaSection {
         })
 
         ChatInputBar({
+          isAttachmentPanelOpen: this.isAttachmentPanelOpen,
           inputText: this.inputText,
           onInputTextChange: (value: string): void => {
             this.onInputTextChange(value)

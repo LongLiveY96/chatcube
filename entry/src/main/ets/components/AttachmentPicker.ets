@@ -22,6 +22,7 @@ interface AttachmentOption {
 @ComponentV2
 export struct AttachmentPicker {
   @Local isLoading: boolean = false
+  @Param showDragBar: boolean = true
   @Event onSelectAttachments: (attachments: MessageAttachment[]) => void = () => {
   }
   @Event onClose: () => void = () => {
@@ -29,13 +30,15 @@ export struct AttachmentPicker {
 
   build() {
     Column() {
-      // 拖动条
-      Column()
-        .width(36)
-        .height(4)
-        .borderRadius(2)
-        .backgroundColor($r('app.color.divider'))
-        .margin({ top: 8, bottom: 16 })
+      // 拖动条（仅半模态模式下显示）
+      if (this.showDragBar) {
+        Column()
+          .width(36)
+          .height(4)
+          .borderRadius(2)
+          .backgroundColor($r('app.color.divider'))
+          .margin({ top: 8, bottom: 16 })
+      }
 
       // 主要选项：拍照、照片、上传文件
       Row() {
@@ -53,11 +56,10 @@ export struct AttachmentPicker {
       }
       .width('100%')
       .justifyContent(FlexAlign.SpaceEvenly)
-      .padding({ left: 16, right: 16 })
+      .padding({ left: 16, right: 16, top: this.showDragBar ? 0 : 16, bottom: 12 })
     }
     .width('100%')
     .backgroundColor($r('app.color.surface'))
-    .borderRadius({ topLeft: 20, topRight: 20 })
   }
 
   @Builder

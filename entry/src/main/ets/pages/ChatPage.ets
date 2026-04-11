@@ -135,6 +135,8 @@ export struct ChatPage {
   // 附件相关状态
   @Local pendingAttachments: MessageAttachment[] = []
   @Local showAttachmentPicker: boolean = false
+  @Local attachmentPanelHeightVp: number = 0
+  private readonly ATTACHMENT_PANEL_EXPANDED_HEIGHT: number = 130
   // 是否在列表底部
   @Local isAtBottom: boolean = false
   // 是否在列表顶部
@@ -1977,7 +1979,7 @@ export struct ChatPage {
         // 快速到顶部按钮
         ScrollToBottomButton({
           isVisible: this.shouldShowScrollToTopButton(),
-          bottomAvoidHeight: this.px2vp(this.bottomAvoidHeight),
+          bottomAvoidHeight: this.getFloatingOverlayBottomAvoidHeightVp(),
           fixedBottomOffset: this.floatingScrollButtonBottomOffsetVp,
           buttonDirection: 1,
           progress: this.scrollProgress,
@@ -1990,7 +1992,7 @@ export struct ChatPage {
         // 回到底部按钮（非 AI 生成状态时显示）
         ScrollToBottomButton({
           isVisible: this.shouldShowStandardScrollToBottomButton(),
-          bottomAvoidHeight: this.px2vp(this.bottomAvoidHeight),
+          bottomAvoidHeight: this.getFloatingOverlayBottomAvoidHeightVp(),
           fixedBottomOffset: this.floatingScrollButtonBottomOffsetVp,
           buttonDirection: 0,
           onScrollToBottom: () => {
@@ -2002,7 +2004,7 @@ export struct ChatPage {
         ScrollToBottomLoadingButton({
           isVisible: this.shouldShowScrollToBottomLoadingButton(),
           isInputBarVisible: true,
-          bottomAvoidHeight: this.px2vp(this.bottomAvoidHeight),
+          bottomAvoidHeight: this.getFloatingOverlayBottomAvoidHeightVp(),
           onScrollToBottom: () => {
             this.scrollToBottomWithAnimation()
           }
@@ -2010,102 +2012,125 @@ export struct ChatPage {
 
         // 底部输入栏容器（非多选模式时显示）
         if (!this.isMultiSelectMode) {
-          ChatInputAreaSection({
-            inputText: this.inputText,
-            onInputTextChange: (value: string): void => {
-              this.inputText = value
-            },
-            attachments: this.pendingAttachments,
-            onAttachmentsChange: (value: MessageAttachment[]): void => {
-              this.pendingAttachments = [...value]
-            },
-            isSending: this.isSending,
-            isAwaitingResponse: this.calcIsAwaitingAiOutput(),
-            currentModelId: this.currentModelId,
-            currentProviderId: this.currentProvider?.id ?? '',
-            currentModelName: this.currentModel,
-            currentProviderIconType: this.currentProvider?.iconType ?? 'svg',
-            currentProviderIconPath: this.currentProvider?.iconPath ?? '',
-            currentProviderTextIcon: this.currentProvider?.textIcon ?? '',
-            currentProviderTextIconBgColor: this.currentProvider?.textIconBgColor ?? '',
-            currentProviderCustomImagePath: this.currentProvider?.customImagePath ?? '',
-            currentProviderBrandColor: this.currentProvider?.brandColor ?? '',
-            autoFocus: this.autoFocusInput,
-            isEditing: this.isEditingMessage,
-            webSearchAvailable: this.webSearchAvailable,
-            webSearchEnabled: this.getActiveComposerWebSearchEnabled(),
-            onToggleWebSearch: (): void => {
-              this.handleComposerWebSearchToggle()
-            },
-            toolSelectionAvailable: this.availableChatTools.length > 0 || this.hasSelectedTools() ||
-              this.isRefreshingMcpToolAvailability,
-            hasSelectedTools: this.hasSelectedTools(),
-            reasoningAvailable: this.supportsReasoningForCurrentModel(),
-            onOpenTools: (): void => {
-              this.showToolPickerSheet = true
-            },
-            reasoningLevel: this.isEditingMessage ? this.editingReasoningLevel : this.reasoningLevel,
-            onReasoningLevelChange: (value: ReasoningLevel): void => {
-              this.updateActiveComposerReasoningLevel(value)
-            },
-            hasRecentScreenshot: this.hasRecentScreenshot,
-            bottomAvoidHeight: this.px2vp(this.bottomAvoidHeight),
-            contentMaxWidth: this.getChatContentMaxWidth(),
-            onCancelEdit: (): void => {
-              this.handleCancelEdit()
-            },
-            onSend: (): void => {
-              if (this.isEditingMessage) {
-                this.handleSaveAndSendInline()
-              } else {
-                this.handleSend()
+          Column() {
+            ChatInputAreaSection({
+              inputText: this.inputText,
+              onInputTextChange: (value: string): void => {
+                this.inputText = value
+              },
+              attachments: this.pendingAttachments,
+              onAttachmentsChange: (value: MessageAttachment[]): void => {
+                this.pendingAttachments = [...value]
+              },
+              isSending: this.isSending,
+              isAwaitingResponse: this.calcIsAwaitingAiOutput(),
+              currentModelId: this.currentModelId,
+              currentProviderId: this.currentProvider?.id ?? '',
+              currentModelName: this.currentModel,
+              currentProviderIconType: this.currentProvider?.iconType ?? 'svg',
+              currentProviderIconPath: this.currentProvider?.iconPath ?? '',
+              currentProviderTextIcon: this.currentProvider?.textIcon ?? '',
+              currentProviderTextIconBgColor: this.currentProvider?.textIconBgColor ?? '',
+              currentProviderCustomImagePath: this.currentProvider?.customImagePath ?? '',
+              currentProviderBrandColor: this.currentProvider?.brandColor ?? '',
+              autoFocus: this.autoFocusInput,
+              isEditing: this.isEditingMessage,
+              isAttachmentPanelOpen: this.showAttachmentPicker,
+              webSearchAvailable: this.webSearchAvailable,
+              webSearchEnabled: this.getActiveComposerWebSearchEnabled(),
+              onToggleWebSearch: (): void => {
+                this.handleComposerWebSearchToggle()
+              },
+              toolSelectionAvailable: this.availableChatTools.length > 0 || this.hasSelectedTools() ||
+                this.isRefreshingMcpToolAvailability,
+              hasSelectedTools: this.hasSelectedTools(),
+              reasoningAvailable: this.supportsReasoningForCurrentModel(),
+              onOpenTools: (): void => {
+                this.showToolPickerSheet = true
+              },
+              reasoningLevel: this.isEditingMessage ? this.editingReasoningLevel : this.reasoningLevel,
+              onReasoningLevelChange: (value: ReasoningLevel): void => {
+                this.updateActiveComposerReasoningLevel(value)
+              },
+              hasRecentScreenshot: this.hasRecentScreenshot,
+              bottomAvoidHeight: this.getComposerBottomAvoidHeightVp(),
+              contentMaxWidth: this.getChatContentMaxWidth(),
+              onCancelEdit: (): void => {
+                this.handleCancelEdit()
+              },
+              onSend: (): void => {
+                if (this.isEditingMessage) {
+                  this.handleSaveAndSendInline()
+                } else {
+                  this.handleSend()
+                }
+              },
+              onStop: (): void => {
+                this.handleStop()
+              },
+              onModelIconClick: (): void => {
+                this.isModelSelectorVisible = true
+                this.modelSheetActivePanel = 'selector'
+              },
+              onAttachmentClick: (): void => {
+                this.toggleAttachmentPanel()
+              },
+              onInputFocus: (): void => {
+                if (!this.isEditingMessage) {
+                  if (this.showAttachmentPicker) {
+                    this.closeAttachmentPanel()
+                  }
+                  this.isInputFocused = true
+                  setTimeout(() => {
+                    this.getScrollUiFlow().alignToBottomAfterLayout()
+                  }, 200)
+                }
+              },
+              onInputBlur: (): void => {
+                this.isInputFocused = false
+              },
+              onComposerContentChanged: (): void => {
+                this.handleComposerContentChanged()
+              },
+              onRecentPhotoDetected: (detected: boolean): void => {
+                this.hasRecentScreenshot = detected
               }
-            },
-            onStop: (): void => {
-              this.handleStop()
-            },
-            onModelIconClick: (): void => {
-              this.isModelSelectorVisible = true
-              this.modelSheetActivePanel = 'selector'
-            },
-            onAttachmentClick: (): void => {
-              this.showAttachmentPicker = true
-            },
-            onInputFocus: (): void => {
-              if (!this.isEditingMessage) {
-                this.isInputFocused = true
-                setTimeout(() => {
-                  this.getScrollUiFlow().alignToBottomAfterLayout()
-                }, 200)
-              }
-            },
-            onInputBlur: (): void => {
-              this.isInputFocused = false
-            },
-            onComposerContentChanged: (): void => {
-              this.handleComposerContentChanged()
-            },
-            onRecentPhotoDetected: (detected: boolean): void => {
-              this.hasRecentScreenshot = detected
-            }
+            })
+              .onAreaChange((_oldArea: Area, newArea: Area) => {
+                this.handleInputAreaHeightChange(newArea)
+              })
+              .animation({
+                duration: 220,
+                curve: Curve.EaseOut
+              })
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Center)
+          .padding({ bottom: this.attachmentPanelHeightVp })
+          .animation({
+            duration: 260,
+            curve: Curve.FastOutSlowIn
           })
-            .position({ x: 0, y: '100%' })
-            .translate({ y: '-100%', x: 0 })
-            .onAreaChange((_oldArea: Area, newArea: Area) => {
-              this.handleInputAreaHeightChange(newArea)
-            })
-            .animation({
-              duration: 220,
-              curve: Curve.EaseOut
-            })
-            .bindSheet($$this.showAttachmentPicker, this.AttachmentPickerBuilder(), {
-              height: 160,
-              dragBar: false,
-              showClose: false,
-              backgroundColor: $r('app.color.surface'),
-              blurStyle: BlurStyle.Thick,
-              preferType: SheetType.BOTTOM
-            })
+          .position({ x: 0, y: '100%' })
+          .translate({ y: '-100%', x: 0 })
+
+          // 附件面板（与输入区分离定位，避免动态子布局只抬高输入区却不绘制面板内容）
+          Column() {
+            this.AttachmentPanelContentBuilder()
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Center)
+          .height(this.attachmentPanelHeightVp)
+          .opacity(this.showAttachmentPicker ? 1 : 0)
+          .backgroundColor($r('app.color.surface'))
+          .clip(true)
+          .enabled(this.showAttachmentPicker)
+          .animation({
+            duration: 260,
+            curve: Curve.FastOutSlowIn
+          })
+          .position({ x: 0, y: '100%' })
+          .translate({ y: '-100%', x: 0 })
         }
 
         // 分享预览 Sheet 宿主（bindContentCover 和 bindSheet 不能在同一组件上，否则会冲突）
@@ -2276,6 +2301,10 @@ export struct ChatPage {
         this.updateStatusBar()
         return true
       }
+      if (this.showAttachmentPicker) {
+        this.closeAttachmentPanel()
+        return true
+      }
       if (dismissActiveSnackBarOnBack()) {
         return true
       }
@@ -2388,18 +2417,6 @@ export struct ChatPage {
   }
 
   @Builder
-  AttachmentPickerBuilder() {
-    AttachmentPicker({
-      onSelectAttachments: (attachments: MessageAttachment[]): void => {
-        this.handleAttachmentsSelected(attachments)
-      },
-      onClose: (): void => {
-        this.showAttachmentPicker = false
-      }
-    })
-  }
-
-  @Builder
   SharePreviewBuilder() {
     SharePreviewSheet({
       messages: this.shareMessages,
@@ -2481,8 +2498,37 @@ export struct ChatPage {
     }
     // 触发数组更新，便于子组件监听并驱动发送按钮动效
     this.pendingAttachments = [...this.pendingAttachments]
-    this.showAttachmentPicker = false
+    this.closeAttachmentPanel()
+  }
 
+  // 切换附件面板
+  private toggleAttachmentPanel(): void {
+    if (this.showAttachmentPicker) {
+      this.closeAttachmentPanel()
+    } else {
+      this.openAttachmentPanel()
+    }
+  }
+
+  private openAttachmentPanel(): void {
+    this.safeStopInputSession()
+    this.getUIContext().animateTo({
+      duration: 260,
+      curve: Curve.FastOutSlowIn
+    }, () => {
+      this.showAttachmentPicker = true
+      this.attachmentPanelHeightVp = this.ATTACHMENT_PANEL_EXPANDED_HEIGHT
+    })
+  }
+
+  private closeAttachmentPanel(): void {
+    this.getUIContext().animateTo({
+      duration: 220,
+      curve: Curve.FastOutSlowIn
+    }, () => {
+      this.attachmentPanelHeightVp = 0
+      this.showAttachmentPicker = false
+    })
   }
 
   onAppInBackgroundChanged(): void {
@@ -2542,6 +2588,12 @@ export struct ChatPage {
   }
 
   private safeStopInputSession(): void {
+    this.isInputFocused = false
+    try {
+      this.getUIContext().getFocusController().clearFocus()
+    } catch (error) {
+      console.error('ChatPage', `Clear focus failed: ${JSON.stringify(error)}`)
+    }
     try {
       const inputMethodController = inputMethod.getController()
       inputMethodController.stopInputSession()
@@ -2554,6 +2606,46 @@ export struct ChatPage {
   private px2vp(px: number): number {
     return px / (this.getUIContext().getHostContext()?.resourceManager.getDeviceCapabilitySync().screenDensity ?? 3) *
       160
+  }
+
+  private getComposerBottomAvoidHeightVp(): number {
+    if (this.showAttachmentPicker) {
+      return 0
+    }
+    return this.px2vp(this.bottomAvoidHeight)
+  }
+
+  private getFloatingOverlayBottomAvoidHeightVp(): number {
+    return this.px2vp(this.bottomAvoidHeight) + this.attachmentPanelHeightVp
+  }
+
+  @Builder
+  private AttachmentPanelContentBuilder() {
+    if (this.layoutSizeClass === LayoutSizeClass.EXPANDED) {
+      Column() {
+        AttachmentPicker({
+          showDragBar: false,
+          onSelectAttachments: (attachments: MessageAttachment[]): void => {
+            this.handleAttachmentsSelected(attachments)
+          },
+          onClose: (): void => {
+            this.closeAttachmentPanel()
+          }
+        })
+      }
+      .width('100%')
+      .constraintSize({ maxWidth: this.getChatContentMaxWidth() })
+    } else {
+      AttachmentPicker({
+        showDragBar: false,
+        onSelectAttachments: (attachments: MessageAttachment[]): void => {
+          this.handleAttachmentsSelected(attachments)
+        },
+        onClose: (): void => {
+          this.closeAttachmentPanel()
+        }
+      })
+    }
   }
 
   private shouldShowScrollToTopButton(): boolean {
@@ -2579,6 +2671,9 @@ export struct ChatPage {
   }
 
   private handleMessageListDidScroll(scrollOffset: number, scrollState: ScrollState): void {
+    if (this.showAttachmentPicker && (scrollState === ScrollState.Scroll || scrollState === ScrollState.Fling)) {
+      this.closeAttachmentPanel()
+    }
     const userScrolledAwayFromBottom = this.getScrollUiFlow().handleMessageListDidScroll(scrollOffset, scrollState)
     if (this.pendingInitialBottomAlignment && userScrolledAwayFromBottom) {
       this.cancelPendingInitialBottomAlignment()
@@ -2661,7 +2756,7 @@ export struct ChatPage {
     if (this.isMultiSelectMode) {
       return this.multiSelectToolbarHeightVp
     }
-    return this.inputAreaHeightVp
+    return this.inputAreaHeightVp + this.attachmentPanelHeightVp
   }
 
   // 计算列表底部留白高度：优先跟随底部遮挡层的实测高度，避免和输入区布局漂移
@@ -2776,6 +2871,9 @@ export struct ChatPage {
 
   // 同步包装方法，用于 onSend 回调
   handleSend(): void {
+    if (this.showAttachmentPicker) {
+      this.closeAttachmentPanel()
+    }
     this.sendMessage()
   }
 

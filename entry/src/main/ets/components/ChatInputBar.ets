@@ -16,6 +16,7 @@ import { getAppUiState } from '../state/AppUiState'
 export struct ChatInputBar {
   // 图标动画触发器
   @Local iconTrigger: number = 0
+  @Local attachIconTrigger: number = 0
   // pause 呼吸动效透明度
   @Local breathOpacity: number = 1
   // 按钮按下状态
@@ -23,7 +24,6 @@ export struct ChatInputBar {
   @Local sendBtnScale: number = 1
   @Local sendBtnRotation: number = 0
   @Local modelBtnPressed: boolean = false
-  @Local attachBtnPressed: boolean = false
   @Param inputText: string = ''
   @Event onInputTextChange: (value: string) => void = (_value: string): void => {}
   @Param attachments: MessageAttachment[] = []
@@ -65,6 +65,7 @@ export struct ChatInputBar {
   }
   @Event onModelIconClick: () => void = () => {
   }
+  @Param isAttachmentPanelOpen: boolean = false
   @Event onAttachmentClick: () => void = () => {
   }
   @Event onInputFocus: () => void = () => {
@@ -234,24 +235,19 @@ export struct ChatInputBar {
             this.onInputBlur()
           })
 
-        // 附件按钮（+号）
-        Button({ type: ButtonType.Circle }) {
-          SymbolGlyph($r('sys.symbol.plus'))
+        // 附件按钮（+号 / x号）
+        Button({ type: ButtonType.Circle, stateEffect: false }) {
+          SymbolGlyph(this.getAttachmentButtonSymbol())
             .fontSize(20)
             .fontColor([$r('app.color.text_secondary')])
+            .symbolEffect(
+              new ReplaceSymbolEffect(EffectScope.WHOLE),
+              this.attachIconTrigger
+            )
         }
         .width(40)
         .height(40)
-        .backgroundColor(this.attachBtnPressed ? $r('app.color.divider') : Color.Transparent)
-        .scale({ x: this.attachBtnPressed ? 0.95 : 1, y: this.attachBtnPressed ? 0.95 : 1 })
-        .animation({ duration: 150, curve: Curve.EaseOut })
-        .onTouch((event: TouchEvent) => {
-          if (event.type === TouchType.Down) {
-            this.attachBtnPressed = true
-          } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-            this.attachBtnPressed = false
-          }
-        })
+        .backgroundColor(Color.Transparent)
         .onClick(() => {
           this.onAttachmentClick()
         })
@@ -468,6 +464,10 @@ export struct ChatInputBar {
     return $r('sys.symbol.paperplane')
   }
 
+  private getAttachmentButtonSymbol(): Resource {
+    return this.isAttachmentPanelOpen ? $r('sys.symbol.xmark') : $r('sys.symbol.plus')
+  }
+
   @Monitor('inputText', 'attachments')
   onInputOrAttachmentsChanged(): void {
     if (!this.isSending) {
@@ -495,6 +495,11 @@ export struct ChatInputBar {
     this.animateSendButton()
   }
 
+  @Monitor('isAttachmentPanelOpen')
+  onAttachmentPanelOpenChanged(): void {
+    this.attachIconTrigger++
+  }
+
   // 发送按钮状态切换动画
   private animateSendButton(): void {
     this.getUIContext().animateTo({
@@ -505,6 +510,7 @@ export struct ChatInputBar {
       this.sendBtnRotation = 0
     })
   }
+
 
   @Monitor('isAwaitingResponse')
   onAwaitingChanged(): void {
@@ -542,4 +548,3 @@ export struct ChatInputBar {
     this.breathOpacity = 1
   }
 }
-
