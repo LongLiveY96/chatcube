@@ -38,6 +38,7 @@ import { IndexEmptyStateCard } from '../components/index/IndexEmptyStateCard'
 import { IndexSettingsPanel } from '../components/index/IndexSettingsPanel'
 import { IndexSettingsSheetContent } from '../components/index/IndexSettingsSheetContent'
 import { IndexSessionListSection } from '../components/index/IndexSessionListSection'
+import { ChatMultiSelectToolbar } from '../components/chat/ChatMultiSelectToolbar'
 import { SettingsSheetType, SessionFilterType, SessionGroupData } from './index/IndexPageTypes'
 import { getFilteredSessionsForIndex, buildSessionGroupsForIndex } from './index/IndexSessionGroupHelper'
 import { SessionListGroupViewModel, rebuildSessionListGroupViewModels } from './index/IndexSessionListDataSource'
@@ -169,10 +170,12 @@ struct Index {
   @Monitor('isMultiSelectMode')
   onMultiSelectModeMonitor(): void {
     this.compactChatHeaderHeight = 0
+    this.compactMultiSelectToolbarHeightVp = 0
   }
   // 多选模式状态
   @Local isMultiSelectMode: boolean = false
   @Local selectedSessionIds: Array<string> = []
+  @Local compactMultiSelectToolbarHeightVp: number = 0
   // 分享预览弹窗状态
   @Local showSharePreview: boolean = false
   @Local shareMessages: ChatMessage[] = []
@@ -759,6 +762,23 @@ struct Index {
       INDEX_NEW_CHAT_FAB_BOTTOM_SPACING + cardBottomBreathingRoom
   }
 
+  private getCompactMultiSelectToolbarBottomInsetVp(): number {
+    return Math.max(this.px2vp(this.bottomAvoidHeight) + 10, 20)
+  }
+
+  private getSessionListBottomSpacerHeight(): number {
+    if (!this.isMultiSelectMode) {
+      return this.getChatListBottomSpacerHeight()
+    }
+    if (this.isExpandedLayout()) {
+      return 16
+    }
+    if (this.compactMultiSelectToolbarHeightVp > 0) {
+      return this.compactMultiSelectToolbarHeightVp
+    }
+    return this.getCompactMultiSelectToolbarBottomInsetVp() + 118
+  }
+
   private getFabOffsetY(): number {
     return getFabOffsetYForIndex(this.getFabBaseBottomInset())
   }
@@ -789,6 +809,14 @@ struct Index {
       return
     }
     this.compactChatHeaderHeight = nextHeight
+  }
+
+  private handleCompactMultiSelectToolbarAreaChange(area: Area): void {
+    const nextHeight = this.readMeasuredAreaHeight(area)
+    if (nextHeight <= 0 || Math.abs(nextHeight - this.compactMultiSelectToolbarHeightVp) < 0.5) {
+      return
+    }
+    this.compactMultiSelectToolbarHeightVp = nextHeight
   }
 
   private async persistHandAdaptiveSettings(): Promise<void> {
@@ -1144,36 +1172,57 @@ struct Index {
           .height(this.px2vp(this.topAvoidHeight))
       }
 
-      HdsTabs({ barPosition: BarPosition.End, index: this.currentTabIndex }) {
-        TabContent() {
-          this.ChatTab()
+      if (this.shouldHideCompactTabsHost()) {
+        Column() {
+          this.CompactCurrentTabContent()
         }
-        .tabBar(this.TabBarChat())
+        .width('100%')
+        .layoutWeight(1)
+      } else {
+        HdsTabs({ barPosition: BarPosition.End, index: this.currentTabIndex }) {
+          TabContent() {
+            this.ChatTab()
+          }
+          .tabBar(this.TabBarChat())
 
-        TabContent() {
-          this.SettingsTab()
+          TabContent() {
+            this.SettingsTab()
+          }
+          .tabBar(this.TabBarSettings())
         }
-        .tabBar(this.TabBarSettings())
+        .width('100%')
+        .layoutWeight(1)
+        .barMode(BarMode.Fixed)
+        .barHeight(this.getCompactTabsBarHeight())
+        .barOverlap(true)
+        .barBackgroundColor(Color.Transparent)
+        .barBackgroundBlurStyle(BlurStyle.COMPONENT_THIN)
+        .barFloatingStyle(this.getCompactTabsFloatingStyle())
+        .scrollable(false)
+        .cachedMaxCount(2, TabsCacheMode.CACHE_LATEST_SWITCHED)
+        .onChange((index: number) => {
+          if (this.currentTabIndex !== index) {
+            this.switchToTab(index)
+          }
+        })
       }
-      .width('100%')
-      .layoutWeight(1)
-      .barMode(BarMode.Fixed)
-      .barHeight(this.getCompactTabsBarHeight())
-      .barOverlap(true)
-      .barBackgroundColor(Color.Transparent)
-      .barBackgroundBlurStyle(BlurStyle.COMPONENT_THIN)
-      .barFloatingStyle(this.getCompactTabsFloatingStyle())
-      .scrollable(false)
-      .cachedMaxCount(2, TabsCacheMode.CACHE_LATEST_SWITCHED)
-      .onChange((index: number) => {
-        if (this.currentTabIndex !== index) {
-          this.switchToTab(index)
-        }
-      })
     }
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.background'))
+  }
+
+  private shouldHideCompactTabsHost(): boolean {
+    return this.currentTabIndex === Index.TAB_CHAT && this.isMultiSelectMode
+  }
+
+  @Builder
+  private CompactCurrentTabContent() {
+    if (this.currentTabIndex === Index.TAB_CHAT) {
+      this.ChatTab()
+    } else {
+      this.SettingsTab()
+    }
   }
 
   @Builder
@@ -1583,7 +1632,7 @@ struct Index {
             sessionGroups: this.sessionListGroups,
             isMultiSelectMode: this.isMultiSelectMode,
             topSpacerHeight: topSpacerHeight,
-            bottomSpacerHeight: this.isMultiSelectMode ? 16 : this.getChatListBottomSpacerHeight(),
+            bottomSpacerHeight: this.getSessionListBottomSpacerHeight(),
             onGetGroupTitle: (groupKey: string): Resource => {
               return this.getSessionGroupTitle(groupKey)
             },
@@ -1684,28 +1733,37 @@ struct Index {
       }
     } else {
       if (this.isMultiSelectMode) {
-        Column() {
+        Stack({ alignContent: Alignment.Bottom }) {
+          this.CompactChatListViewport()
+
           Column() {
-            this.CompactChatListViewport()
+            ChatMultiSelectToolbar({
+              selectedCount: this.selectedSessionIds.length,
+              totalCount: this.filteredSessionCount,
+              onSelectAll: () => {
+                this.handleSelectAllSessions()
+              },
+              onDelete: () => {
+                this.handleDeleteSelectedSessions()
+              },
+              onShare: () => {
+                this.handleShareSelectedSessions()
+              },
+              onCancel: () => {
+                this.handleExitMultiSelectMode()
+              }
+            })
           }
           .width('100%')
-          .layoutWeight(1)
-          MultiSelectToolbar({
-            selectedCount: this.selectedSessionIds.length,
-            totalCount: this.filteredSessionCount,
-            onSelectAll: () => {
-              this.handleSelectAllSessions()
-            },
-            onDelete: () => {
-              this.handleDeleteSelectedSessions()
-            },
-            onShare: () => {
-              this.handleShareSelectedSessions()
-            },
-            onCancel: () => {
-              this.handleExitMultiSelectMode()
-            }
+          .alignItems(HorizontalAlign.Center)
+          .padding({ left: 12, right: 12, bottom: this.getCompactMultiSelectToolbarBottomInsetVp() })
+          .position({ x: 0, y: '100%' })
+          .translate({ y: '-100%', x: 0 })
+          .hitTestBehavior(HitTestMode.Default)
+          .onAreaChange((_oldArea: Area, newArea: Area) => {
+            this.handleCompactMultiSelectToolbarAreaChange(newArea)
           })
+          .transition(TransitionEffect.OPACITY.animation({ duration: 200 }))
         }
         .width('100%')
         .height('100%')
