@@ -17,6 +17,8 @@ const DOMAIN = 0x0000;
 // Surface 颜色常量，需要与 color.json 保持一致（用于沉浸式效果）
 const SURFACE_COLOR_LIGHT = '#FFFFFF';
 const SURFACE_COLOR_DARK = '#1C1C1E';
+const STATUS_BAR_CONTENT_LIGHT = '#1F2329';
+const STATUS_BAR_CONTENT_DARK = '#F5F7FA';
 
 export default class EntryAbility extends UIAbility {
   private mainWindow: window.Window | null = null;
@@ -188,9 +190,9 @@ export default class EntryAbility extends UIAbility {
           : mode === ThemeMode.LIGHT
             ? false
             : this.context.config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
-        this.updateColorModeStorage();
+        this.updateColorModeStorage(colorMode);
         ServiceRegistry.theme().updateDarkMode(isDarkMode);
-        this.updateWindowBackgroundColor();
+        this.updateWindowAppearance(colorMode);
       },
       onLanguageChanged: (language: AppLanguage): void => {
         ServiceRegistry.language().applyLanguage(this.context, language);
@@ -278,8 +280,8 @@ export default class EntryAbility extends UIAbility {
       });
       this.mainWindow.on('windowSizeChange', this.windowSizeChangeCallback);
 
-      // 设置窗口背景色
-      this.updateWindowBackgroundColor();
+      // 设置窗口背景色与系统栏样式，确保冷启动时状态栏图标颜色与当前主题一致
+      this.updateWindowAppearance();
 
       // 初始化颜色模式到 AppStorage
       this.updateColorModeStorage();
@@ -367,7 +369,7 @@ export default class EntryAbility extends UIAbility {
     // 使用 newConfig.colorMode 获取最新系统深浅色，this.context.config 在回调时可能尚未更新
     const latestColorMode = newConfig.colorMode ?? this.context.config.colorMode;
     void this.persistSystemDarkMode(latestColorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
-    this.updateWindowBackgroundColor(latestColorMode);
+    this.updateWindowAppearance(latestColorMode);
     this.updateColorModeStorage(latestColorMode);
 
     void ServiceRegistry.language().handleSystemConfigurationUpdate(this.context);
@@ -384,36 +386,47 @@ export default class EntryAbility extends UIAbility {
 
   // 更新颜色模式到 AppStorage
   private updateColorModeStorage(colorMode?: ConfigurationConstant.ColorMode): void {
-    const themeMode = ServiceRegistry.settings().getThemeMode();
-    const effectiveColorMode = colorMode ?? this.context.config.colorMode;
-    const isDarkMode = themeMode === ThemeMode.DARK
-      ? true
-      : themeMode === ThemeMode.LIGHT
-        ? false
-        : effectiveColorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+    const isDarkMode = this.resolveIsDarkMode(colorMode);
     setAppUiStateValue(AppStorageKeys.IS_DARK_MODE, isDarkMode);
     hilog.info(DOMAIN, 'testTag', 'isDarkMode updated: %{public}s', isDarkMode.toString());
   }
 
-  // 根据当前主题更新窗口背景色
-  private updateWindowBackgroundColor(colorMode?: ConfigurationConstant.ColorMode): void {
-    if (this.mainWindow === null) {
-      return;
-    }
+  private resolveIsDarkMode(colorMode?: ConfigurationConstant.ColorMode): boolean {
     const themeMode = ServiceRegistry.settings().getThemeMode();
     const effectiveColorMode = colorMode ?? this.context.config.colorMode;
-    const isDarkMode = themeMode === ThemeMode.DARK
+    return themeMode === ThemeMode.DARK
       ? true
       : themeMode === ThemeMode.LIGHT
         ? false
         : effectiveColorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+  }
+
+  // 根据当前主题更新窗口背景色与系统栏样式
+  private updateWindowAppearance(colorMode?: ConfigurationConstant.ColorMode): void {
+    if (this.mainWindow === null) {
+      return;
+    }
+    const isDarkMode = this.resolveIsDarkMode(colorMode);
     const backgroundColor = isDarkMode ? SURFACE_COLOR_DARK : SURFACE_COLOR_LIGHT;
+    const statusBarContentColor = isDarkMode ? STATUS_BAR_CONTENT_DARK : STATUS_BAR_CONTENT_LIGHT;
     try {
       this.mainWindow.setWindowBackgroundColor(backgroundColor);
       hilog.info(DOMAIN, 'testTag', 'Window background color set to: %{public}s', backgroundColor);
     } catch (error) {
       hilog.error(DOMAIN, 'testTag', 'Failed to set window background color: %{public}s', JSON.stringify(error));
     }
+    this.mainWindow.setWindowSystemBarProperties({
+      statusBarContentColor: statusBarContentColor
+    }).then(() => {
+      hilog.info(
+        DOMAIN,
+        'testTag',
+        'Window system bar updated. statusContent=%{public}s',
+        statusBarContentColor
+      );
+    }).catch((error: Error) => {
+      hilog.error(DOMAIN, 'testTag', 'Failed to set window system bar properties: %{public}s', JSON.stringify(error));
+    });
   }
 
   private async persistSystemDarkMode(isDarkMode: boolean): Promise<void> {
@@ -436,6 +449,7 @@ export default class EntryAbility extends UIAbility {
     // Ability has brought to foreground
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onForeground');
     setAppUiStateValue(AppStorageKeys.APP_IN_BACKGROUND, false);
+    this.updateWindowAppearance();
     ServiceRegistry.backgroundGuard().onAppBackgroundChanged(false)
   }
 
