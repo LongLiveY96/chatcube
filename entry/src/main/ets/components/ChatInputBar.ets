@@ -11,6 +11,7 @@ import { fileIo } from '@kit.CoreFileKit'
 import { util } from '@kit.ArkTS'
 import { getAttachmentStorageService } from '../services/AttachmentStorageService'
 import { getAppUiState } from '../state/AppUiState'
+import { withColorAlpha } from '../utils/ColorAlphaUtils'
 
 @ComponentV2
 export struct ChatInputBar {
@@ -321,7 +322,7 @@ export struct ChatInputBar {
     })
     .shadow({
       radius: this.isEditing ? 16 : 32,
-      color: this.isEditing ? this.themePrimary + '26' : 'rgba(0, 0, 0, 0.1)',
+      color: this.isEditing ? withColorAlpha(this.themePrimary, '26') : 'rgba(0, 0, 0, 0.1)',
       offsetX: 0,
       offsetY: this.isEditing ? -4 : 8
     })

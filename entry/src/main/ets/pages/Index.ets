@@ -21,6 +21,7 @@ import {
   LayoutSizeClass
 } from '../config/LayoutProfile'
 import { createButtonTouchHandler, getButtonAnimation, getButtonScale } from '../utils/ButtonAnimationUtils'
+import { withColorAlpha } from '../utils/ColorAlphaUtils'
 import {
   countSelectedIdsInCandidates,
   mergeSelectAllIds,
@@ -46,6 +47,8 @@ import {
   getFabOffsetXForIndex,
   getFabOffsetYForIndex,
   INDEX_NEW_CHAT_FAB_BOTTOM_SPACING,
+  INDEX_NEW_CHAT_FAB_STACK_HEIGHT,
+  INDEX_NEW_CHAT_FAB_STACK_WIDTH,
   INDEX_NEW_CHAT_FAB_SIZE,
   isHandAdaptiveActiveForIndex,
   shouldPlaceFabOnLeftForIndex
@@ -766,7 +769,7 @@ struct Index {
 
   private getChatListBottomSpacerHeight(): number {
     const cardBottomBreathingRoom = 12
-    return this.getFabBaseBottomInset() + INDEX_NEW_CHAT_FAB_SIZE +
+    return this.getFabBaseBottomInset() + INDEX_NEW_CHAT_FAB_STACK_HEIGHT +
       INDEX_NEW_CHAT_FAB_BOTTOM_SPACING + cardBottomBreathingRoom
   }
 
@@ -1875,26 +1878,30 @@ struct Index {
 
   @Builder
   FloatingActionButton() {
-    Column() {
+    Button() {
       SymbolGlyph($r('sys.symbol.plus'))
-        .fontSize(22)
+        .fontSize(24)
         .fontColor([Color.White])
     }
-    .width(48)
-    .height(48)
-    .borderRadius(24)
+    .width(INDEX_NEW_CHAT_FAB_SIZE)
+    .height(INDEX_NEW_CHAT_FAB_SIZE)
+    .borderRadius(INDEX_NEW_CHAT_FAB_SIZE / 2)
     .backgroundColor(this.themePrimary)
-    .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Center)
+    .type(ButtonType.Circle)
+    .stateEffect(false)
+    .padding(0)
     .position({ x: this.shouldPlaceFabOnLeft() ? 0 : '100%', y: '100%' })
     .translate({ x: this.getFabOffsetX(), y: this.getFabOffsetY() })
     .scale(getButtonScale(this.fabPressed))
-    .animation(getButtonAnimation())
+    .animation({
+      duration: 420,
+      curve: curves.springMotion(0.75, 0.86)
+    })
     .shadow({
-      radius: this.fabPressed ? 16 : 10,
-      color: this.themePrimary + '4D',
+      radius: this.fabPressed ? 20 : 14,
+      color: withColorAlpha(this.themePrimary, this.fabPressed ? '66' : '47'),
       offsetX: 0,
-      offsetY: 4
+      offsetY: 8
     })
     .onTouch(createButtonTouchHandler((pressed: boolean) => {
       this.fabPressed = pressed

@@ -20,6 +20,7 @@ import {
   getMarkdownTitleLineHeights,
   getMarkdownTitleSizes
 } from '../utils/MarkdownTypographyUtils'
+import { withColorAlpha } from '../utils/ColorAlphaUtils'
 
 const DOMAIN = 0x0002
 const TAG = 'MessageBubble'
@@ -893,7 +894,7 @@ export struct MessageBubble {
             width: this.isEditing ? 2 : (this.isMultiSelectMode && this.isSelected ? 1.2 : 0.5),
             color: this.isEditing
               ? '#FFFFFF'
-              : (this.isMultiSelectMode && this.isSelected ? this.themePrimary + '66' : 'rgba(255, 255, 255, 0.15)')
+              : (this.isMultiSelectMode && this.isSelected ? withColorAlpha(this.themePrimary, '66') : 'rgba(255, 255, 255, 0.15)')
           })
 
           // 多选选中竖条
@@ -1494,12 +1495,12 @@ export struct MessageBubble {
         .margin({ top: this.showHeader ? 8 : 0 })
         .padding({ left: 14, right: 14, top: 12, bottom: 10 })
           .backgroundColor(this.isMultiSelectMode && this.isSelected
-            ? this.themePrimary + '15'
+            ? withColorAlpha(this.themePrimary, '15')
             : this.themeAiBubble)
           .borderRadius(16)
           .border({
             width: this.isSelectableTextMode ? 1.5 : (this.isMultiSelectMode && this.isSelected ? 1.2 : 0.5),
-            color: this.isSelectableTextMode ? this.themeUserBubble : (this.isMultiSelectMode && this.isSelected ? this.themePrimary + '66' : $r('app.color.bubble_border'))
+            color: this.isSelectableTextMode ? this.themeUserBubble : (this.isMultiSelectMode && this.isSelected ? withColorAlpha(this.themePrimary, '66') : $r('app.color.bubble_border'))
           })
           .clip(true)
       }

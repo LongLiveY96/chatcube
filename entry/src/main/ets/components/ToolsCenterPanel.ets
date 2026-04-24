@@ -9,6 +9,7 @@ import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/Toa
 import { HdsListItemCard } from '@kit.UIDesignKit'
 import { getAppUiState } from '../state/AppUiState'
 import { formatLocalizedCount, pickLocalizedText } from '../utils/LocalizedTextUtils'
+import { withColorAlpha } from '../utils/ColorAlphaUtils'
 import {
   buildCustomHeadersJson,
   isSensitiveCustomHeaderName,
@@ -1193,7 +1194,7 @@ export struct ToolsCenterPanel {
         .stateEffect(false)
         .width(36)
         .height(36)
-        .backgroundColor(this.isSavingMcpServer ? `${this.themePrimary}99` : this.themePrimary)
+        .backgroundColor(this.isSavingMcpServer ? withColorAlpha(this.themePrimary, '99') : this.themePrimary)
         .onClick(() => {
           this.handleSaveMcpServer()
         })
@@ -1215,7 +1216,7 @@ export struct ToolsCenterPanel {
               .width(46)
               .height(46)
               .borderRadius(16)
-              .backgroundColor(`${this.themePrimary}${this.isDarkMode ? '26' : '12'}`)
+              .backgroundColor(withColorAlpha(this.themePrimary, this.isDarkMode ? '26' : '12'))
               .justifyContent(FlexAlign.Center)
 
               Column({ space: 4 }) {
@@ -1233,7 +1234,7 @@ export struct ToolsCenterPanel {
                     .fontColor(this.themePrimary)
                     .padding({ left: 8, right: 8, top: 4, bottom: 4 })
                     .borderRadius(999)
-                    .backgroundColor(`${this.themePrimary}${this.isDarkMode ? '20' : '10'}`)
+                    .backgroundColor(withColorAlpha(this.themePrimary, this.isDarkMode ? '20' : '10'))
                 }
                 .width('100%')
 
@@ -1264,7 +1265,7 @@ export struct ToolsCenterPanel {
                 .fontColor(this.themePrimary)
                 .padding({ left: 10, right: 10, top: 6, bottom: 6 })
                 .borderRadius(999)
-                .backgroundColor(`${this.themePrimary}${this.isDarkMode ? '20' : '10'}`)
+                .backgroundColor(withColorAlpha(this.themePrimary, this.isDarkMode ? '20' : '10'))
 
               Text(this.getMcpFormEnableLabel())
                 .fontSize(11)
@@ -1280,7 +1281,7 @@ export struct ToolsCenterPanel {
           .padding(16)
           .borderRadius(20)
           .backgroundColor($r('app.color.surface'))
-          .border({ width: 1, color: `${this.themePrimary}${this.isDarkMode ? '20' : '10'}` })
+          .border({ width: 1, color: withColorAlpha(this.themePrimary, this.isDarkMode ? '20' : '10') })
 
           Column({ space: 12 }) {
             Column({ space: 4 }) {
@@ -1439,7 +1440,7 @@ export struct ToolsCenterPanel {
                 .width(28)
                 .height(28)
                 .borderRadius(14)
-                .backgroundColor(`${this.themePrimary}${this.isDarkMode ? '20' : '10'}`)
+                .backgroundColor(withColorAlpha(this.themePrimary, this.isDarkMode ? '20' : '10'))
                 .justifyContent(FlexAlign.Center)
 
                 Column({ space: 3 }) {

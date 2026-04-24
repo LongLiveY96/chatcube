@@ -1,4 +1,5 @@
 import { getAppUiState } from '../../state/AppUiState'
+import { withColorAlpha } from '../../utils/ColorAlphaUtils'
 
 @ComponentV2
 export struct IndexEmptyStateCard {
@@ -41,7 +42,7 @@ export struct IndexEmptyStateCard {
           .margin({ top: 24 })
           .shadow({
             radius: 16,
-            color: this.themePrimary + '4D',
+            color: withColorAlpha(this.themePrimary, '4D'),
             offsetX: 0,
             offsetY: 4
           })

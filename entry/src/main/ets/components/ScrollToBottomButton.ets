@@ -9,6 +9,7 @@ import {
   getButtonAnimation
 } from '../utils/ButtonAnimationUtils'
 import { getAppUiState } from '../state/AppUiState'
+import { withColorAlpha } from '../utils/ColorAlphaUtils'
 
 @ComponentV2
 export struct ScrollToBottomButton {
@@ -101,7 +102,7 @@ export struct ScrollToBottomButton {
       })
       .shadow({
         radius: this.scrollBtnPressed ? 16 : 8,
-        color: this.scrollBtnPressed ? this.themePrimary + '33' : this.materialShadowColor,
+        color: this.scrollBtnPressed ? withColorAlpha(this.themePrimary, '33') : this.materialShadowColor,
         offsetX: 0,
         offsetY: this.scrollBtnPressed ? 4 : 2
       })
@@ -131,4 +132,3 @@ export struct ScrollToBottomButton {
     }
   }
 }
-
