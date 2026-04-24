@@ -1243,6 +1243,23 @@ export struct MessageBubble {
     .transition(TransitionEffect.OPACITY.animation({ duration: 150 }))
   }
 
+  @Builder
+  SelectableBubbleLeadingBar() {
+    Column()
+      .width(3)
+      .height('100%')
+      .backgroundColor(this.themePrimary)
+      .borderRadius({ topLeft: 16, bottomLeft: 16 })
+      .opacity(0.9)
+  }
+
+  @Builder
+  EmptyOverlay() {
+    Column()
+      .width(0)
+      .height(0)
+  }
+
   // 翻译子菜单
   @Builder
   TranslateSubMenu() {
@@ -1313,6 +1330,29 @@ export struct MessageBubble {
       }
 
       Column() {
+        if (this.isSelectableTextMode) {
+          Row() {
+            SymbolGlyph($r('sys.symbol.textformat'))
+              .fontSize(12)
+              .fontColor([this.themePrimary])
+
+            Text($r('app.string.menu_select_text'))
+              .fontSize(12)
+              .fontColor(this.themePrimary)
+              .fontWeight(FontWeight.Medium)
+              .margin({ left: 4 })
+
+            Blank()
+          }
+          .width('100%')
+          .height(26)
+          .padding({ left: 10, right: 10 })
+          .backgroundColor(this.themePrimary + '12')
+          .borderRadius(10)
+          .margin({ bottom: 8 })
+          .transition(TransitionEffect.OPACITY.animation({ duration: 150 }))
+        }
+
         // 消息头部：图标 + 模型名 + 时间（水平排列）
         // 只在 showHeader 为 true 时显示
         if (this.showHeader) {
@@ -1513,14 +1553,33 @@ export struct MessageBubble {
         }
         .width('100%')
         .margin({ top: this.showHeader ? 8 : 0 })
-        .padding({ left: 14, right: 14, top: 12, bottom: 10 })
+        .padding({ left: this.isSelectableTextMode ? 16 : 14, right: 14, top: 12, bottom: 10 })
           .backgroundColor(this.isMultiSelectMode && this.isSelected
             ? this.themePrimary + '15'
-            : this.themeAiBubble)
+            : (this.isSelectableTextMode ? this.themePrimary + '08' : this.themeAiBubble))
           .borderRadius(16)
           .border({
-            width: this.isMultiSelectMode && this.isSelected ? 1.2 : 0.5,
-            color: this.isMultiSelectMode && this.isSelected ? this.themePrimary + '66' : $r('app.color.bubble_border')
+            width: this.isSelectableTextMode ? 1.5 : (this.isMultiSelectMode && this.isSelected ? 1.2 : 0.5),
+            color: this.isSelectableTextMode ? this.themePrimary + '88' : (this.isMultiSelectMode && this.isSelected ? this.themePrimary + '66' : $r('app.color.bubble_border'))
+          })
+          .linearGradient(this.isSelectableTextMode ? {
+            angle: 135,
+            colors: [[this.themePrimary + '10', 0.0], [this.themeAiBubble, 0.38], [this.themeAiBubble, 1.0]]
+          } : {
+            angle: 0,
+            colors: [[Color.Transparent, 0.0], [Color.Transparent, 1.0]]
+          })
+          .overlay(this.isSelectableTextMode ? this.SelectableBubbleLeadingBar() : this.EmptyOverlay(), { align: Alignment.Start })
+          .shadow(this.isSelectableTextMode ? {
+            radius: 18,
+            color: this.themePrimary + '22',
+            offsetX: 0,
+            offsetY: 4
+          } : {
+            radius: 0,
+            color: Color.Transparent,
+            offsetX: 0,
+            offsetY: 0
           })
           .clip(true)
       }
