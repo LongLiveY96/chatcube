@@ -59,7 +59,7 @@ export struct MessageBubble {
   @Local showTranslation: boolean = false  // 是否显示翻译结果
   @Local isTranslationExpanded: boolean = true  // 翻译结果是否展开
   @Local currentTranslateLang: string = ''  // 当前翻译的目标语言
-  @Local showSelectableTextSheet: boolean = false
+  @Local isSelectableTextMode: boolean = false
   // 深色模式状态（用于主题适配）
   private get isDarkMode(): boolean {
     return getAppUiState().isDarkMode
@@ -272,6 +272,13 @@ export struct MessageBubble {
     this.syncDerivedRenderCaches()
   }
 
+  @Monitor('isMultiSelectMode')
+  onIsMultiSelectModeChange(): void {
+    if (this.isMultiSelectMode) {
+      this.isSelectableTextMode = false
+    }
+  }
+
   @Monitor('currentModelId')
   onCurrentModelIdChange(): void {
     this.syncDerivedRenderCaches()
@@ -298,6 +305,7 @@ export struct MessageBubble {
     this.showTranslation = false
     this.isTranslationExpanded = true
     this.currentTranslateLang = ''
+    this.isSelectableTextMode = false
   }
 
   private buildAttachmentSignature(attachments: MessageAttachment[]): string {
@@ -567,11 +575,6 @@ export struct MessageBubble {
         TransitionEffect.OPACITY
       ).animation({ duration: 250, curve: Curve.EaseOut })
     )
-    .bindSheet($$this.showSelectableTextSheet, this.SelectableTextSheet(), {
-      height: SheetSize.LARGE,
-      backgroundColor: $r('app.color.background'),
-      preferType: SheetType.BOTTOM
-    })
   }
 
   // 处理翻译
@@ -1186,6 +1189,60 @@ export struct MessageBubble {
     }
   }
 
+  private enterSelectableTextMode(): void {
+    if (!this.canCopyMessageContent() || this.isMultiSelectMode) {
+      return
+    }
+    this.isSelectableTextMode = true
+  }
+
+  private exitSelectableTextMode(): void {
+    this.isSelectableTextMode = false
+  }
+
+  @Builder
+  InlineSelectableTextContent() {
+    Column() {
+      Row() {
+        Text($r('app.string.menu_select_text'))
+          .fontSize(12)
+          .fontColor($r('app.color.text_tertiary'))
+
+        Blank()
+
+        Button($r('app.string.copy'))
+          .fontSize(12)
+          .type(ButtonType.Capsule)
+          .height(28)
+          .onClick(() => {
+            this.handleCopy()
+          })
+
+        Button($r('app.string.action_close'))
+          .fontSize(12)
+          .type(ButtonType.Capsule)
+          .height(28)
+          .margin({ left: 8 })
+          .onClick(() => {
+            this.exitSelectableTextMode()
+          })
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+      .margin({ bottom: 8 })
+
+      Text(this.message.content)
+        .fontSize(this.chatFontSize)
+        .fontColor($r('app.color.text_primary'))
+        .lineHeight(Math.round(this.chatFontSize * 1.5))
+        .copyOption(CopyOptions.LocalDevice)
+        .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
+        .width('100%')
+    }
+    .width('100%')
+    .transition(TransitionEffect.OPACITY.animation({ duration: 150 }))
+  }
+
   // 翻译子菜单
   @Builder
   TranslateSubMenu() {
@@ -1204,7 +1261,7 @@ export struct MessageBubble {
       if (this.canCopyMessageContent()) {
         MenuItem({ symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.textformat')).fontSize(16), content: $r('app.string.menu_select_text') })
           .contentFont({ size: 14 })
-          .onClick(() => { this.showSelectableTextSheet = true })
+          .onClick(() => { this.enterSelectableTextMode() })
       }
 
       MenuItem({ symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.share')).fontSize(16), content: $r('app.string.menu_share') })
@@ -1220,49 +1277,6 @@ export struct MessageBubble {
         .contentFontColor($r('app.color.status_error'))
         .onClick(() => { this.onDelete() })
     }
-  }
-
-  @Builder
-  SelectableTextSheet() {
-    Column() {
-      Column() {
-        Text($r('app.string.menu_select_text'))
-          .fontSize(18)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-          .width('100%')
-          .textAlign(TextAlign.Start)
-
-        Button($r('app.string.copy'))
-          .fontSize(14)
-          .type(ButtonType.Capsule)
-          .height(34)
-          .alignSelf(ItemAlign.Start)
-          .margin({ top: 12 })
-          .onClick(() => {
-            this.handleCopy()
-          })
-      }
-      .width('100%')
-      .alignItems(HorizontalAlign.Start)
-      .padding({ left: 20, right: 72, top: 16, bottom: 10 })
-
-      Scroll() {
-        Text(this.message.content)
-          .fontSize(this.chatFontSize)
-          .fontColor($r('app.color.text_primary'))
-          .lineHeight(Math.round(this.chatFontSize * 1.5))
-          .copyOption(CopyOptions.LocalDevice)
-          .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
-          .width('100%')
-          .padding({ left: 20, right: 20, top: 8, bottom: 32 })
-      }
-      .width('100%')
-      .layoutWeight(1)
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('app.color.background'))
   }
 
   // 用户消息更多菜单（分享/多选/删除）
@@ -1340,43 +1354,47 @@ export struct MessageBubble {
         // 内容区域 - 无气泡，全宽显示
         Column() {
           Column() {
-            // ========== 工具调用区域 ==========
-            if (this.message.hasToolCalls()) {
-              ForEach(this.message.toolCalls, (toolCall: ToolCall, index: number) => {
-                if (!this.shouldHideToolCallCard(toolCall)) {
-                  ToolCallCard({
-                    toolCall: toolCall,
-                    toolResult: index < this.message.toolResults.length ? this.message.toolResults[index] : null,
-                    isExecuting: this.message.isGenerating && index >= this.message.toolResults.length
-                  })
-                    .margin({ bottom: 6 })
-                }
-              }, (toolCall: ToolCall, index: number) => toolCall.id + '_' + index.toString())
-            }
+            if (!this.isSelectableTextMode) {
+              // ========== 工具调用区域 ==========
+              if (this.message.hasToolCalls()) {
+                ForEach(this.message.toolCalls, (toolCall: ToolCall, index: number) => {
+                  if (!this.shouldHideToolCallCard(toolCall)) {
+                    ToolCallCard({
+                      toolCall: toolCall,
+                      toolResult: index < this.message.toolResults.length ? this.message.toolResults[index] : null,
+                      isExecuting: this.message.isGenerating && index >= this.message.toolResults.length
+                    })
+                      .margin({ bottom: 6 })
+                  }
+                }, (toolCall: ToolCall, index: number) => toolCall.id + '_' + index.toString())
+              }
 
-            // ========== 搜索引用区域 ==========
-            if (this.message.hasSearchReferences()) {
-              SearchReferenceCard({
-                query: this.extractSearchQuery(),
-                searchEngine: this.message.searchEngine || 'Web',
-                references: this.message.searchReferences,
-                sourceLabel: this.getSearchSourceLabel()
-              })
-                .margin({ bottom: 6 })
-            }
+              // ========== 搜索引用区域 ==========
+              if (this.message.hasSearchReferences()) {
+                SearchReferenceCard({
+                  query: this.extractSearchQuery(),
+                  searchEngine: this.message.searchEngine || 'Web',
+                  references: this.message.searchReferences,
+                  sourceLabel: this.getSearchSourceLabel()
+                })
+                  .margin({ bottom: 6 })
+              }
 
-            // ========== 附件区域（AI 生成的图片） ==========
-            if (this.message.hasAttachments()) {
-              this.AssistantAttachments()
-            }
+              // ========== 附件区域（AI 生成的图片） ==========
+              if (this.message.hasAttachments()) {
+                this.AssistantAttachments()
+              }
 
-            // ========== 推理内容区域（可折叠） ==========
-            if (this.message.hasReasoningContent()) {
-              this.ReasoningSection()
+              // ========== 推理内容区域（可折叠） ==========
+              if (this.message.hasReasoningContent()) {
+                this.ReasoningSection()
+              }
             }
 
             // ========== 加载状态或主要内容区域 ==========
-            if (this.message.content.length === 0 && this.message.reasoningContent.length === 0 &&
+            if (this.isSelectableTextMode) {
+              this.InlineSelectableTextContent()
+            } else if (this.message.content.length === 0 && this.message.reasoningContent.length === 0 &&
                 (this.message.isGenerating || this.message.isSearching)) {
               if (this.message.isSearching) {
                 this.SearchingIndicatorInline()
@@ -1402,6 +1420,12 @@ export struct MessageBubble {
                       })
                         .width('100%')
                         .backgroundColor(Color.Transparent)
+                        .gesture(
+                          LongPressGesture()
+                            .onAction(() => {
+                              this.enterSelectableTextMode()
+                            })
+                        )
                     }
                   },
                   (segment: ContentSegment, index: number) => {
@@ -1415,12 +1439,18 @@ export struct MessageBubble {
                 })
                   .width('100%')
                   .backgroundColor(Color.Transparent)
+                  .gesture(
+                    LongPressGesture()
+                      .onAction(() => {
+                        this.enterSelectableTextMode()
+                      })
+                  )
                   .transition(TransitionEffect.OPACITY.animation({ duration: 200 }))
               }
             }
 
             // ========== 翻译结果区域（嵌入式可折叠卡片） ==========
-            if (this.showTranslation) {
+            if (!this.isSelectableTextMode && this.showTranslation) {
               this.TranslationCard()
             }
           }
@@ -1430,9 +1460,8 @@ export struct MessageBubble {
               this.onTTSStop()
             }
           })
-
           // ========== 工具栏 ==========
-          if (this.shouldShowAssistantToolbar()) {
+          if (!this.isSelectableTextMode && this.shouldShowAssistantToolbar()) {
             Row() {
               // 复制
               if (this.canCopyMessageContent()) {
