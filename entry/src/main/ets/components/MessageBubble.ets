@@ -8,6 +8,7 @@ import { SearchReferenceCard } from './SearchReferenceCard'
 import { ToolCallCard } from './ToolCallCard'
 import { HtmlPreviewCard } from './HtmlPreviewCard'
 import { TypingDots } from './TypingDots'
+import { SelectableMarkdownContent, getSelectableMarkdownPlainText } from './SelectableMarkdownContent'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { getAppUiState } from '../state/AppUiState'
@@ -1231,12 +1232,11 @@ export struct MessageBubble {
       .alignItems(VerticalAlign.Center)
       .margin({ bottom: 8 })
 
-      Text(this.message.content)
-        .fontSize(this.chatFontSize)
-        .fontColor($r('app.color.text_primary'))
-        .lineHeight(Math.round(this.chatFontSize * 1.5))
-        .copyOption(CopyOptions.LocalDevice)
-        .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
+      SelectableMarkdownContent({
+        content: this.message.content,
+        fontSize: this.chatFontSize,
+        textColor: $r('app.color.text_primary')
+      })
         .width('100%')
     }
     .width('100%')
@@ -1889,7 +1889,8 @@ export struct MessageBubble {
 
   private handleCopy() {
     try {
-      const pasteboardData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, this.message.content)
+      const copyContent = this.isSelectableTextMode ? getSelectableMarkdownPlainText(this.message.content) : this.message.content
+      const pasteboardData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, copyContent)
       const systemPasteboard = pasteboard.getSystemPasteboard()
       systemPasteboard.setData(pasteboardData)
       showToast(this.getUIContext(), $r('app.string.copy_success'))
