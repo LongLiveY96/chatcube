@@ -1225,24 +1225,27 @@ export struct MessageBubble {
   @Builder
   SelectableTextSheet() {
     Column() {
-      Row() {
+      Column() {
         Text($r('app.string.menu_select_text'))
           .fontSize(18)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.text_primary'))
-
-        Blank()
+          .width('100%')
+          .textAlign(TextAlign.Start)
 
         Button($r('app.string.copy'))
           .fontSize(14)
           .type(ButtonType.Capsule)
           .height(34)
+          .alignSelf(ItemAlign.Start)
+          .margin({ top: 12 })
           .onClick(() => {
             this.handleCopy()
           })
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 16, bottom: 10 })
+      .alignItems(HorizontalAlign.Start)
+      .padding({ left: 20, right: 72, top: 16, bottom: 10 })
 
       Scroll() {
         Text(this.message.content)
