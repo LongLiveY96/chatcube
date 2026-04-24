@@ -19,4 +19,4 @@
 # 签名配置（包含密钥密码和本地路径）
 build-profile.json5
 /AGENTS.md
-/docs/*.jpg
+docs/appgallery
