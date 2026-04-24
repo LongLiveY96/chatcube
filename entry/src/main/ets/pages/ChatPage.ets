@@ -952,16 +952,6 @@ export struct ChatPage {
     return pendingToolIds
   }
 
-  private async ensureSelectedMcpToolsReadyForSend(toolIds: string[]): Promise<boolean> {
-    let enabledMcpServerIds = await this.loadEnabledMcpServerIds()
-    if (this.collectPendingEnabledMcpToolIds(toolIds, enabledMcpServerIds).length === 0) {
-      return true
-    }
-    await this.runMcpToolAvailabilityRefresh(false)
-    enabledMcpServerIds = await this.loadEnabledMcpServerIds()
-    return this.collectPendingEnabledMcpToolIds(toolIds, enabledMcpServerIds).length === 0
-  }
-
   private isMcpChatTool(tool: ToolConfig): boolean {
     return tool.sourceType === ToolSourceType.MCP && tool.sourceId.trim() !== ''
   }
@@ -2923,16 +2913,13 @@ export struct ChatPage {
       const effectiveApiKey = prepareResult.effectiveApiKey
 
       await this.syncToolAvailabilityFromPreferences()
-      const mcpToolsReady = await this.ensureSelectedMcpToolsReadyForSend([
+      const requestedToolIds = [
         ...this.selectedToolIds,
         ...this.forcedToolIdsOnce
-      ])
-      if (!mcpToolsReady) {
-        this.showError(pickLocalizedText(
-          '已选 MCP 工具尚未就绪，请稍后重试',
-          'Selected MCP tools are not ready yet. Try again shortly.'
-        ))
-        return
+      ]
+      const enabledMcpServerIds = await this.loadEnabledMcpServerIds()
+      if (this.collectPendingEnabledMcpToolIds(requestedToolIds, enabledMcpServerIds).length > 0) {
+        this.refreshMcpToolAvailabilityInBackground(false)
       }
 
       const attachmentsToSend = [...this.pendingAttachments]
