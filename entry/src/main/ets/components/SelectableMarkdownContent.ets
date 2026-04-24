@@ -1,35 +1,49 @@
 import { LengthMetrics } from '@kit.ArkUI'
 import { getMarkdownTextLineHeight, getMarkdownTitleSizes } from '../utils/MarkdownTypographyUtils'
 
-class MarkdownTextSegment {
+class MarkdownInlineSpan {
   text: string = ''
-  isHeading: boolean = false
-  headingLevel: number = 0
+  isBold: boolean = false
+  isItalic: boolean = false
   isCode: boolean = false
-  isQuote: boolean = false
+  isLink: boolean = false
 
-  constructor(text: string, isHeading: boolean, headingLevel: number, isCode: boolean, isQuote: boolean) {
+  constructor(text: string, isBold: boolean, isItalic: boolean, isCode: boolean, isLink: boolean) {
     this.text = text
-    this.isHeading = isHeading
-    this.headingLevel = headingLevel
+    this.isBold = isBold
+    this.isItalic = isItalic
     this.isCode = isCode
-    this.isQuote = isQuote
+    this.isLink = isLink
   }
 }
 
 class MarkdownLineResult {
-  text: string = ''
+  spans: MarkdownInlineSpan[] = []
   isHeading: boolean = false
   headingLevel: number = 0
-  isCode: boolean = false
+  isCodeBlock: boolean = false
   isQuote: boolean = false
 
-  constructor(text: string, isHeading: boolean, headingLevel: number, isCode: boolean, isQuote: boolean) {
-    this.text = text
+  constructor(spans: MarkdownInlineSpan[], isHeading: boolean, headingLevel: number, isCodeBlock: boolean, isQuote: boolean) {
+    this.spans = spans
     this.isHeading = isHeading
     this.headingLevel = headingLevel
-    this.isCode = isCode
+    this.isCodeBlock = isCodeBlock
     this.isQuote = isQuote
+  }
+}
+
+class MarkdownStyleState {
+  isBold: boolean = false
+  isItalic: boolean = false
+  isCode: boolean = false
+  isLink: boolean = false
+
+  constructor(isBold: boolean, isItalic: boolean, isCode: boolean, isLink: boolean) {
+    this.isBold = isBold
+    this.isItalic = isItalic
+    this.isCode = isCode
+    this.isLink = isLink
   }
 }
 
@@ -60,20 +74,27 @@ export struct SelectableMarkdownContent {
   }
 
   private refreshStyledString(): void {
-    const segments = this.parseMarkdown(this.content)
+    const lines = this.parseMarkdown(this.content)
     let displayText = ''
     const styles: SpanStyle[] = []
     let cursor = 0
 
-    for (let i = 0; i < segments.length; i++) {
-      const segment = segments[i]
-      if (segment.text.length === 0) {
-        continue
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      for (let j = 0; j < line.spans.length; j++) {
+        const span = line.spans[j]
+        if (span.text.length === 0) {
+          continue
+        }
+        const start = cursor
+        displayText += span.text
+        cursor += span.text.length
+        this.appendSpanStyle(styles, start, span.text.length, line, span)
       }
-      const start = cursor
-      displayText += segment.text
-      cursor += segment.text.length
-      this.appendSegmentStyle(styles, start, segment.text.length, segment)
+      if (i < lines.length - 1) {
+        displayText += '\n'
+        cursor++
+      }
     }
 
     if (displayText.length === 0) {
@@ -83,25 +104,21 @@ export struct SelectableMarkdownContent {
     this.textController.setStyledString(new MutableStyledString(displayText, styles))
   }
 
-  private appendSegmentStyle(styles: SpanStyle[], start: number, length: number, segment: MarkdownTextSegment): void {
+  private appendSpanStyle(styles: SpanStyle[], start: number, length: number, line: MarkdownLineResult, span: MarkdownInlineSpan): void {
     if (length <= 0) {
       return
     }
 
-    let segmentFontSize = this.fontSize
-    let segmentFontWeight: FontWeight | number | string = FontWeight.Normal
-    let segmentFontStyle = FontStyle.Normal
-    let segmentFontFamily = 'HarmonyOS Sans'
-    let segmentColor = this.textColor
+    let spanFontSize = this.fontSize
+    let spanFontWeight: FontWeight | number | string = span.isBold ? FontWeight.Bold : FontWeight.Normal
+    let spanFontStyle = span.isItalic || line.isQuote ? FontStyle.Italic : FontStyle.Normal
+    let spanFontFamily = span.isCode || line.isCodeBlock ? 'monospace' : 'HarmonyOS Sans'
+    let spanColor = this.textColor
 
-    if (segment.isHeading) {
-      segmentFontWeight = FontWeight.Bold
+    if (line.isHeading) {
       const titleSizes = getMarkdownTitleSizes(this.fontSize)
-      segmentFontSize = titleSizes[segment.headingLevel - 1]
-    } else if (segment.isCode) {
-      segmentFontFamily = 'monospace'
-    } else if (segment.isQuote) {
-      segmentFontStyle = FontStyle.Italic
+      spanFontSize = titleSizes[line.headingLevel - 1]
+      spanFontWeight = FontWeight.Bold
     }
 
     styles.push({
@@ -109,23 +126,36 @@ export struct SelectableMarkdownContent {
       length: length,
       styledKey: StyledStringKey.FONT,
       styledValue: new TextStyle({
-        fontColor: segmentColor,
-        fontSize: LengthMetrics.fp(segmentFontSize),
-        fontWeight: segmentFontWeight,
-        fontStyle: segmentFontStyle,
-        fontFamily: segmentFontFamily
+        fontColor: spanColor,
+        fontSize: LengthMetrics.fp(spanFontSize),
+        fontWeight: spanFontWeight,
+        fontStyle: spanFontStyle,
+        fontFamily: spanFontFamily
       })
     })
+
+    if (span.isLink) {
+      styles.push({
+        start: start,
+        length: length,
+        styledKey: StyledStringKey.DECORATION,
+        styledValue: new DecorationStyle({
+          type: TextDecorationType.Underline,
+          color: spanColor,
+          style: TextDecorationStyle.SOLID
+        })
+      })
+    }
   }
 
-  private parseMarkdown(markdown: string): MarkdownTextSegment[] {
+  private parseMarkdown(markdown: string): MarkdownLineResult[] {
     const normalized = markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-    const lines = normalized.split('\n')
-    const segments: MarkdownTextSegment[] = []
+    const rawLines = normalized.split('\n')
+    const lines: MarkdownLineResult[] = []
     let inCodeBlock = false
 
-    for (let i = 0; i < lines.length; i++) {
-      const rawLine = lines[i]
+    for (let i = 0; i < rawLines.length; i++) {
+      const rawLine = rawLines[i]
       const trimmedLine = rawLine.trim()
 
       if (trimmedLine.startsWith('```')) {
@@ -134,7 +164,7 @@ export struct SelectableMarkdownContent {
       }
 
       if (inCodeBlock) {
-        this.pushLineSegment(segments, new MarkdownLineResult(rawLine, false, 0, true, false), i, lines.length)
+        lines.push(new MarkdownLineResult([new MarkdownInlineSpan(rawLine, false, false, true, false)], false, 0, true, false))
         continue
       }
 
@@ -142,19 +172,11 @@ export struct SelectableMarkdownContent {
         continue
       }
 
-      const result = this.parseMarkdownLine(rawLine)
-      this.pushLineSegment(segments, result, i, lines.length)
+      const parsedLine = this.parseMarkdownLine(rawLine)
+      lines.push(parsedLine)
     }
 
-    return segments
-  }
-
-  private pushLineSegment(segments: MarkdownTextSegment[], result: MarkdownLineResult, index: number, total: number): void {
-    let lineText = result.text
-    if (index < total - 1) {
-      lineText += '\n'
-    }
-    segments.push(new MarkdownTextSegment(lineText, result.isHeading, result.headingLevel, result.isCode, result.isQuote))
+    return lines
   }
 
   private parseMarkdownLine(line: string): MarkdownLineResult {
@@ -169,15 +191,13 @@ export struct SelectableMarkdownContent {
 
     const headingLevel = this.getHeadingLevel(workingLine)
     if (headingLevel > 0) {
-      let headingText = workingLine.substring(headingLevel).trim()
-      headingText = this.cleanInlineMarkdown(headingText)
-      return new MarkdownLineResult(headingText, true, headingLevel, false, isQuote)
+      const headingText = workingLine.substring(headingLevel).trim()
+      return new MarkdownLineResult(this.parseInlineSpans(headingText), true, headingLevel, false, isQuote)
     }
 
-    workingLine = this.cleanListPrefix(workingLine)
-    workingLine = this.cleanTableLine(workingLine)
-    workingLine = this.cleanInlineMarkdown(workingLine)
-    return new MarkdownLineResult(workingLine, false, 0, false, isQuote)
+    workingLine = this.normalizeListPrefix(workingLine)
+    workingLine = this.normalizeTableLine(workingLine)
+    return new MarkdownLineResult(this.parseInlineSpans(workingLine), false, 0, false, isQuote)
   }
 
   private getHeadingLevel(line: string): number {
@@ -196,15 +216,14 @@ export struct SelectableMarkdownContent {
     return 0
   }
 
-  private cleanListPrefix(line: string): string {
+  private normalizeListPrefix(line: string): string {
     let result = line
     result = result.replace(/^[-*+]\s+\[[ xX]\]\s+/, '• ')
     result = result.replace(/^[-*+]\s+/, '• ')
-    result = result.replace(/^\d+[.)]\s+/, '• ')
     return result
   }
 
-  private cleanTableLine(line: string): string {
+  private normalizeTableLine(line: string): string {
     const trimmedLine = line.trim()
     if (trimmedLine.indexOf('|') < 0) {
       return line
@@ -222,19 +241,128 @@ export struct SelectableMarkdownContent {
     return result.split('|').map((item: string) => item.trim()).join('    ')
   }
 
-  private cleanInlineMarkdown(text: string): string {
-    let result = text
-    result = result.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
-    result = result.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    result = result.replace(/`([^`]*)`/g, '$1')
-    result = result.replace(/\*\*([^*]+)\*\*/g, '$1')
-    result = result.replace(/__([^_]+)__/g, '$1')
-    result = result.replace(/~~([^~]+)~~/g, '$1')
-    result = result.replace(/\*([^*]+)\*/g, '$1')
-    result = result.replace(/_([^_]+)_/g, '$1')
-    result = result.replace(/<br\s*\/?>/gi, '\n')
-    result = result.replace(/<[^>]+>/g, '')
-    return result
+  private parseInlineSpans(text: string): MarkdownInlineSpan[] {
+    const spans: MarkdownInlineSpan[] = []
+    let cursor = 0
+    let buffer = ''
+    let state = new MarkdownStyleState(false, false, false, false)
+
+    while (cursor < text.length) {
+      const remaining = text.substring(cursor)
+
+      if (remaining.startsWith('<br/>') || remaining.startsWith('<br />') || remaining.startsWith('<br>')) {
+        this.flushInlineBuffer(spans, buffer, state)
+        buffer = ''
+        spans.push(new MarkdownInlineSpan('\n', state.isBold, state.isItalic, state.isCode, state.isLink))
+        if (remaining.startsWith('<br />')) {
+          cursor += 6
+        } else if (remaining.startsWith('<br/>')) {
+          cursor += 5
+        } else {
+          cursor += 4
+        }
+        continue
+      }
+
+      if (remaining.startsWith('![')) {
+        const imageEnd = this.findMarkdownLinkEnd(text, cursor + 2)
+        if (imageEnd > cursor) {
+          const labelEnd = text.indexOf(']', cursor + 2)
+          if (labelEnd > cursor) {
+            buffer += text.substring(cursor + 2, labelEnd)
+            cursor = imageEnd + 1
+            continue
+          }
+        }
+      }
+
+      if (remaining.startsWith('[')) {
+        const linkEnd = this.findMarkdownLinkEnd(text, cursor + 1)
+        if (linkEnd > cursor) {
+          const labelEnd = text.indexOf(']', cursor + 1)
+          if (labelEnd > cursor) {
+            this.flushInlineBuffer(spans, buffer, state)
+            buffer = ''
+            const linkText = text.substring(cursor + 1, labelEnd)
+            const linkSpans = this.parseInlineSpans(linkText)
+            for (let i = 0; i < linkSpans.length; i++) {
+              const linkSpan = linkSpans[i]
+              spans.push(new MarkdownInlineSpan(linkSpan.text, linkSpan.isBold || state.isBold, linkSpan.isItalic || state.isItalic, linkSpan.isCode || state.isCode, true))
+            }
+            cursor = linkEnd + 1
+            continue
+          }
+        }
+      }
+
+      if (remaining.startsWith('**')) {
+        this.flushInlineBuffer(spans, buffer, state)
+        buffer = ''
+        state = new MarkdownStyleState(!state.isBold, state.isItalic, state.isCode, state.isLink)
+        cursor += 2
+        continue
+      }
+
+      if (remaining.startsWith('__')) {
+        this.flushInlineBuffer(spans, buffer, state)
+        buffer = ''
+        state = new MarkdownStyleState(!state.isBold, state.isItalic, state.isCode, state.isLink)
+        cursor += 2
+        continue
+      }
+
+      if (remaining.startsWith('~~')) {
+        cursor += 2
+        continue
+      }
+
+      const currentChar = text.charAt(cursor)
+      if (currentChar === '`') {
+        this.flushInlineBuffer(spans, buffer, state)
+        buffer = ''
+        state = new MarkdownStyleState(state.isBold, state.isItalic, !state.isCode, state.isLink)
+        cursor++
+        continue
+      }
+
+      if (currentChar === '*' || currentChar === '_') {
+        this.flushInlineBuffer(spans, buffer, state)
+        buffer = ''
+        state = new MarkdownStyleState(state.isBold, !state.isItalic, state.isCode, state.isLink)
+        cursor++
+        continue
+      }
+
+      if (currentChar === '<') {
+        const tagEnd = text.indexOf('>', cursor)
+        if (tagEnd > cursor) {
+          cursor = tagEnd + 1
+          continue
+        }
+      }
+
+      buffer += currentChar
+      cursor++
+    }
+
+    this.flushInlineBuffer(spans, buffer, state)
+    return spans
+  }
+
+  private flushInlineBuffer(spans: MarkdownInlineSpan[], buffer: string, state: MarkdownStyleState): void {
+    if (buffer.length === 0) {
+      return
+    }
+    spans.push(new MarkdownInlineSpan(buffer, state.isBold, state.isItalic, state.isCode, state.isLink))
+  }
+
+  private findMarkdownLinkEnd(text: string, labelStart: number): number {
+    const labelEnd = text.indexOf(']', labelStart)
+    if (labelEnd < 0 || labelEnd + 1 >= text.length || text.charAt(labelEnd + 1) !== '(') {
+      return -1
+    }
+    const targetEnd = text.indexOf(')', labelEnd + 2)
+    return targetEnd
   }
 
   private isDividerLine(line: string): boolean {
@@ -274,7 +402,6 @@ export function getSelectableMarkdownPlainText(markdown: string): string {
       line = line.replace(/^#{1,6}\s+/, '')
       line = line.replace(/^[-*+]\s+\[[ xX]\]\s+/, '• ')
       line = line.replace(/^[-*+]\s+/, '• ')
-      line = line.replace(/^\d+[.)]\s+/, '• ')
       if (line.indexOf('|') >= 0) {
         if (/^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line)) {
           line = ''
