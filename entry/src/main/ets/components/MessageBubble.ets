@@ -569,7 +569,7 @@ export struct MessageBubble {
     )
     .bindSheet($$this.showSelectableTextSheet, this.SelectableTextSheet(), {
       height: SheetSize.LARGE,
-      backgroundColor: $r('app.color.background_primary'),
+      backgroundColor: $r('app.color.background'),
       preferType: SheetType.BOTTOM
     })
   }
@@ -1259,7 +1259,7 @@ export struct MessageBubble {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r('app.color.background_primary'))
+    .backgroundColor($r('app.color.background'))
   }
 
   // 用户消息更多菜单（分享/多选/删除）
