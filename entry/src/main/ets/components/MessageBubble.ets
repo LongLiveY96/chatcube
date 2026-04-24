@@ -59,6 +59,7 @@ export struct MessageBubble {
   @Local showTranslation: boolean = false  // 是否显示翻译结果
   @Local isTranslationExpanded: boolean = true  // 翻译结果是否展开
   @Local currentTranslateLang: string = ''  // 当前翻译的目标语言
+  @Local showSelectableTextSheet: boolean = false
   // 深色模式状态（用于主题适配）
   private get isDarkMode(): boolean {
     return getAppUiState().isDarkMode
@@ -435,6 +436,7 @@ export struct MessageBubble {
         this.copyToClipboard(code)
       })
     markdownController.setBlockSpacing(mainBlockSpacing)
+    markdownController.setCopyOption(CopyOptions.LocalDevice)
 
     // 配置推理内容 Markdown（更紧凑）
     reasoningMarkdownController
@@ -469,6 +471,7 @@ export struct MessageBubble {
         this.copyToClipboard(code)
       })
     reasoningMarkdownController.setBlockSpacing(compactBlockSpacing)
+    reasoningMarkdownController.setCopyOption(CopyOptions.LocalDevice)
 
     // 配置翻译内容 Markdown
     translationMarkdownController
@@ -503,6 +506,7 @@ export struct MessageBubble {
         this.copyToClipboard(code)
       })
     translationMarkdownController.setBlockSpacing(compactBlockSpacing)
+    translationMarkdownController.setCopyOption(CopyOptions.LocalDevice)
   }
 
   @Monitor('themeRenderKey')
@@ -563,6 +567,11 @@ export struct MessageBubble {
         TransitionEffect.OPACITY
       ).animation({ duration: 250, curve: Curve.EaseOut })
     )
+    .bindSheet($$this.showSelectableTextSheet, this.SelectableTextSheet(), {
+      height: SheetSize.LARGE,
+      backgroundColor: $r('app.color.background_primary'),
+      preferType: SheetType.BOTTOM
+    })
   }
 
   // 处理翻译
@@ -1192,6 +1201,12 @@ export struct MessageBubble {
   @Builder
   AssistantMoreMenu() {
     Menu() {
+      if (this.canCopyMessageContent()) {
+        MenuItem({ symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.textformat')).fontSize(16), content: $r('app.string.menu_select_text') })
+          .contentFont({ size: 14 })
+          .onClick(() => { this.showSelectableTextSheet = true })
+      }
+
       MenuItem({ symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.share')).fontSize(16), content: $r('app.string.menu_share') })
         .contentFont({ size: 14 })
         .onClick(() => { this.onShareMessage() })
@@ -1205,6 +1220,46 @@ export struct MessageBubble {
         .contentFontColor($r('app.color.status_error'))
         .onClick(() => { this.onDelete() })
     }
+  }
+
+  @Builder
+  SelectableTextSheet() {
+    Column() {
+      Row() {
+        Text($r('app.string.menu_select_text'))
+          .fontSize(18)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+
+        Blank()
+
+        Button($r('app.string.copy'))
+          .fontSize(14)
+          .type(ButtonType.Capsule)
+          .height(34)
+          .onClick(() => {
+            this.handleCopy()
+          })
+      }
+      .width('100%')
+      .padding({ left: 20, right: 20, top: 16, bottom: 10 })
+
+      Scroll() {
+        Text(this.message.content)
+          .fontSize(this.chatFontSize)
+          .fontColor($r('app.color.text_primary'))
+          .lineHeight(Math.round(this.chatFontSize * 1.5))
+          .copyOption(CopyOptions.LocalDevice)
+          .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
+          .width('100%')
+          .padding({ left: 20, right: 20, top: 8, bottom: 32 })
+      }
+      .width('100%')
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.background_primary'))
   }
 
   // 用户消息更多菜单（分享/多选/删除）
