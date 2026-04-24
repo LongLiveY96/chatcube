@@ -1,4 +1,5 @@
 import { LengthMetrics } from '@kit.ArkUI'
+import { getMarkdownTextLineHeight, getMarkdownTitleSizes } from '../utils/MarkdownTypographyUtils'
 
 class MarkdownTextSegment {
   text: string = ''
@@ -95,16 +96,10 @@ export struct SelectableMarkdownContent {
 
     if (segment.isHeading) {
       segmentFontWeight = FontWeight.Bold
-      if (segment.headingLevel === 1) {
-        segmentFontSize = Math.round(this.fontSize * 1.35)
-      } else if (segment.headingLevel === 2) {
-        segmentFontSize = Math.round(this.fontSize * 1.22)
-      } else {
-        segmentFontSize = Math.round(this.fontSize * 1.12)
-      }
+      const titleSizes = getMarkdownTitleSizes(this.fontSize)
+      segmentFontSize = titleSizes[segment.headingLevel - 1]
     } else if (segment.isCode) {
       segmentFontFamily = 'monospace'
-      segmentFontSize = Math.round(this.fontSize * 0.94)
     } else if (segment.isQuote) {
       segmentFontStyle = FontStyle.Italic
     }
@@ -250,7 +245,7 @@ export struct SelectableMarkdownContent {
     Text(undefined, { controller: this.textController })
       .fontSize(this.fontSize)
       .fontColor(this.textColor)
-      .lineHeight(Math.round(this.fontSize * 1.5))
+      .lineHeight(getMarkdownTextLineHeight(this.fontSize))
       .copyOption(CopyOptions.LocalDevice)
       .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
       .width('100%')

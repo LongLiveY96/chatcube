@@ -1234,7 +1234,7 @@ export struct MessageBubble {
 
       SelectableMarkdownContent({
         content: this.message.content,
-        fontSize: this.chatFontSize,
+        fontSize: this.chatFontSize - 1,
         textColor: $r('app.color.text_primary')
       })
         .width('100%')
