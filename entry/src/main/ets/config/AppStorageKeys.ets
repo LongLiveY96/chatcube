@@ -16,7 +16,6 @@ export class AppStorageKeys {
   static readonly TOP_AVOID_HEIGHT: string = 'topAvoidHeight'
   static readonly BOTTOM_AVOID_HEIGHT: string = 'bottomAvoidHeight'
   static readonly SPEAKING_MESSAGE_ID: string = 'speakingMessageId'
-  static readonly SELECTABLE_TEXT_MESSAGE_ID: string = 'selectable_text_message_id'
   static readonly WINDOW_WIDTH_VP: string = 'window_width_vp'
   static readonly WINDOW_HEIGHT_VP: string = 'window_height_vp'
   static readonly LAYOUT_SIZE_CLASS: string = 'layout_size_class'

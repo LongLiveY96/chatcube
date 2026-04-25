@@ -252,6 +252,7 @@ export struct ChatPage {
   // 多选模式状态
   @Local isMultiSelectMode: boolean = false
   @Local selectedMessageIds: Array<string> = []
+  @Local selectableTextMessageId: string = ''
   // 分享预览弹窗状态
   @Local showSharePreview: boolean = false
   @Local shareMessages: ChatMessage[] = []
@@ -604,7 +605,8 @@ export struct ChatPage {
     this.appUiStateDisposers = [
       observeAppUiState(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, (): void => this.onInAppTaskAlertPayloadChanged()),
       observeAppUiState(AppStorageKeys.OPEN_SESSION_PAYLOAD, (): void => this.onOpenSessionPayloadChanged()),
-      observeAppUiState(AppStorageKeys.TASK_EVENT_TICK, (): void => this.onTaskEventTickChanged())
+      observeAppUiState(AppStorageKeys.TASK_EVENT_TICK, (): void => this.onTaskEventTickChanged()),
+      observeAppUiState(AppStorageKeys.APP_IN_BACKGROUND, (): void => this.onAppBackgroundChanged())
     ]
   }
 
@@ -618,6 +620,15 @@ export struct ChatPage {
   private syncActiveSessionBinding(): void {
     const activeSessionId = this.isPageVisible && this.sessionId !== '' ? this.sessionId : ''
     setAppUiStateValue(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, activeSessionId)
+  }
+
+  private onAppBackgroundChanged(): void {
+    if (this.appInBackground) {
+      this.selectableTextMessageId = ''
+      if (this.isMultiSelectMode) {
+        this.handleExitMultiSelectMode()
+      }
+    }
   }
 
   private handlePageShown(): void {
@@ -1884,6 +1895,7 @@ export struct ChatPage {
           editingMessageId: this.editingMessageId,
           selectedMessageIds: this.selectedMessageIds,
           isMultiSelectMode: this.isMultiSelectMode,
+          selectableTextMessageId: this.selectableTextMessageId,
           inputText: this.inputText,
           pendingAttachments: this.pendingAttachments,
           showDraftPreview: this.hasDraftContent(),
@@ -1930,6 +1942,9 @@ export struct ChatPage {
           },
           onEnterMultiSelect: (messageId: string): void => {
             this.handleEnterMultiSelectMode(messageId)
+          },
+          onSetSelectableTextMessageId: (messageId: string): void => {
+            this.selectableTextMessageId = messageId
           },
           onListAppear: (): void => {
             this.handleListAppear()
@@ -2281,6 +2296,10 @@ export struct ChatPage {
     })
     .onHidden(() => {
       this.isPageVisible = false
+      this.selectableTextMessageId = ''
+      if (this.isMultiSelectMode) {
+        this.handleExitMultiSelectMode()
+      }
       this.syncActiveSessionBinding()
     })
     .onBackPressed((): boolean => {
@@ -2550,6 +2569,14 @@ export struct ChatPage {
 
   // 处理返回按钮点击
   private handleBack(): void {
+    if (this.selectableTextMessageId !== '') {
+      this.selectableTextMessageId = ''
+      return
+    }
+    if (this.isMultiSelectMode) {
+      this.handleExitMultiSelectMode()
+      return
+    }
     this.handleBackAsync().catch((error: Error): void => {
       console.error('ChatPage', `Failed to prepare chat before back: ${JSON.stringify(error)}`)
       this.navPathStack.pop()
@@ -3227,12 +3254,14 @@ export struct ChatPage {
 
   // 分享单条消息：进入多选模式并触发分享
   private handleShareSingleMessage(message: ChatMessage): void {
+    this.selectableTextMessageId = ''
     this.getSelectionFlow().enterModeWithMessage(message.id)
     this.handleShareSelectedMessages()
   }
 
   // 进入多选模式
   private handleEnterMultiSelectMode(messageId: string): void {
+    this.selectableTextMessageId = ''
     this.getSelectionFlow().enterModeWithMessage(messageId)
   }
 

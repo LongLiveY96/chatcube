@@ -11,6 +11,7 @@ export struct ChatMessageListItem {
   @Param showHeader: boolean = false
   @Param isSelected: boolean = false
   @Param isEditing: boolean = false
+  @Param selectableTextMessageId: string = ''
   @Param isDimmed: boolean = false
   @Param renderSignature: string = ''
   @Param contentRenderSignature: string = ''
@@ -36,6 +37,7 @@ export struct ChatMessageListItem {
   @Event onTTSStop: () => void = (): void => {}
   @Event onSelect: (messageId: string) => void = (_messageId: string): void => {}
   @Event onEnterMultiSelect: (messageId: string) => void = (_messageId: string): void => {}
+  @Event onSetSelectableTextMessageId: (messageId: string) => void = (_messageId: string): void => {}
 
   private getEffectiveContentMaxWidth(): number {
     return this.contentMaxWidth > 0 ? this.contentMaxWidth : 99999
@@ -59,6 +61,7 @@ export struct ChatMessageListItem {
           isMultiSelectMode: this.isMultiSelectMode,
           isSelected: this.isSelected,
           isEditing: this.isEditing,
+          selectableTextMessageId: this.selectableTextMessageId,
           previewContent: this.isEditing ? this.previewContent : '',
           previewAttachments: this.isEditing ? this.previewAttachments : [],
           onRegenerate: () => {
@@ -97,6 +100,9 @@ export struct ChatMessageListItem {
           },
           onEnterMultiSelect: (messageId: string): void => {
             this.onEnterMultiSelect(messageId)
+          },
+          onSetSelectableTextMessageId: (messageId: string): void => {
+            this.onSetSelectableTextMessageId(messageId)
           }
         })
       }

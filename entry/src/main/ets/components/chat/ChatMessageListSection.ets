@@ -1,6 +1,4 @@
 import { ChatMessage, MessageAttachment, MessageRole } from '../../models/ChatModels'
-import { AppStorageKeys } from '../../config/AppStorageKeys'
-import { getAppUiState, setAppUiStateValue } from '../../state/AppUiState'
 import { DraftPreviewBubble } from './DraftPreviewBubble'
 import { shouldShowMessageHeader } from '../../utils/MessageListUtils'
 import { CHAT_MESSAGE_LIST_ITEM_REUSE_ID, ChatMessageListItem } from './ChatMessageListItem'
@@ -21,6 +19,7 @@ export struct ChatMessageListSection {
   @Param editingMessageId: string = ''
   @Param selectedMessageIds: Array<string> = []
   @Param isMultiSelectMode: boolean = false
+  @Param selectableTextMessageId: string = ''
   @Param inputText: string = ''
   @Param pendingAttachments: MessageAttachment[] = []
   @Param showDraftPreview: boolean = false
@@ -46,6 +45,7 @@ export struct ChatMessageListSection {
   @Event onTTSStop: () => void = (): void => {}
   @Event onSelect: (messageId: string) => void = (_messageId: string): void => {}
   @Event onEnterMultiSelect: (messageId: string) => void = (_messageId: string): void => {}
+  @Event onSetSelectableTextMessageId: (messageId: string) => void = (_messageId: string): void => {}
   @Event onListAppear: () => void = (): void => {}
   @Event onReachStart: () => void = (): void => {}
   @Event onReachEnd: () => void = (): void => {}
@@ -55,9 +55,6 @@ export struct ChatMessageListSection {
   @Event onScrollIndex: (firstIndex: number, lastIndex: number) => void = (_firstIndex: number,
     _lastIndex: number): void => {}
   private messageRows: ChatMessageRowData[] = []
-  private get selectableTextMessageId(): string {
-    return getAppUiState().selectableTextMessageId
-  }
   private messageRowDataSource: ChatMessageListDataSource = new ChatMessageListDataSource()
 
   aboutToAppear(): void {
@@ -152,7 +149,7 @@ export struct ChatMessageListSection {
 
   private clearSelectableTextMode(): void {
     if (this.selectableTextMessageId !== '') {
-      setAppUiStateValue(AppStorageKeys.SELECTABLE_TEXT_MESSAGE_ID, '')
+      this.onSetSelectableTextMessageId('')
     }
   }
 
@@ -291,6 +288,7 @@ export struct ChatMessageListSection {
                 showHeader: item.showHeader,
                 isSelected: item.isSelected,
                 isEditing: item.isEditing,
+                selectableTextMessageId: this.selectableTextMessageId,
                 isDimmed: item.isDimmed,
                 renderSignature: item.renderSignature,
                 contentRenderSignature: item.contentRenderSignature,
@@ -337,6 +335,9 @@ export struct ChatMessageListSection {
                 },
                 onEnterMultiSelect: (messageId: string): void => {
                   this.onEnterMultiSelect(messageId)
+                },
+                onSetSelectableTextMessageId: (messageId: string): void => {
+                  this.onSetSelectableTextMessageId(messageId)
                 }
               })
                 .width('100%')

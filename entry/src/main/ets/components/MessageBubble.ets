@@ -11,8 +11,7 @@ import { TypingDots } from './TypingDots'
 import { SelectableMarkdownContent, getSelectableMarkdownPlainText } from './SelectableMarkdownContent'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
-import { getAppUiState, setAppUiStateValue } from '../state/AppUiState'
-import { AppStorageKeys } from '../config/AppStorageKeys'
+import { getAppUiState } from '../state/AppUiState'
 import {
   getMarkdownBlockSpacing,
   getMarkdownQuotePadding,
@@ -54,6 +53,7 @@ export struct MessageBubble {
   @Param isMultiSelectMode: boolean = false  // 是否处于多选模式
   @Param isSelected: boolean = false  // 是否被选中
   @Param isEditing: boolean = false  // 是否处于编辑状态（被编辑的消息高亮显示）
+  @Param selectableTextMessageId: string = ''
   @Param previewContent: string = ''  // 编辑时的实时预览内容
   @Param previewAttachments: MessageAttachment[] = []  // 编辑时的实时预览附件
   @Local isReasoningExpanded: boolean = false  // 推理内容是否展开
@@ -79,6 +79,9 @@ export struct MessageBubble {
   private get themePrimary(): string {
     return getAppUiState().themePrimary
   }
+  private get themePrimaryLight(): string {
+    return getAppUiState().themePrimaryLight
+  }
 
   // 聊天字体大小
   @Param chatFontSize: number = 15
@@ -99,9 +102,6 @@ export struct MessageBubble {
   private translationRequestToken: number = 0
   private get speakingMessageId(): string {
     return getAppUiState().speakingMessageId
-  }
-  private get selectableTextMessageId(): string {
-    return getAppUiState().selectableTextMessageId
   }
   private get isSelectableTextMode(): boolean {
     return this.selectableTextMessageId === this.message.id
@@ -144,6 +144,7 @@ export struct MessageBubble {
   // 多选模式回调
   @Event onSelect: (messageId: string) => void = () => {}
   @Event onEnterMultiSelect: (messageId: string) => void = () => {}
+  @Event onSetSelectableTextMessageId: (messageId: string) => void = (_messageId: string): void => {}
 
   // 支持的翻译语言列表
   private translateLanguages: TranslateLanguage[] = [
@@ -1200,12 +1201,12 @@ export struct MessageBubble {
     if (!this.canCopyMessageContent() || this.isMultiSelectMode) {
       return
     }
-    setAppUiStateValue(AppStorageKeys.SELECTABLE_TEXT_MESSAGE_ID, this.message.id)
+    this.onSetSelectableTextMessageId(this.message.id)
   }
 
   private exitSelectableTextMode(): void {
     if (this.selectableTextMessageId === this.message.id) {
-      setAppUiStateValue(AppStorageKeys.SELECTABLE_TEXT_MESSAGE_ID, '')
+      this.onSetSelectableTextMessageId('')
     }
   }
 
@@ -1495,12 +1496,12 @@ export struct MessageBubble {
         .margin({ top: this.showHeader ? 8 : 0 })
         .padding({ left: 14, right: 14, top: 12, bottom: 10 })
           .backgroundColor(this.isMultiSelectMode && this.isSelected
-            ? withColorAlpha(this.themePrimary, '15')
+            ? this.themePrimaryLight
             : this.themeAiBubble)
           .borderRadius(16)
           .border({
             width: this.isSelectableTextMode ? 1.5 : (this.isMultiSelectMode && this.isSelected ? 1.2 : 0.5),
-            color: this.isSelectableTextMode ? this.themeUserBubble : (this.isMultiSelectMode && this.isSelected ? withColorAlpha(this.themePrimary, '66') : $r('app.color.bubble_border'))
+            color: this.isSelectableTextMode ? this.themeUserBubble : (this.isMultiSelectMode && this.isSelected ? this.themePrimary : $r('app.color.bubble_border'))
           })
           .clip(true)
       }

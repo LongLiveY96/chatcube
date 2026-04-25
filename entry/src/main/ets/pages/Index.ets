@@ -21,7 +21,6 @@ import {
   LayoutSizeClass
 } from '../config/LayoutProfile'
 import { createButtonTouchHandler, getButtonAnimation, getButtonScale } from '../utils/ButtonAnimationUtils'
-import { withColorAlpha } from '../utils/ColorAlphaUtils'
 import {
   countSelectedIdsInCandidates,
   mergeSelectAllIds,
@@ -126,6 +125,12 @@ struct Index {
   }
   private get themePrimaryLight(): string {
     return getAppUiState().themePrimaryLight
+  }
+  private get isDarkMode(): boolean {
+    return getAppUiState().isDarkMode
+  }
+  private get fabShadowColor(): string {
+    return this.isDarkMode ? 'rgba(0, 0, 0, 0.38)' : 'rgba(15, 23, 42, 0.18)'
   }
   private get sessionListThemeRenderKey(): string {
     const uiState = getAppUiState()
@@ -1899,7 +1904,7 @@ struct Index {
     })
     .shadow({
       radius: this.fabPressed ? 20 : 14,
-      color: withColorAlpha(this.themePrimary, this.fabPressed ? '66' : '47'),
+      color: this.fabShadowColor,
       offsetX: 0,
       offsetY: 8
     })
