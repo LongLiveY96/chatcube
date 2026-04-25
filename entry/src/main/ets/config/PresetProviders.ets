@@ -105,6 +105,17 @@ const PRESET_PROVIDERS: PresetProviderConfig[] = [
     textIconBgColor: '#615CED'
   },
   {
+    id: 'kimi',
+    name: 'Kimi',
+    type: ProviderType.CUSTOM,
+    apiStyle: ApiStyle.OPENAI,
+    baseUrl: 'https://api.moonshot.cn/v1',
+    iconPath: '',
+    brandColorHex: '#0F172A',
+    textIcon: 'K',
+    textIconBgColor: '#0F172A'
+  },
+  {
     id: 'zhipu',
     name: '智谱 AI',
     type: ProviderType.CUSTOM,

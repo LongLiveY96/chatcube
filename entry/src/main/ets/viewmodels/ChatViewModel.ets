@@ -521,6 +521,7 @@ export class ChatViewModel {
     attachments: MessageAttachment[] = [],
     contextStartIndex: number = 0,
     reasoningLevel: ReasoningLevel = ReasoningLevel.OFF,
+    reasoningBudget: number = -1,
     apiPath?: string,  // 可选的自定义 API 路径
     customHeadersJson?: string
   ): Promise<void> {
@@ -628,6 +629,8 @@ export class ChatViewModel {
       apiConfig.frequencyPenalty = modelParams.frequencyPenalty
     }
     apiConfig.modelReasoningStrategyOverride = this.getCurrentModelReasoningStrategyOverride(providerId, modelId)
+    apiConfig.modelSupportsReasoning = this.getCurrentModelSupportsReasoning(providerId, modelId)
+    apiConfig.reasoningBudget = reasoningBudget
 
     if (this.isCancelled(cancelSnapshot)) {
       return
@@ -917,6 +920,7 @@ ${webContext.content}
       customHeadersJson: customHeadersJson
     }
     apiConfig.modelReasoningStrategyOverride = this.getCurrentModelReasoningStrategyOverride(providerId, modelId)
+    apiConfig.modelSupportsReasoning = this.getCurrentModelSupportsReasoning(providerId, modelId)
 
     if (this.isCancelled(cancelSnapshot)) {
       return
@@ -1108,6 +1112,7 @@ ${webContext.content}
     onComplete: () => void,
     onError: (error: string) => void,
     reasoningLevel: ReasoningLevel = ReasoningLevel.OFF,
+    reasoningBudget: number = -1,
     apiPath?: string,
     customHeadersJson?: string
   ): Promise<void> {
@@ -1229,6 +1234,8 @@ ${limitedSearchContext}
       customHeadersJson: customHeadersJson
     }
     apiConfig.modelReasoningStrategyOverride = this.getCurrentModelReasoningStrategyOverride(providerId, modelId)
+    apiConfig.modelSupportsReasoning = this.getCurrentModelSupportsReasoning(providerId, modelId)
+    apiConfig.reasoningBudget = reasoningBudget
 
     if (this.isCancelled(cancelSnapshot)) {
       return
@@ -1420,6 +1427,7 @@ ${limitedSearchContext}
     attachments: MessageAttachment[] = [],
     contextStartIndex: number = 0,
     reasoningLevel: ReasoningLevel = ReasoningLevel.OFF,
+    reasoningBudget: number = -1,
     tools: ToolDefinition[] = [],
     toolCallbacks?: ToolCallCallbacks,
     apiPath?: string,
@@ -1558,6 +1566,8 @@ ${limitedSearchContext}
       apiConfig.frequencyPenalty = modelParams.frequencyPenalty
     }
     apiConfig.modelReasoningStrategyOverride = this.getCurrentModelReasoningStrategyOverride(providerId, modelId)
+    apiConfig.modelSupportsReasoning = this.getCurrentModelSupportsReasoning(providerId, modelId)
+    apiConfig.reasoningBudget = reasoningBudget
 
     if (this.isCancelled(cancelSnapshot)) {
       return
@@ -1708,6 +1718,7 @@ ${limitedSearchContext}
     console.info('ChatViewModel', `Tool call loop iteration ${iteration + 1}`)
     let roundContentBuffer = ''
     let roundReasoningBuffer = ''
+    let toolContinuationReasoningContent = ''
     let roundHasToolCallDelta = false
     let streamedContentLength = 0
     let streamedReasoningLength = 0
@@ -1731,6 +1742,11 @@ ${limitedSearchContext}
         return
       }
       roundHasToolCallDelta = true
+      if (streamedReasoningLength > 0 && aiMessage.reasoningContent.length >= streamedReasoningLength) {
+        toolContinuationReasoningContent = aiMessage.reasoningContent.substring(
+          aiMessage.reasoningContent.length - streamedReasoningLength
+        )
+      }
       rollbackStreamedRoundOutput()
       onAIMessageUpdated(aiMessage)
     }
@@ -1969,6 +1985,7 @@ ${limitedSearchContext}
 
           // 构建下一轮请求消息
           const assistantMsg = RequestMessage.createAssistantWithToolCalls(aiMessage.content, toolCalls)
+          assistantMsg.reasoningContent = toolContinuationReasoningContent
           requestMessages.push(assistantMsg)
 
           for (let i = 0; i < toolResults.length; i++) {
@@ -2679,11 +2696,29 @@ ${context !== '' ? context : '(无历史对话)'}
 
     for (let i = 0; i < provider.models.length; i++) {
       if (provider.models[i].id === modelId) {
+        if (!provider.models[i].capabilities.supportsReasoning) {
+          return ''
+        }
         return provider.models[i].reasoningStrategyOverride
       }
     }
 
     return ''
+  }
+
+  private getCurrentModelSupportsReasoning(providerId: string, modelId: string): boolean {
+    const provider = this.providerViewModel.getProviderById(providerId)
+    if (provider === null) {
+      return false
+    }
+
+    for (let i = 0; i < provider.models.length; i++) {
+      if (provider.models[i].id === modelId) {
+        return provider.models[i].capabilities.supportsReasoning
+      }
+    }
+
+    return false
   }
 
   // 懒加载历史附件（从后向前扫描，只加载最后 N 条用户消息的附件）

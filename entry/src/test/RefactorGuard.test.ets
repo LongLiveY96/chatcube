@@ -9,6 +9,7 @@ import {
   ModelInfo,
   ModelProvider,
   ProviderType,
+  ReasoningLevel,
   SearchReference,
   ToolCall,
   ToolResult
@@ -72,6 +73,14 @@ import {
   validateCustomHeaderEntries
 } from '../main/ets/utils/CustomHeaderUtils'
 import { shouldShowAssistantMessageToolbar } from '../main/ets/utils/MessageBubbleDisplayUtils'
+import {
+  ReasoningControlMode,
+  ReasoningRequestStrategy,
+  normalizeReasoningLevelForControl,
+  resolveReasoningControlMode,
+  resolveReasoningRequestStrategyWithOverride,
+  supportsReasoningXhighControl
+} from '../main/ets/services/ProviderCompatibilityRegistry'
 
 class TestDataChangeListener implements DataChangeListener {
   reloadCount: number = 0
@@ -897,6 +906,141 @@ export default function refactorGuardTest() {
       expect(isSensitiveCustomHeaderName('Authorization')).assertEqual(true)
       expect(isSensitiveCustomHeaderName('x-api-key')).assertEqual(true)
       expect(isSensitiveCustomHeaderName('HTTP-Referer')).assertEqual(false)
+    })
+
+    it('reasoningControl_should_resolve_effort_toggle_and_unknown_provider_modes', 0, () => {
+      const openaiMode = resolveReasoningControlMode({
+        providerId: 'openai',
+        baseUrl: 'https://api.openai.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'gpt-5.1', true)
+      const minimaxMode = resolveReasoningControlMode({
+        providerId: 'minimax',
+        baseUrl: 'https://api.minimaxi.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'MiniMax-M2.5', true)
+      const unknownMode = resolveReasoningControlMode({
+        providerId: 'custom',
+        baseUrl: 'https://example.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'deepseek-r1', true)
+      const overrideMode = resolveReasoningControlMode({
+        providerId: 'custom',
+        baseUrl: 'https://example.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'deepseek-r1', true, ReasoningRequestStrategy.OPENROUTER_REASONING)
+      const openAICompatOverrideMode = resolveReasoningControlMode({
+        providerId: 'custom',
+        baseUrl: 'https://example.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'gpt-5.4', true, ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT)
+
+      expect(openaiMode).assertEqual(ReasoningControlMode.EFFORT)
+      expect(minimaxMode).assertEqual(ReasoningControlMode.TOGGLE)
+      expect(unknownMode).assertEqual(ReasoningControlMode.EFFORT)
+      expect(overrideMode).assertEqual(ReasoningControlMode.EFFORT)
+      expect(openAICompatOverrideMode).assertEqual(ReasoningControlMode.EFFORT)
+    })
+
+    it('reasoningControl_should_use_generic_openai_compat_without_gateway_name_mapping', 0, () => {
+      const namedLikeNewApi = resolveReasoningRequestStrategyWithOverride({
+        providerId: 'custom',
+        baseUrl: 'https://newapi.example.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'deepseek-r1')
+      const idLikeSub2api = resolveReasoningRequestStrategyWithOverride({
+        providerId: 'sub2api',
+        baseUrl: 'https://llm.example.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'gpt-5.4')
+      const urlLikeCliProxy = resolveReasoningRequestStrategyWithOverride({
+        providerId: 'custom',
+        baseUrl: 'https://cliproxy.local/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'claude-sonnet-4-6')
+      const explicitOpenAICompat = resolveReasoningRequestStrategyWithOverride({
+        providerId: 'custom',
+        baseUrl: 'https://llm.example.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'gpt-5.4', ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT)
+      const dashScopeQwen = resolveReasoningRequestStrategyWithOverride({
+        providerId: 'qwen',
+        baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'qwen3.6-plus')
+      const relayQwen = resolveReasoningRequestStrategyWithOverride({
+        providerId: 'custom',
+        baseUrl: 'https://llm.example.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'qwen3.6-plus')
+      const relayMiniMax = resolveReasoningRequestStrategyWithOverride({
+        providerId: 'custom',
+        baseUrl: 'https://llm.example.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'MiniMax-M2.5')
+      const relayKimi = resolveReasoningRequestStrategyWithOverride({
+        providerId: 'custom',
+        baseUrl: 'https://llm.example.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'kimi-k2.5-preview')
+      const officialDeepSeek = resolveReasoningRequestStrategyWithOverride({
+        providerId: 'deepseek',
+        baseUrl: 'https://api.deepseek.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'deepseek-v4')
+
+      expect(namedLikeNewApi).assertEqual(ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT)
+      expect(idLikeSub2api).assertEqual(ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT)
+      expect(urlLikeCliProxy).assertEqual(ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT)
+      expect(explicitOpenAICompat).assertEqual(ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT)
+      expect(dashScopeQwen).assertEqual(ReasoningRequestStrategy.DASHSCOPE_THINKING_BUDGET)
+      expect(relayQwen).assertEqual(ReasoningRequestStrategy.DASHSCOPE_THINKING_BUDGET)
+      expect(relayMiniMax).assertEqual(ReasoningRequestStrategy.OPENAI_REASONING_SPLIT)
+      expect(relayKimi).assertEqual(ReasoningRequestStrategy.KIMI_THINKING)
+      expect(officialDeepSeek).assertEqual(ReasoningRequestStrategy.DEEPSEEK_THINKING)
+    })
+
+    it('reasoningControl_should_expose_xhigh_only_for_matching_effort_protocols', 0, () => {
+      const openAIXhigh = supportsReasoningXhighControl({
+        providerId: 'openai',
+        baseUrl: 'https://api.openai.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'gpt-5.4', true)
+      const openAINoXhigh = supportsReasoningXhighControl({
+        providerId: 'openai',
+        baseUrl: 'https://api.openai.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'gpt-5.1', true)
+      const compatXhigh = supportsReasoningXhighControl({
+        providerId: 'custom',
+        baseUrl: 'https://llm.example.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'custom-reasoning-model', true, ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT)
+      const openRouterNoXhigh = supportsReasoningXhighControl({
+        providerId: 'openrouter',
+        baseUrl: 'https://openrouter.ai/api/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'openai/gpt-5.4', true)
+
+      expect(openAIXhigh).assertTrue()
+      expect(openAINoXhigh).assertFalse()
+      expect(compatXhigh).assertTrue()
+      expect(openRouterNoXhigh).assertFalse()
+    })
+
+    it('reasoningControl_should_normalize_level_by_control_mode', 0, () => {
+      expect(normalizeReasoningLevelForControl(ReasoningLevel.HIGH, ReasoningControlMode.EFFORT))
+        .assertEqual(ReasoningLevel.HIGH)
+      expect(normalizeReasoningLevelForControl(ReasoningLevel.XHIGH, ReasoningControlMode.EFFORT))
+        .assertEqual(ReasoningLevel.XHIGH)
+      expect(normalizeReasoningLevelForControl(ReasoningLevel.CUSTOM, ReasoningControlMode.EFFORT))
+        .assertEqual(ReasoningLevel.CUSTOM)
+      expect(normalizeReasoningLevelForControl(ReasoningLevel.CUSTOM, ReasoningControlMode.TOGGLE))
+        .assertEqual(ReasoningLevel.AUTO)
+      expect(normalizeReasoningLevelForControl(ReasoningLevel.HIGH, ReasoningControlMode.TOGGLE))
+        .assertEqual(ReasoningLevel.AUTO)
+      expect(normalizeReasoningLevelForControl(ReasoningLevel.AUTO, ReasoningControlMode.NONE))
+        .assertEqual(ReasoningLevel.OFF)
     })
 
     it('messageBubbleDisplayUtils_should_hide_assistant_toolbar_while_generating', 0, () => {

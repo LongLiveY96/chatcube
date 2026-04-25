@@ -1927,40 +1927,40 @@ export struct ProviderDetailPanel {
             .color($r('app.color.divider'))
             .margin({ left: 16, right: 16, top: 16, bottom: 16 })
         }
-      }
 
-      if (this.provider !== null && !this.provider.isPreset) {
-        Column() {
-          Row() {
-            Column() {
-              Text($r('app.string.provider_requires_api_key'))
-                .fontSize(13)
-                .fontColor($r('app.color.text_secondary'))
+        if (this.provider !== null && !this.provider.isPreset) {
+          Column() {
+            Row() {
+              Column() {
+                Text($r('app.string.provider_requires_api_key'))
+                  .fontSize(13)
+                  .fontColor($r('app.color.text_secondary'))
 
-              Text($r('app.string.provider_requires_api_key_desc'))
-                .fontSize(11)
-                .fontColor($r('app.color.text_tertiary'))
-                .margin({ top: 2 })
+                Text($r('app.string.provider_requires_api_key_desc'))
+                  .fontSize(11)
+                  .fontColor($r('app.color.text_tertiary'))
+                  .margin({ top: 2 })
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+
+              Toggle({ type: ToggleType.Switch, isOn: this.provider.requiresApiKey })
+                .selectedColor(this.themePrimary)
+                .onChange((isOn: boolean) => {
+                  if (this.provider !== null) {
+                    this.provider.requiresApiKey = isOn
+                  }
+                })
             }
-            .alignItems(HorizontalAlign.Start)
-            .layoutWeight(1)
-
-            Toggle({ type: ToggleType.Switch, isOn: this.provider.requiresApiKey })
-              .selectedColor(this.themePrimary)
-              .onChange((isOn: boolean) => {
-                if (this.provider !== null) {
-                  this.provider.requiresApiKey = isOn
-                }
-              })
+            .width('100%')
           }
           .width('100%')
-        }
-        .width('100%')
-        .padding({ left: 16, right: 16 })
+          .padding({ left: 16, right: 16 })
 
-        Divider()
-          .color($r('app.color.divider'))
-          .margin({ left: 16, right: 16, top: 16, bottom: 16 })
+          Divider()
+            .color($r('app.color.divider'))
+            .margin({ left: 16, right: 16, top: 16, bottom: 16 })
+        }
       }
 
       // API Key
@@ -2823,4 +2823,3 @@ export struct ModelItemCard {
     }
   }
 }
-

@@ -5,6 +5,7 @@
 
 import { ReasoningLevel, MessageAttachment, AttachmentType } from '../models/ChatModels'
 import { getAppUiState } from '../state/AppUiState'
+import { ReasoningControlMode } from '../services/ProviderCompatibilityRegistry'
 
 @ComponentV2
 export struct EditMessageSheet {
@@ -13,6 +14,9 @@ export struct EditMessageSheet {
   @Param attachments: MessageAttachment[] = []
   @Event $attachments: (value: MessageAttachment[]) => void = () => {}
   @Param hasSelectedTools: boolean = false
+  @Param reasoningAvailable: boolean = false
+  @Param reasoningControlMode: ReasoningControlMode = ReasoningControlMode.NONE
+  @Param reasoningXhighAvailable: boolean = false
   @Param reasoningLevel: ReasoningLevel = ReasoningLevel.OFF
   @Event $reasoningLevel: (value: ReasoningLevel) => void = () => {}
   @Param isUserMessage: boolean = true
@@ -81,29 +85,42 @@ export struct EditMessageSheet {
         .backgroundColor(this.themePrimary)
       }
 
-      // 推理开关按钮
-      Button({ type: ButtonType.Capsule, stateEffect: false }) {
-        Row() {
-          SymbolGlyph($r('sys.symbol.lightbulb'))
-            .fontSize(14)
-            .fontColor([this.isReasoningEnabled() ? Color.White : $r('app.color.text_secondary')])
-          Text($r('app.string.chat_toolbar_reasoning'))
-            .fontSize(13)
-            .fontColor(this.isReasoningEnabled() ? Color.White : $r('app.color.text_secondary'))
-            .margin({ left: 4 })
+      if (this.reasoningAvailable) {
+        // 推理控制按钮
+        Button({ type: ButtonType.Capsule, stateEffect: false }) {
+          Row() {
+            SymbolGlyph($r('sys.symbol.lightbulb'))
+              .fontSize(14)
+              .fontColor([this.isReasoningEnabled() ? Color.White : $r('app.color.text_secondary')])
+            Text($r('app.string.chat_toolbar_reasoning'))
+              .fontSize(13)
+              .fontColor(this.isReasoningEnabled() ? Color.White : $r('app.color.text_secondary'))
+              .margin({ left: 4 })
+            Text(this.getReasoningLevelText(this.reasoningLevel))
+              .fontSize(12)
+              .fontColor(this.isReasoningEnabled() ? Color.White : $r('app.color.text_secondary'))
+              .margin({ left: 6 })
+            SymbolGlyph($r('sys.symbol.chevron_down'))
+              .fontSize(10)
+              .fontColor([this.isReasoningEnabled() ? Color.White : $r('app.color.text_secondary')])
+              .margin({ left: 2 })
+          }
         }
+        .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+        .backgroundColor(this.isReasoningEnabled() ? this.themePrimary : $r('app.color.surface'))
+        .margin({ left: this.hasSelectedTools ? 8 : 0 })
+        .border(this.isReasoningEnabled() ? undefined : {
+          width: 0.5,
+          color: $r('app.color.divider')
+        })
+        .animation({ duration: 200, curve: Curve.EaseOut })
+        .bindMenu(this.ReasoningMenuBuilder(), {
+          placement: Placement.BottomLeft,
+          offset: { x: 0, y: 8 },
+          backgroundColor: $r('app.color.surface'),
+          backgroundBlurStyle: BlurStyle.Regular
+        })
       }
-      .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-      .backgroundColor(this.isReasoningEnabled() ? this.themePrimary : $r('app.color.surface'))
-      .margin({ left: this.hasSelectedTools ? 8 : 0 })
-      .border(this.isReasoningEnabled() ? undefined : {
-        width: 0.5,
-        color: $r('app.color.divider')
-      })
-      .animation({ duration: 200, curve: Curve.EaseOut })
-      .onClick(() => {
-        this.$reasoningLevel(this.isReasoningEnabled() ? ReasoningLevel.OFF : ReasoningLevel.MEDIUM)
-      })
 
       Blank()
 
@@ -125,6 +142,63 @@ export struct EditMessageSheet {
 
   private isReasoningEnabled(): boolean {
     return this.reasoningLevel !== ReasoningLevel.OFF
+  }
+
+  private getReasoningLevelText(level: ReasoningLevel): Resource {
+    switch (level) {
+      case ReasoningLevel.AUTO:
+        return $r('app.string.reasoning_level_auto')
+      case ReasoningLevel.LOW:
+        return $r('app.string.reasoning_level_low')
+      case ReasoningLevel.MEDIUM:
+        return $r('app.string.reasoning_level_medium')
+      case ReasoningLevel.HIGH:
+        return $r('app.string.reasoning_level_high')
+      case ReasoningLevel.XHIGH:
+        return $r('app.string.reasoning_level_xhigh')
+      case ReasoningLevel.CUSTOM:
+        return $r('app.string.reasoning_budget_custom')
+      default:
+        return $r('app.string.reasoning_level_off')
+    }
+  }
+
+  @Builder
+  private ReasoningMenuBuilder() {
+    Menu() {
+      this.ReasoningMenuItem(ReasoningLevel.OFF)
+      this.ReasoningMenuItem(ReasoningLevel.AUTO)
+      if (this.reasoningControlMode === ReasoningControlMode.EFFORT) {
+        this.ReasoningMenuItem(ReasoningLevel.LOW)
+        this.ReasoningMenuItem(ReasoningLevel.MEDIUM)
+        this.ReasoningMenuItem(ReasoningLevel.HIGH)
+        if (this.reasoningXhighAvailable) {
+          this.ReasoningMenuItem(ReasoningLevel.XHIGH)
+        }
+      }
+    }
+  }
+
+  @Builder
+  private ReasoningMenuItem(level: ReasoningLevel) {
+    if (this.reasoningLevel === level) {
+      MenuItem({
+        startIcon: $r('sys.symbol.checkmark'),
+        content: this.getReasoningLevelText(level)
+      })
+        .contentFont({ size: 14 })
+        .onClick(() => {
+          this.$reasoningLevel(level)
+        })
+    } else {
+      MenuItem({
+        content: this.getReasoningLevelText(level)
+      })
+        .contentFont({ size: 14 })
+        .onClick(() => {
+          this.$reasoningLevel(level)
+        })
+    }
   }
 
   @Builder

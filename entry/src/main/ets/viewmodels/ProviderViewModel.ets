@@ -540,7 +540,7 @@ export class ProviderViewModel {
     }
 
     // 所有预置服务商 ID（硅基流动放在最前面）
-    const allPresetIds = ['siliconflow', 'openai', 'anthropic', 'deepseek', 'gemini', 'openrouter', 'qwen', 'zhipu', 'doubao', 'minimax', 'aihubmix', 'grok', 'ollama']
+    const allPresetIds = ['siliconflow', 'openai', 'anthropic', 'deepseek', 'gemini', 'openrouter', 'qwen', 'kimi', 'zhipu', 'doubao', 'minimax', 'aihubmix', 'grok', 'ollama']
 
     for (let i = 0; i < allPresetIds.length; i++) {
       const presetId = allPresetIds[i]

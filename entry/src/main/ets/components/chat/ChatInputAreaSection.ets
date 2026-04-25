@@ -2,6 +2,7 @@ import { MessageAttachment, ReasoningLevel } from '../../models/ChatModels'
 import { ChatToolbar } from '../ChatToolbar'
 import { ChatInputBar } from '../ChatInputBar'
 import { ScreenshotBanner } from '../ScreenshotBanner'
+import { ReasoningControlMode } from '../../services/ProviderCompatibilityRegistry'
 
 @ComponentV2
 export struct ChatInputAreaSection {
@@ -29,8 +30,12 @@ export struct ChatInputAreaSection {
   @Param hasSelectedTools: boolean = false
   @Event onOpenTools: () => void = (): void => {}
   @Param reasoningAvailable: boolean = false
+  @Param reasoningControlMode: ReasoningControlMode = ReasoningControlMode.NONE
+  @Param reasoningXhighAvailable: boolean = false
   @Param reasoningLevel: ReasoningLevel = ReasoningLevel.OFF
-  @Event onReasoningLevelChange: (value: ReasoningLevel) => void = (_value: ReasoningLevel): void => {}
+  @Param reasoningBudget: number = -1
+  @Event onReasoningBudgetChange: (value: ReasoningLevel, budget: number) => void =
+    (_value: ReasoningLevel, _budget: number): void => {}
   @Param hasRecentScreenshot: boolean = false
   @Param bottomAvoidHeight: number = 0
   @Param contentMaxWidth: number = 99999
@@ -81,9 +86,12 @@ export struct ChatInputAreaSection {
             this.onOpenTools()
           },
           reasoningAvailable: this.reasoningAvailable,
+          reasoningControlMode: this.reasoningControlMode,
+          reasoningXhighAvailable: this.reasoningXhighAvailable,
           reasoningLevel: this.reasoningLevel,
-          onReasoningLevelChange: (value: ReasoningLevel): void => {
-            this.onReasoningLevelChange(value)
+          reasoningBudget: this.reasoningBudget,
+          onReasoningBudgetChange: (value: ReasoningLevel, budget: number): void => {
+            this.onReasoningBudgetChange(value, budget)
           }
         })
 

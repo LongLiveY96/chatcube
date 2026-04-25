@@ -6,7 +6,7 @@
 
 <p align="center">
   一个面向鸿蒙 6（API 23）的原生 AI 聊天客户端。<br/>
-  一个应用，13+ 服务商，联网搜索、MCP 与 ArkTS 原生体验。
+  一个应用，14+ 服务商，联网搜索、MCP 与 ArkTS 原生体验。
 </p>
 
 <p align="center">
@@ -58,7 +58,7 @@
 
 ### 和任何模型对话
 
-内置 13+ AI 服务商，填入 API Key 选个模型就能聊。支持自定义添加任何 OpenAI / Anthropic / Gemini 兼容的服务商，几秒搞定。
+内置 14+ AI 服务商，填入 API Key 选个模型就能聊。支持自定义添加任何 OpenAI / Anthropic / Gemini 兼容的服务商，几秒搞定。
 
 ### 工具、联网搜索与 MCP
 
@@ -101,6 +101,7 @@
 | OpenRouter | OpenAI 兼容 | 多服务商网关 |
 | 硅基流动 | OpenAI 兼容 | 国产 AI 模型 |
 | 阿里云百炼 | OpenAI 兼容 | 通义千问系列 |
+| Kimi | OpenAI 兼容 | Moonshot / Kimi 模型 |
 | 智谱 AI | OpenAI 兼容 | GLM 系列 |
 | 火山引擎 | OpenAI 兼容 | 豆包系列 |
 | MiniMax | OpenAI 兼容 | MiniMax 模型 |

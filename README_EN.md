@@ -6,7 +6,7 @@
 
 <p align="center">
   A native AI chat client for HarmonyOS 6 (API 23).<br/>
-  One app, 13+ providers, web search, MCP, and ArkTS-native UX.
+  One app, 14+ providers, web search, MCP, and ArkTS-native UX.
 </p>
 
 <p align="center">
@@ -58,7 +58,7 @@ These screenshots reflect the current HarmonyOS 6 (API 23) build:
 
 ### Talk to any model
 
-Connect to 13+ AI providers out of the box. Bring your own API key, pick a model, and start chatting. Add any OpenAI / Anthropic / Gemini compatible provider in seconds.
+Connect to 14+ AI providers out of the box. Bring your own API key, pick a model, and start chatting. Add any OpenAI / Anthropic / Gemini compatible provider in seconds.
 
 ### Tools, web search, and MCP
 
@@ -101,6 +101,7 @@ Switch to another app while waiting for a long response. ChatCube keeps working 
 | OpenRouter | OpenAI-compatible | Multi-provider gateway |
 | SiliconFlow | OpenAI-compatible | Chinese AI models |
 | Qwen (Alibaba) | OpenAI-compatible | Qwen series |
+| Kimi | OpenAI-compatible | Moonshot / Kimi models |
 | Zhipu AI | OpenAI-compatible | GLM series |
 | Doubao (Volcengine) | OpenAI-compatible | Doubao series |
 | MiniMax | OpenAI-compatible | MiniMax models |

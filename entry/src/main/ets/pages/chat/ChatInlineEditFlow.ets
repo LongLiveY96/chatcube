@@ -10,7 +10,8 @@ export interface ChatInlineEditFlowDependencies {
     attachments: MessageAttachment[],
     webSearchEnabled: boolean,
     selectedToolIds: string[],
-    reasoningLevel: ReasoningLevel
+    reasoningLevel: ReasoningLevel,
+    reasoningBudget: number
   ) => boolean
   onSyncMessages: () => void
   onResetEditState: () => void
@@ -19,14 +20,16 @@ export interface ChatInlineEditFlowDependencies {
     attachments: MessageAttachment[],
     webSearchEnabled: boolean,
     selectedToolIds: string[],
-    reasoningLevel: ReasoningLevel
+    reasoningLevel: ReasoningLevel,
+    reasoningBudget: number
   ) => void
   onTriggerSend: (
     content: string,
     attachments: MessageAttachment[],
     webSearchEnabled: boolean,
     selectedToolIds: string[],
-    reasoningLevel: ReasoningLevel
+    reasoningLevel: ReasoningLevel,
+    reasoningBudget: number
   ) => Promise<void>
   onShowToast: (message: string | Resource) => void
 }
@@ -44,7 +47,8 @@ export class ChatInlineEditFlow {
     pendingAttachments: MessageAttachment[],
     editingWebSearchEnabled: boolean,
     editingSelectedToolIds: string[],
-    editingReasoningLevel: ReasoningLevel
+    editingReasoningLevel: ReasoningLevel,
+    editingReasoningBudget: number
   ): Promise<void> {
     if (editingMessageId === '') {
       console.warn('ChatInlineEditFlow', '[saveAndSendInline] editingMessageId is empty')
@@ -71,6 +75,7 @@ export class ChatInlineEditFlow {
       const savedWebSearchEnabled = editingWebSearchEnabled
       const savedToolIds = [...editingSelectedToolIds]
       const savedReasoningLevel = editingReasoningLevel
+      const savedReasoningBudget = editingReasoningBudget
 
       // 在真正改写消息链之前，先复用正常发送链路做一次前置校验。
       // 失败时保留原消息和当前编辑态，避免“内容没了但也没发出去”的烂体验。
@@ -79,7 +84,8 @@ export class ChatInlineEditFlow {
         savedAttachments,
         savedWebSearchEnabled,
         savedToolIds,
-        savedReasoningLevel
+        savedReasoningLevel,
+        savedReasoningBudget
       )
       if (!canCommit) {
         return
@@ -97,14 +103,16 @@ export class ChatInlineEditFlow {
         savedAttachments,
         savedWebSearchEnabled,
         savedToolIds,
-        savedReasoningLevel
+        savedReasoningLevel,
+        savedReasoningBudget
       )
       await this.deps.onTriggerSend(
         savedContent,
         savedAttachments,
         savedWebSearchEnabled,
         savedToolIds,
-        savedReasoningLevel
+        savedReasoningLevel,
+        savedReasoningBudget
       )
     } catch (error) {
       console.error('ChatInlineEditFlow', `[saveAndSendInline] Error: ${JSON.stringify(error)}`)

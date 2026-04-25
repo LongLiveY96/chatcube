@@ -329,13 +329,17 @@ export class AITaskService {
       apiPath: provider.apiPath !== '' ? provider.apiPath : undefined,
       customHeadersJson: provider.customHeadersJson || undefined
     }
-
     for (let i = 0; i < provider.models.length; i++) {
       if (provider.models[i].id === translateModel.modelId) {
         apiConfig.topP = provider.models[i].parameters.topP
         apiConfig.presencePenalty = provider.models[i].parameters.presencePenalty
         apiConfig.frequencyPenalty = provider.models[i].parameters.frequencyPenalty
-        apiConfig.modelReasoningStrategyOverride = provider.models[i].reasoningStrategyOverride
+        if (!provider.models[i].capabilities.supportsReasoning) {
+          apiConfig.modelReasoningStrategyOverride = ''
+        } else {
+          apiConfig.modelReasoningStrategyOverride = provider.models[i].reasoningStrategyOverride
+        }
+        apiConfig.modelSupportsReasoning = provider.models[i].capabilities.supportsReasoning
         break
       }
     }

@@ -505,6 +505,66 @@
       "value": "推理"
     },
     {
+      "name": "reasoning_level_off",
+      "value": "关闭"
+    },
+    {
+      "name": "reasoning_level_auto",
+      "value": "自动"
+    },
+    {
+      "name": "reasoning_level_low",
+      "value": "轻度"
+    },
+    {
+      "name": "reasoning_level_medium",
+      "value": "中度"
+    },
+    {
+      "name": "reasoning_level_high",
+      "value": "重度"
+    },
+    {
+      "name": "reasoning_level_xhigh",
+      "value": "极限"
+    },
+    {
+      "name": "reasoning_budget_off_desc",
+      "value": "不发送推理参数"
+    },
+    {
+      "name": "reasoning_budget_auto_desc",
+      "value": "交给模型自动决定推理预算"
+    },
+    {
+      "name": "reasoning_budget_low_desc",
+      "value": "简单任务，轻量推理"
+    },
+    {
+      "name": "reasoning_budget_medium_desc",
+      "value": "日常复杂问题的均衡档"
+    },
+    {
+      "name": "reasoning_budget_high_desc",
+      "value": "复杂分析，使用更多预算"
+    },
+    {
+      "name": "reasoning_budget_xhigh_desc",
+      "value": "最大推理，更慢且成本更高"
+    },
+    {
+      "name": "reasoning_budget_custom",
+      "value": "自定义预算"
+    },
+    {
+      "name": "reasoning_budget_custom_desc",
+      "value": "指定 thinking budget token 数"
+    },
+    {
+      "name": "reasoning_budget_custom_placeholder",
+      "value": "预算 token 数"
+    },
+    {
       "name": "search_service_config",
       "value": "搜索服务"
     },

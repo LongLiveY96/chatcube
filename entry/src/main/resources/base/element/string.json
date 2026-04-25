@@ -505,6 +505,66 @@
       "value": "Reasoning"
     },
     {
+      "name": "reasoning_level_off",
+      "value": "Off"
+    },
+    {
+      "name": "reasoning_level_auto",
+      "value": "Auto"
+    },
+    {
+      "name": "reasoning_level_low",
+      "value": "Low"
+    },
+    {
+      "name": "reasoning_level_medium",
+      "value": "Medium"
+    },
+    {
+      "name": "reasoning_level_high",
+      "value": "High"
+    },
+    {
+      "name": "reasoning_level_xhigh",
+      "value": "Extreme"
+    },
+    {
+      "name": "reasoning_budget_off_desc",
+      "value": "Do not send reasoning parameters"
+    },
+    {
+      "name": "reasoning_budget_auto_desc",
+      "value": "Let the model choose the reasoning budget"
+    },
+    {
+      "name": "reasoning_budget_low_desc",
+      "value": "Light reasoning for simple tasks"
+    },
+    {
+      "name": "reasoning_budget_medium_desc",
+      "value": "Balanced reasoning for daily work"
+    },
+    {
+      "name": "reasoning_budget_high_desc",
+      "value": "More budget for complex analysis"
+    },
+    {
+      "name": "reasoning_budget_xhigh_desc",
+      "value": "Maximum reasoning, slower and costlier"
+    },
+    {
+      "name": "reasoning_budget_custom",
+      "value": "Custom Budget"
+    },
+    {
+      "name": "reasoning_budget_custom_desc",
+      "value": "Set a specific thinking budget"
+    },
+    {
+      "name": "reasoning_budget_custom_placeholder",
+      "value": "Budget tokens"
+    },
+    {
       "name": "search_service_config",
       "value": "Search Service"
     },

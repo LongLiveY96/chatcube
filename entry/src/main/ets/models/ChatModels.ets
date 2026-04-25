@@ -242,9 +242,12 @@ export enum ModelRole {
 // 推理级别枚举
 export enum ReasoningLevel {
   OFF = 'off',           // 关闭推理
+  AUTO = 'auto',         // 自动推理
   LOW = 'low',           // 轻度推理
   MEDIUM = 'medium',     // 中度推理
-  HIGH = 'high'          // 重度推理
+  HIGH = 'high',         // 重度推理
+  XHIGH = 'xhigh',       // 极限推理
+  CUSTOM = 'custom'      // 自定义推理预算
 }
 
 // 默认模型配置类

@@ -71,24 +71,34 @@ export class ModelCapabilityMatcher {
 
   // 批量匹配并填充模型能力，返回成功匹配数量
   async applyCapabilitiesBatch(models: ModelInfo[]): Promise<number> {
+    let matched = 0
+    const fallbackMatchedIndexes: Set<number> = new Set()
+    for (let i = 0; i < models.length; i++) {
+      if (this.applyKnownCapabilityFallback(models[i])) {
+        fallbackMatchedIndexes.add(i)
+        matched++
+      }
+    }
+
     const prefs = getPreferencesService()
     const enabled = await prefs.getBoolean(PreferenceKeys.MODELS_DEV_ENABLED, true)
     if (!enabled) {
-      return 0
+      return matched
     }
 
     const loaded = await this.ensureCache()
     if (!loaded) {
-      return 0
+      return matched
     }
 
-    let matched = 0
     for (let i = 0; i < models.length; i++) {
       const model = models[i]
       const entry = this.findEntry(model.id)
       if (entry !== null) {
         this.applyEntry(model, entry)
-        matched++
+        if (!fallbackMatchedIndexes.has(i)) {
+          matched++
+        }
       }
       const logoUrl = this.getLogoUrlFromCache(model.id)
       if (logoUrl !== '') {
@@ -489,6 +499,66 @@ export class ModelCapabilityMatcher {
       entry.limit.context > 0) {
       model.contextLength = entry.limit.context
     }
+  }
+
+  private applyKnownCapabilityFallback(model: ModelInfo): boolean {
+    const id = model.id.trim().toLowerCase()
+    let changed = false
+
+    if (id.startsWith('qwen3') ||
+      id.startsWith('qwq') ||
+      id.startsWith('qvq') ||
+      id.includes('/qwen3') ||
+      id.includes('/qwq') ||
+      id.includes('/qvq')) {
+      if (!model.capabilities.supportsReasoning) {
+        model.capabilities.supportsReasoning = true
+        changed = true
+      }
+    }
+
+    if (id.startsWith('minimax-m2') || id.includes('/minimax-m2')) {
+      if (!model.capabilities.supportsReasoning) {
+        model.capabilities.supportsReasoning = true
+        changed = true
+      }
+    }
+
+    if (id.includes('kimi-k2-thinking') || id.includes('kimi-k2.5')) {
+      if (!model.capabilities.supportsReasoning) {
+        model.capabilities.supportsReasoning = true
+        changed = true
+      }
+    }
+
+    if (id.includes('deepseek-v4')) {
+      if (!model.capabilities.supportsTools) {
+        model.capabilities.supportsTools = true
+        changed = true
+      }
+      if (!model.capabilities.supportsReasoning) {
+        model.capabilities.supportsReasoning = true
+        changed = true
+      }
+    }
+
+    if (id.includes('claude-opus-4-7')) {
+      if (!model.capabilities.supportsTools) {
+        model.capabilities.supportsTools = true
+        changed = true
+      }
+      if (!model.capabilities.supportsReasoning) {
+        model.capabilities.supportsReasoning = true
+        changed = true
+      }
+      if (!model.capabilities.supportsVision) {
+        model.capabilities.supportsVision = true
+        model.inputMode = InputMode.VISION
+        changed = true
+      }
+    }
+
+    return changed
   }
 
   // 从模型 ID 推断原厂供应商 key，用于获取正确的 logo

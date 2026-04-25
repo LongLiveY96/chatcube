@@ -146,6 +146,7 @@ interface MultimodalMessageContent {
 interface MessageContent {
   role: string
   content: string
+  reasoning_content?: string
   reasoning_details?: MiniMaxReasoningDetail[]
 }
 
@@ -192,6 +193,7 @@ interface AssistantMessageWithToolCalls {
   role: string
   content: string | null
   tool_calls: OpenAIToolCall[]
+  reasoning_content?: string
 }
 
 // 通用思考配置接口（小米 MiMo / 智谱 GLM 等模型）
@@ -200,18 +202,26 @@ interface ThinkingConfig {
   clear_thinking?: boolean  // GLM 特有：是否清除历史推理内容（默认 false 保留）
 }
 
+interface OpenRouterReasoningConfig {
+  effort?: string
+  max_tokens?: number
+  exclude?: boolean
+  enabled?: boolean
+}
+
 // OpenAI 请求体接口
 interface OpenAIRequestBody {
   model: string
   messages: (MessageContent | MultimodalMessageContent | ToolResultMessageContent | AssistantMessageWithToolCalls)[]
-  temperature: number
+  temperature?: number
   max_tokens: number
   stream?: boolean
-  reasoning_effort?: string  // OpenAI o1/o3 系列推理级别: low, medium, high
+  reasoning_effort?: string  // OpenAI/OpenAI-compatible 推理级别: none, low, medium, high, xhigh
+  reasoning?: OpenRouterReasoningConfig  // OpenRouter 统一推理控制
   reasoning_split?: boolean  // MiniMax 推理内容分离（reasoning_details 字段）
-  thinking?: ThinkingConfig  // 小米 MiMo / 智谱 GLM 思考模式配置
-  enable_thinking?: boolean  // SiliconFlow chat/completions 思考开关
-  thinking_budget?: number   // SiliconFlow chat/completions 思考预算
+  thinking?: ThinkingConfig  // Kimi / DeepSeek / 小米 MiMo / 智谱 GLM 思考模式配置
+  enable_thinking?: boolean  // DashScope / SiliconFlow chat/completions 思考开关
+  thinking_budget?: number   // DashScope / SiliconFlow chat/completions 思考预算
   tools?: OpenAITool[]       // Function Calling 工具定义
   tool_choice?: string       // 工具选择策略: "auto" | "none" | "required"
   top_p?: number             // Top P 采样参数
@@ -231,19 +241,32 @@ interface OpenAIResponsesInputItem {
   content: OpenAIResponsesContentPart[]
 }
 
+interface OpenAIResponsesReasoningConfig {
+  effort?: string
+  summary?: string
+}
+
 interface OpenAIResponsesRequestBody {
   model: string
   input: OpenAIResponsesInputItem[] | string
   instructions?: string
   temperature?: number
   max_output_tokens?: number
+  reasoning?: OpenAIResponsesReasoningConfig
+  enable_thinking?: boolean
+  thinking_budget?: number
   stream?: boolean
 }
 
 // Anthropic 思考配置接口
 interface AnthropicThinking {
   type: string
-  budget_tokens: number
+  budget_tokens?: number
+  display?: string
+}
+
+interface AnthropicOutputConfig {
+  effort?: string
 }
 
 // Anthropic 请求体接口
@@ -251,10 +274,11 @@ interface AnthropicRequestBody {
   model: string
   messages: (MessageContent | AnthropicMultimodalMessage)[]
   max_tokens: number
-  temperature: number
+  temperature?: number
   system?: string
   stream?: boolean
   thinking?: AnthropicThinking  // Claude 扩展思考配置
+  output_config?: AnthropicOutputConfig
 }
 
 // Anthropic 多模态消息内容部分
@@ -350,6 +374,8 @@ export interface AIApiConfig {
   openaiTransport?: string
   customHeadersJson?: string  // 可选的服务商级自定义请求头
   modelReasoningStrategyOverride?: string
+  modelSupportsReasoning?: boolean
+  reasoningBudget?: number
   // 模型参数（可选）
   topP?: number
   presencePenalty?: number
@@ -647,11 +673,33 @@ export class AIApiService {
   }
 
   private getReasoningRequestStrategy(config: AIApiConfig, model: string): ReasoningRequestStrategy {
-    return resolveReasoningRequestStrategyWithOverride(
+    const rawOverride = config.modelReasoningStrategyOverride
+    const hasOverride = rawOverride !== undefined && rawOverride !== ''
+    const strategy = resolveReasoningRequestStrategyWithOverride(
       this.toCompatibilityInfo(config),
       model,
-      config.modelReasoningStrategyOverride
+      rawOverride
     )
+    if (!hasOverride && strategy === ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT &&
+      config.modelSupportsReasoning !== true) {
+      return ReasoningRequestStrategy.NONE
+    }
+    if (!hasOverride && strategy === ReasoningRequestStrategy.DEEPSEEK_THINKING &&
+      config.modelSupportsReasoning !== true) {
+      return ReasoningRequestStrategy.NONE
+    }
+    if (!hasOverride && strategy === ReasoningRequestStrategy.DASHSCOPE_THINKING_BUDGET &&
+      config.modelSupportsReasoning !== true) {
+      return ReasoningRequestStrategy.NONE
+    }
+    if (!hasOverride && strategy === ReasoningRequestStrategy.KIMI_THINKING &&
+      config.modelSupportsReasoning !== true) {
+      return ReasoningRequestStrategy.NONE
+    }
+    if (!hasOverride && config.modelSupportsReasoning === false) {
+      return ReasoningRequestStrategy.NONE
+    }
+    return strategy
   }
 
   private configureStreamState(config: AIApiConfig, model: string): void {
@@ -1177,6 +1225,7 @@ export class AIApiService {
   ): OpenAIRequestBody | OpenAIResponsesRequestBody | AnthropicRequestBody | GoogleRequestBody {
     const reasoningRequestStrategy = this.getReasoningRequestStrategy(config, model)
     const normalizedReasoningLevel = normalizeReasoningLevelForControl(reasoningLevel)
+    const normalizedReasoningBudget = this.getReasoningBudget(normalizedReasoningLevel, config.reasoningBudget)
 
     if (config.apiStyle === ApiStyle.GOOGLE) {
       // Google Gemini 格式
@@ -1232,7 +1281,12 @@ export class AIApiService {
       if (googleSystemInstruction !== undefined) {
         googleBody.systemInstruction = googleSystemInstruction
       }
-      const googleThinkingConfig = this.getGoogleThinkingConfig(model, reasoningRequestStrategy, normalizedReasoningLevel)
+      const googleThinkingConfig = this.getGoogleThinkingConfig(
+        model,
+        reasoningRequestStrategy,
+        normalizedReasoningLevel,
+        normalizedReasoningBudget
+      )
       if (googleThinkingConfig !== undefined) {
         googleBody.generationConfig.thinkingConfig = googleThinkingConfig
       }
@@ -1313,14 +1367,13 @@ export class AIApiService {
           temperature: temperature,
           system: systemPrompt
         }
-        // 添加 Anthropic 推理配置
-        if (reasoningRequestStrategy === ReasoningRequestStrategy.ANTHROPIC_THINKING &&
-          normalizedReasoningLevel !== ReasoningLevel.OFF) {
-          bodyWithSystem.thinking = {
-            type: 'enabled',
-            budget_tokens: this.getAnthropicThinkingBudget(normalizedReasoningLevel)
-          }
-        }
+        this.applyAnthropicReasoningConfig(
+          bodyWithSystem,
+          model,
+          reasoningRequestStrategy,
+          normalizedReasoningLevel,
+          normalizedReasoningBudget
+        )
         return bodyWithSystem
       }
 
@@ -1330,14 +1383,13 @@ export class AIApiService {
         max_tokens: maxTokens,
         temperature: temperature
       }
-      // 添加 Anthropic 推理配置
-      if (reasoningRequestStrategy === ReasoningRequestStrategy.ANTHROPIC_THINKING &&
-        normalizedReasoningLevel !== ReasoningLevel.OFF) {
-        body.thinking = {
-          type: 'enabled',
-          budget_tokens: this.getAnthropicThinkingBudget(normalizedReasoningLevel)
-        }
-      }
+      this.applyAnthropicReasoningConfig(
+        body,
+        model,
+        reasoningRequestStrategy,
+        normalizedReasoningLevel,
+        normalizedReasoningBudget
+      )
       return body
     }
 
@@ -1406,6 +1458,22 @@ export class AIApiService {
       if (instructionParts.length > 0) {
         responsesBody.instructions = instructionParts.join('\n\n')
       }
+      if (reasoningRequestStrategy === ReasoningRequestStrategy.OPENAI_REASONING_EFFORT ||
+        reasoningRequestStrategy === ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT) {
+        const effort = this.getOpenAIReasoningEffortForStrategy(
+          reasoningRequestStrategy,
+          model,
+          normalizedReasoningLevel,
+          normalizedReasoningBudget
+        )
+        if (effort !== undefined) {
+          responsesBody.reasoning = { effort: effort }
+        } else if (normalizedReasoningLevel === ReasoningLevel.AUTO) {
+          responsesBody.reasoning = { summary: 'auto' }
+        }
+      } else if (reasoningRequestStrategy === ReasoningRequestStrategy.DASHSCOPE_THINKING_BUDGET) {
+        this.applyDashScopeReasoningConfig(responsesBody, normalizedReasoningLevel, normalizedReasoningBudget)
+      }
       return responsesBody
     }
 
@@ -1444,6 +1512,10 @@ export class AIApiService {
           role: 'assistant',
           content: msg.content !== '' ? msg.content : null,
           tool_calls: toolCallsForApi
+        }
+        if (this.shouldPreserveReasoningContentForToolMessages(reasoningRequestStrategy) &&
+          msg.reasoningContent.trim() !== '') {
+          assistantWithTools.reasoning_content = msg.reasoningContent
         }
         openaiMessages.push(assistantWithTools)
         continue
@@ -1531,25 +1603,46 @@ export class AIApiService {
       requestBody.frequency_penalty = config.frequencyPenalty
     }
 
-    if (reasoningRequestStrategy === ReasoningRequestStrategy.OPENAI_REASONING_EFFORT &&
-      normalizedReasoningLevel !== ReasoningLevel.OFF) {
-      requestBody.reasoning_effort = this.getOpenAIReasoningEffort(normalizedReasoningLevel)
+    if (reasoningRequestStrategy === ReasoningRequestStrategy.OPENAI_REASONING_EFFORT ||
+      reasoningRequestStrategy === ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT) {
+      const effort = this.getOpenAIReasoningEffortForStrategy(
+        reasoningRequestStrategy,
+        model,
+        normalizedReasoningLevel,
+        normalizedReasoningBudget
+      )
+      if (effort !== undefined) {
+        requestBody.reasoning_effort = effort
+      }
     } else if (reasoningRequestStrategy === ReasoningRequestStrategy.OPENAI_REASONING_SPLIT &&
       normalizedReasoningLevel !== ReasoningLevel.OFF) {
       requestBody.reasoning_split = true
+    } else if (reasoningRequestStrategy === ReasoningRequestStrategy.OPENROUTER_REASONING) {
+      const openRouterReasoning = this.getOpenRouterReasoningConfig(normalizedReasoningLevel, normalizedReasoningBudget)
+      if (openRouterReasoning !== undefined) {
+        requestBody.reasoning = openRouterReasoning
+      }
+    } else if (reasoningRequestStrategy === ReasoningRequestStrategy.DEEPSEEK_THINKING) {
+      if (normalizedReasoningLevel !== ReasoningLevel.OFF) {
+        requestBody.thinking = { type: 'enabled' }
+      } else {
+        requestBody.thinking = { type: 'disabled' }
+      }
     } else if (reasoningRequestStrategy === ReasoningRequestStrategy.ZHIPU_THINKING) {
       if (normalizedReasoningLevel !== ReasoningLevel.OFF) {
         requestBody.thinking = { type: 'enabled', clear_thinking: false }
       } else {
         requestBody.thinking = { type: 'disabled' }
       }
-    }
-
-    if (this.shouldUseSiliconFlowThinkingControl(config, model, forceChatCompletions)) {
-      const enableThinking = this.getSiliconFlowThinkingEnabled(config, normalizedReasoningLevel)
-      requestBody.enable_thinking = enableThinking
-      if (enableThinking) {
-        requestBody.thinking_budget = this.getSiliconFlowThinkingBudget(normalizedReasoningLevel)
+    } else if (reasoningRequestStrategy === ReasoningRequestStrategy.DASHSCOPE_THINKING_BUDGET) {
+      this.applyDashScopeReasoningConfig(requestBody, normalizedReasoningLevel, normalizedReasoningBudget)
+    } else if (reasoningRequestStrategy === ReasoningRequestStrategy.KIMI_THINKING) {
+      this.applyKimiReasoningConfig(requestBody, normalizedReasoningLevel)
+    } else if (reasoningRequestStrategy === ReasoningRequestStrategy.SILICONFLOW_THINKING_BUDGET) {
+      if (normalizedReasoningLevel === ReasoningLevel.OFF) {
+        requestBody.enable_thinking = false
+      } else if (normalizedReasoningLevel !== ReasoningLevel.AUTO) {
+        requestBody.thinking_budget = this.getSiliconFlowThinkingBudget(normalizedReasoningBudget)
       }
     }
     // 添加 Function Calling 工具定义
@@ -1787,22 +1880,89 @@ export class AIApiService {
     return result
   }
 
-  // 获取 Anthropic 思考预算（token 数量）
-  private getAnthropicThinkingBudget(level: ReasoningLevel): number {
+  private getReasoningBudget(level: ReasoningLevel, customBudget?: number): number {
     switch (level) {
-      case ReasoningLevel.LOW:
-        return 5000
-      case ReasoningLevel.MEDIUM:
-        return 15000
-      case ReasoningLevel.HIGH:
-        return 30000
-      default:
+      case ReasoningLevel.OFF:
         return 0
+      case ReasoningLevel.AUTO:
+        return -1
+      case ReasoningLevel.LOW:
+        return 1024
+      case ReasoningLevel.MEDIUM:
+        return 16000
+      case ReasoningLevel.HIGH:
+        return 32000
+      case ReasoningLevel.XHIGH:
+        return 64000
+      case ReasoningLevel.CUSTOM:
+        return this.normalizeCustomReasoningBudget(customBudget)
+      default:
+        return -1
     }
   }
 
-  // 获取 OpenAI 推理强度
-  private getOpenAIReasoningEffort(level: ReasoningLevel): string {
+  private normalizeCustomReasoningBudget(customBudget?: number): number {
+    if (customBudget === undefined || customBudget < 1024) {
+      return 2048
+    }
+    if (customBudget > 200000) {
+      return 200000
+    }
+    return Math.floor(customBudget)
+  }
+
+  // 获取 Anthropic 思考预算（token 数量）
+  private getAnthropicThinkingBudget(budget: number): number {
+    if (budget > 0) {
+      return budget
+    }
+    return 16000
+  }
+
+  private normalizeModelId(model: string): string {
+    return model.trim().toLowerCase()
+  }
+
+  private supportsAnthropicAdaptiveThinking(model: string): boolean {
+    const modelLower = this.normalizeModelId(model)
+    return modelLower.includes('claude-opus-4-7') ||
+      modelLower.includes('claude-opus-4-6') ||
+      modelLower.includes('claude-sonnet-4-6') ||
+      modelLower.includes('claude-mythos')
+  }
+
+  private shouldPreserveReasoningContentForToolMessages(strategy: ReasoningRequestStrategy): boolean {
+    return strategy === ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT ||
+      strategy === ReasoningRequestStrategy.DEEPSEEK_THINKING ||
+      strategy === ReasoningRequestStrategy.KIMI_THINKING
+  }
+
+  private applyDashScopeReasoningConfig(
+    body: OpenAIRequestBody | OpenAIResponsesRequestBody,
+    level: ReasoningLevel,
+    budget: number
+  ): void {
+    if (level === ReasoningLevel.OFF) {
+      body.enable_thinking = false
+      body.thinking_budget = undefined
+      return
+    }
+    body.enable_thinking = true
+    body.thinking_budget = budget > 0 ? budget : undefined
+  }
+
+  private applyKimiReasoningConfig(body: OpenAIRequestBody, level: ReasoningLevel): void {
+    body.thinking = {
+      type: level === ReasoningLevel.OFF ? 'disabled' : 'enabled'
+    }
+    body.reasoning_effort = undefined
+    body.temperature = undefined
+    body.top_p = undefined
+    body.presence_penalty = undefined
+    body.frequency_penalty = undefined
+  }
+
+  private getAnthropicAdaptiveEffort(model: string, level: ReasoningLevel, budget: number): string | undefined {
     switch (level) {
       case ReasoningLevel.LOW:
         return 'low'
@@ -1810,60 +1970,176 @@ export class AIApiService {
         return 'medium'
       case ReasoningLevel.HIGH:
         return 'high'
+      case ReasoningLevel.XHIGH:
+        return this.getAnthropicMaxEffort(model)
+      case ReasoningLevel.CUSTOM:
+        return this.getAnthropicEffortForBudget(model, budget)
       default:
-        return 'low'
+        return undefined
     }
   }
 
-  private isSiliconFlowOpenAIProvider(config: AIApiConfig): boolean {
-    if (config.apiStyle !== ApiStyle.OPENAI) {
-      return false
+  private getAnthropicEffortForBudget(model: string, budget: number): string {
+    if (budget <= 2000) {
+      return 'low'
     }
-    const normalizedBaseUrl = config.baseUrl.trim().toLowerCase()
-    return config.providerId === 'siliconflow' || normalizedBaseUrl.includes('api.siliconflow.cn')
+    if (budget <= 20000) {
+      return 'medium'
+    }
+    if (budget <= 32000) {
+      return 'high'
+    }
+    return this.getAnthropicMaxEffort(model)
   }
 
-  private supportsSiliconFlowThinkingModel(model: string): boolean {
-    const modelLower = model.trim().toLowerCase()
-    return modelLower.startsWith('pro/zai-org/glm-5') ||
-      modelLower.startsWith('pro/zai-org/glm-4.7') ||
-      modelLower.startsWith('zai-org/glm-4.6') ||
-      modelLower.startsWith('zai-org/glm-4.5v') ||
-      modelLower.startsWith('deepseek-ai/deepseek-v3.2') ||
-      modelLower.startsWith('pro/deepseek-ai/deepseek-v3.2') ||
-      modelLower.startsWith('deepseek-ai/deepseek-v3.1-terminus') ||
-      modelLower.startsWith('pro/deepseek-ai/deepseek-v3.1-terminus') ||
-      modelLower.startsWith('qwen/qwen3') ||
-      modelLower === 'tencent/hunyuan-a13b-instruct'
+  private getAnthropicMaxEffort(model: string): string {
+    const modelLower = this.normalizeModelId(model)
+    if (modelLower.includes('claude-opus-4-7')) {
+      return 'xhigh'
+    }
+    if (modelLower.includes('claude-opus-4-6') ||
+      modelLower.includes('claude-sonnet-4-6') ||
+      modelLower.includes('claude-mythos')) {
+      return 'max'
+    }
+    return 'high'
   }
 
-  private shouldUseSiliconFlowThinkingControl(
-    config: AIApiConfig,
+  private applyAnthropicReasoningConfig(
+    body: AnthropicRequestBody,
     model: string,
-    forceChatCompletions: boolean = false
-  ): boolean {
-    return this.isSiliconFlowOpenAIProvider(config) &&
-      this.supportsSiliconFlowThinkingModel(model) &&
-      !this.shouldUseOpenAIResponses(config, forceChatCompletions)
-  }
-
-  private getSiliconFlowThinkingEnabled(config: AIApiConfig, reasoningLevel: ReasoningLevel): boolean {
-    if (config.modelReasoningStrategyOverride === ReasoningRequestStrategy.NONE) {
-      return false
+    strategy: ReasoningRequestStrategy,
+    level: ReasoningLevel,
+    budget: number
+  ): void {
+    if (strategy !== ReasoningRequestStrategy.ANTHROPIC_THINKING) {
+      return
     }
-    return reasoningLevel !== ReasoningLevel.OFF
+
+    if (level === ReasoningLevel.OFF) {
+      body.thinking = { type: 'disabled' }
+      return
+    }
+
+    if (this.supportsAnthropicAdaptiveThinking(model)) {
+      body.thinking = {
+        type: 'adaptive',
+        display: 'summarized'
+      }
+      body.temperature = undefined
+      const effort = this.getAnthropicAdaptiveEffort(model, level, budget)
+      if (effort !== undefined) {
+        body.output_config = { effort: effort }
+      }
+      return
+    }
+
+    body.thinking = {
+      type: 'enabled',
+      budget_tokens: this.getAnthropicThinkingBudget(budget)
+    }
   }
 
-  private getSiliconFlowThinkingBudget(level: ReasoningLevel): number {
+  // 获取 OpenAI 推理强度
+  private getOpenAIReasoningEffortForStrategy(
+    strategy: ReasoningRequestStrategy,
+    model: string,
+    level: ReasoningLevel,
+    budget: number
+  ): string | undefined {
+    if (strategy === ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT) {
+      return this.getOpenAICompatReasoningEffort(level, budget)
+    }
+    return this.getOpenAIReasoningEffort(model, level, budget)
+  }
+
+  private getOpenAIReasoningEffort(model: string, level: ReasoningLevel, budget: number): string | undefined {
     switch (level) {
+      case ReasoningLevel.OFF:
+        return this.supportsOpenAINoReasoning(model) ? 'none' : undefined
+      case ReasoningLevel.AUTO:
+        return undefined
       case ReasoningLevel.LOW:
-        return 2048
-      case ReasoningLevel.HIGH:
-        return 8192
+        return 'low'
       case ReasoningLevel.MEDIUM:
+        return 'medium'
+      case ReasoningLevel.HIGH:
+        return 'high'
+      case ReasoningLevel.XHIGH:
+        return this.supportsOpenAIXhighReasoning(model) ? 'xhigh' : 'high'
+      case ReasoningLevel.CUSTOM:
+        return this.getOpenAIEffortForBudget(budget, this.supportsOpenAIXhighReasoning(model))
       default:
-        return 4096
+        return undefined
     }
+  }
+
+  private supportsOpenAINoReasoning(model: string): boolean {
+    const modelLower = this.normalizeModelId(model)
+    return modelLower.startsWith('gpt-5')
+  }
+
+  private supportsOpenAIXhighReasoning(model: string): boolean {
+    const modelLower = this.normalizeModelId(model)
+    return modelLower.startsWith('gpt-5.4') ||
+      modelLower.startsWith('gpt-5.3-codex') ||
+      modelLower.startsWith('gpt-5.3-chat-latest') ||
+      modelLower.startsWith('gpt-5.2')
+  }
+
+  private getOpenAICompatReasoningEffort(level: ReasoningLevel, budget: number): string | undefined {
+    switch (level) {
+      case ReasoningLevel.OFF:
+        return 'none'
+      case ReasoningLevel.AUTO:
+        return undefined
+      case ReasoningLevel.LOW:
+        return 'low'
+      case ReasoningLevel.MEDIUM:
+        return 'medium'
+      case ReasoningLevel.HIGH:
+        return 'high'
+      case ReasoningLevel.XHIGH:
+        return 'xhigh'
+      case ReasoningLevel.CUSTOM:
+        return this.getOpenAIEffortForBudget(budget, true)
+      default:
+        return undefined
+    }
+  }
+
+  private getOpenAIEffortForBudget(budget: number, xhighAvailable: boolean): string {
+    if (budget <= 2000) {
+      return 'low'
+    }
+    if (budget <= 20000) {
+      return 'medium'
+    }
+    if (budget >= 64000 && xhighAvailable) {
+      return 'xhigh'
+    }
+    return 'high'
+  }
+
+  private getOpenRouterReasoningConfig(level: ReasoningLevel, budget: number): OpenRouterReasoningConfig | undefined {
+    switch (level) {
+      case ReasoningLevel.OFF:
+        return { enabled: false }
+      case ReasoningLevel.AUTO:
+        return { enabled: true }
+      case ReasoningLevel.LOW:
+      case ReasoningLevel.MEDIUM:
+      case ReasoningLevel.HIGH:
+      case ReasoningLevel.XHIGH:
+      case ReasoningLevel.CUSTOM:
+        return { enabled: true, max_tokens: budget }
+      default:
+        return undefined
+    }
+  }
+
+  private getSiliconFlowThinkingBudget(budget: number): number {
+    return budget > 0 ? budget : 16000
   }
 
   private collectGoogleSystemPrompt(messages: RequestMessage[]): string {
@@ -1901,26 +2177,55 @@ export class AIApiService {
       normalizedModel.startsWith('gemini-robotics')
   }
 
-  private getGoogleThinkingLevel(level: ReasoningLevel): string {
+  private isGeminiTwoFiveProModel(model: string): boolean {
+    return this.normalizeGoogleModelId(model).startsWith('gemini-2.5-pro')
+  }
+
+  private getGoogleThinkingLevel(level: ReasoningLevel, budget: number): string | undefined {
     switch (level) {
       case ReasoningLevel.OFF:
         return 'minimal'
+      case ReasoningLevel.AUTO:
+        return undefined
       case ReasoningLevel.LOW:
         return 'low'
+      case ReasoningLevel.XHIGH:
       case ReasoningLevel.HIGH:
         return 'high'
+      case ReasoningLevel.CUSTOM:
+        return this.getGoogleThinkingLevelForBudget(budget)
       case ReasoningLevel.MEDIUM:
       default:
         return 'medium'
     }
   }
 
-  private getGoogleThinkingBudget(level: ReasoningLevel): number | undefined {
+  private getGoogleThinkingLevelForBudget(budget: number): string {
+    if (budget <= 2000) {
+      return 'low'
+    }
+    if (budget <= 20000) {
+      return 'medium'
+    }
+    return 'high'
+  }
+
+  private getGoogleThinkingBudget(model: string, level: ReasoningLevel, budget: number): number | undefined {
     switch (level) {
       case ReasoningLevel.OFF:
-        return 0
+        return this.isGeminiTwoFiveProModel(model) ? 128 : 0
+      case ReasoningLevel.AUTO:
+        return -1
       case ReasoningLevel.LOW:
         return 1024
+      case ReasoningLevel.MEDIUM:
+        return 16000
+      case ReasoningLevel.HIGH:
+        return 32000
+      case ReasoningLevel.XHIGH:
+        return 64000
+      case ReasoningLevel.CUSTOM:
+        return budget
       default:
         return undefined
     }
@@ -1929,21 +2234,26 @@ export class AIApiService {
   private getGoogleThinkingConfig(
     model: string,
     reasoningRequestStrategy: ReasoningRequestStrategy,
-    reasoningLevel: ReasoningLevel
+    reasoningLevel: ReasoningLevel,
+    reasoningBudget: number
   ): GoogleThinkingConfig | undefined {
     if (reasoningRequestStrategy !== ReasoningRequestStrategy.GOOGLE_THINKING_CONFIG) {
       return undefined
     }
 
     if (this.isGeminiThreeThinkingModel(model)) {
-      return {
-        includeThoughts: reasoningLevel !== ReasoningLevel.OFF,
-        thinkingLevel: this.getGoogleThinkingLevel(reasoningLevel)
+      const config: GoogleThinkingConfig = {
+        includeThoughts: reasoningLevel !== ReasoningLevel.OFF
       }
+      const thinkingLevel = this.getGoogleThinkingLevel(reasoningLevel, reasoningBudget)
+      if (thinkingLevel !== undefined) {
+        config.thinkingLevel = thinkingLevel
+      }
+      return config
     }
 
     if (this.isGeminiTwoFiveThinkingModel(model)) {
-      const thinkingBudget = this.getGoogleThinkingBudget(reasoningLevel)
+      const thinkingBudget = this.getGoogleThinkingBudget(model, reasoningLevel, reasoningBudget)
       const config: GoogleThinkingConfig = {
         includeThoughts: reasoningLevel !== ReasoningLevel.OFF
       }
