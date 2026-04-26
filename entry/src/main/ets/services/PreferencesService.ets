@@ -7,6 +7,7 @@ export class PreferenceKeys {
   static readonly CURRENT_MODEL_ID: string = 'current_model_id'
   static readonly CURRENT_MODEL_NAME: string = 'current_model_name'
   static readonly CURRENT_PROVIDER_ID: string = 'current_provider_id'
+  static readonly CURRENT_ASSISTANT_ID: string = 'current_assistant_id'
   static readonly DEFAULT_TEMPERATURE: string = 'default_temperature'
   static readonly DEFAULT_MAX_TOKENS: string = 'default_max_tokens'
   static readonly THEME_MODE: string = 'theme_mode'
@@ -337,6 +338,14 @@ export class PreferencesService {
   // 设置当前选中的服务商ID
   async setCurrentProviderId(providerId: string): Promise<void> {
     await this.setString(PreferenceKeys.CURRENT_PROVIDER_ID, providerId)
+  }
+
+  async getCurrentAssistantId(): Promise<string> {
+    return await this.getString(PreferenceKeys.CURRENT_ASSISTANT_ID, 'default')
+  }
+
+  async setCurrentAssistantId(assistantId: string): Promise<void> {
+    await this.setString(PreferenceKeys.CURRENT_ASSISTANT_ID, assistantId !== '' ? assistantId : 'default')
   }
 
   // 获取默认温度

@@ -45,6 +45,10 @@
       "value": "对话"
     },
     {
+      "name": "tab_assistants",
+      "value": "助手"
+    },
+    {
       "name": "tab_settings",
       "value": "设置"
     },
@@ -1711,6 +1715,110 @@
     {
       "name": "light_color_mode_theme",
       "value": "跟随主题色"
+    },
+    {
+      "name": "assistant_manage_title",
+      "value": "助手"
+    },
+    {
+      "name": "new_assistant",
+      "value": "新建助手"
+    },
+    {
+      "name": "new_assistant_short",
+      "value": "新建"
+    },
+    {
+      "name": "assistant_sessions_label",
+      "value": "对话"
+    },
+    {
+      "name": "assistant_default_badge",
+      "value": "默认"
+    },
+    {
+      "name": "assistant_custom_badge",
+      "value": "自定义"
+    },
+    {
+      "name": "assistant_name",
+      "value": "名称"
+    },
+    {
+      "name": "assistant_name_placeholder",
+      "value": "助手名称"
+    },
+    {
+      "name": "assistant_avatar_symbol",
+      "value": "头像符号"
+    },
+    {
+      "name": "assistant_avatar_placeholder",
+      "value": "AI"
+    },
+    {
+      "name": "assistant_color",
+      "value": "颜色"
+    },
+    {
+      "name": "assistant_prompt",
+      "value": "助手提示词"
+    },
+    {
+      "name": "assistant_prompt_placeholder",
+      "value": "只对这个助手生效的指令"
+    },
+    {
+      "name": "assistant_default_model",
+      "value": "默认模型"
+    },
+    {
+      "name": "assistant_model_follow_global",
+      "value": "跟随全局当前模型"
+    },
+    {
+      "name": "assistant_temperature_override",
+      "value": "覆盖温度"
+    },
+    {
+      "name": "assistant_name_required",
+      "value": "请输入助手名称"
+    },
+    {
+      "name": "assistant_saved",
+      "value": "助手已保存"
+    },
+    {
+      "name": "assistant_deleted",
+      "value": "助手已删除"
+    },
+    {
+      "name": "common_done",
+      "value": "完成"
+    },
+    {
+      "name": "edit_assistant",
+      "value": "编辑助手"
+    },
+    {
+      "name": "edit_assistant_short",
+      "value": "编辑"
+    },
+    {
+      "name": "assistant_no_chat_time",
+      "value": "暂无对话"
+    },
+    {
+      "name": "assistant_delete_with_chats_title",
+      "value": "删除助手？"
+    },
+    {
+      "name": "assistant_delete_with_chats_message",
+      "value": "这个助手下已有对话。删除助手后，这些对话会归入默认助手。"
+    },
+    {
+      "name": "assistant_delete_failed",
+      "value": "删除助手失败"
     }
   ]
 }

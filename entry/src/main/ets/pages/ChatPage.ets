@@ -1603,6 +1603,7 @@ export struct ChatPage {
     const deps: ChatPageLoadFlowDependencies = {
       appStateManager: this.appStateManager,
       preferencesService: this.preferencesService,
+      assistantService: ServiceRegistry.assistant(),
       providerViewModel: this.providerViewModel,
       chatViewModel: this.chatViewModel,
       parseToolIdsFromRoute: (raw: string): string[] => {
@@ -1749,13 +1750,20 @@ export struct ChatPage {
     return selection
   }
 
-  private async applyModelSelection(provider: ModelProvider, model: ModelInfo, preferredName: string = ''): Promise<void> {
+  private async applyModelSelection(
+    provider: ModelProvider,
+    model: ModelInfo,
+    preferredName: string = '',
+    syncGlobalModel: boolean = true
+  ): Promise<void> {
     const modelName = model.name !== '' ? model.name : (preferredName !== '' ? preferredName : model.id)
     this.currentProvider = provider
     this.currentModelId = model.id
     this.currentModel = modelName
     this.syncReasoningAvailabilityWithCurrentModel()
-    await this.appStateManager.setCurrentModel(model.id, modelName, provider.id)
+    if (syncGlobalModel) {
+      await this.appStateManager.setCurrentModel(model.id, modelName, provider.id)
+    }
     await this.chatViewModel.updateCurrentSessionModelSelection(model.id, provider.id)
   }
 
@@ -1765,7 +1773,7 @@ export struct ChatPage {
     if (currentSession !== null && currentSession.id === this.sessionId) {
       const sessionSelection = this.findEnabledProviderModelSelection(currentSession.providerId, currentSession.modelId)
       if (sessionSelection !== null) {
-        await this.applyModelSelection(sessionSelection.provider, sessionSelection.model)
+        await this.applyModelSelection(sessionSelection.provider, sessionSelection.model, '', !this.isNewEmptySession)
         return
       }
     }
@@ -3235,7 +3243,13 @@ export struct ChatPage {
     await this.prepareCurrentSessionForTransition()
     this.clearDraftAutosaveTimer()
     // 创建新会话
-    const session = await this.chatViewModel.createNewSession()
+    const assistant = await ServiceRegistry.assistant().getCurrentAssistantForNewChat()
+    const session = await this.chatViewModel.createNewSession(
+      '',
+      assistant.id,
+      assistant.defaultModelId,
+      assistant.defaultProviderId
+    )
     this.isNewChatTransition = true
     this.routeParams = {} as ChatPageRouteParams
     this.inputText = ''
@@ -3251,6 +3265,7 @@ export struct ChatPage {
     // 标记为新建的空会话（返回时需要删除）
     this.isNewEmptySession = true
     this.syncActiveSessionBinding()
+    await this.validateAndSetCurrentModel()
 
     this.showChatSnack($r('app.string.chat_created'), 2000, SnackBarTone.SUCCESS)
   }

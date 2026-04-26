@@ -27,28 +27,38 @@ export class ChatSessionStore {
     this.defaultTitle = defaultTitle
   }
 
-  async createNewSession(title: string = ''): Promise<ChatSession> {
+  async createNewSession(
+    title: string = '',
+    assistantId: string = 'default',
+    modelIdSeed: string = '',
+    providerIdSeed: string = ''
+  ): Promise<ChatSession> {
     // Switching to a real session invalidates any in-memory placeholder session.
     this.pendingSession = null
     const sessionId = this.createId()
-    const modelId = this.appStateManager.getCurrentModelId()
-    const providerId = this.appStateManager.getCurrentProviderId()
+    const modelId = modelIdSeed !== '' ? modelIdSeed : this.appStateManager.getCurrentModelId()
+    const providerId = providerIdSeed !== '' ? providerIdSeed : this.appStateManager.getCurrentProviderId()
     const sessionTitle = title !== '' ? title : this.defaultTitle
 
-    const session = new ChatSession(sessionId, sessionTitle, modelId, providerId)
+    const session = new ChatSession(sessionId, sessionTitle, modelId, providerId, assistantId)
     await this.databaseService.createSession(session)
     this.currentSession = session
     this.onSessionListChanged()
     return session
   }
 
-  createPendingSession(title: string = ''): ChatSession {
+  createPendingSession(
+    title: string = '',
+    assistantId: string = 'default',
+    modelIdSeed: string = '',
+    providerIdSeed: string = ''
+  ): ChatSession {
     const sessionId = this.createId()
-    const modelId = this.appStateManager.getCurrentModelId()
-    const providerId = this.appStateManager.getCurrentProviderId()
+    const modelId = modelIdSeed !== '' ? modelIdSeed : this.appStateManager.getCurrentModelId()
+    const providerId = providerIdSeed !== '' ? providerIdSeed : this.appStateManager.getCurrentProviderId()
     const sessionTitle = title !== '' ? title : this.defaultTitle
 
-    const session = new ChatSession(sessionId, sessionTitle, modelId, providerId)
+    const session = new ChatSession(sessionId, sessionTitle, modelId, providerId, assistantId)
     this.pendingSession = session
     this.currentSession = session
     return session

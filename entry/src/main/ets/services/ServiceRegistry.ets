@@ -15,6 +15,7 @@ import { getChatTaskOrchestratorService, ChatTaskOrchestratorService } from './C
 import { getBackgroundRunGuardService, BackgroundRunGuardService } from './BackgroundRunGuardService'
 import { getChatNotificationService, ChatNotificationService } from './ChatNotificationService'
 import { getInAppAlertService, InAppAlertService } from './InAppAlertService'
+import { getAssistantService, AssistantService } from './AssistantService'
 import { getSettingsManager, SettingsManager } from '../viewmodels/SettingsManager'
 import { getAppStateManager, AppStateManager } from '../viewmodels/AppStateManager'
 import { getProviderViewModel, ProviderViewModel } from '../viewmodels/ProviderViewModel'
@@ -100,6 +101,10 @@ export class ServiceRegistry {
 
   static inAppAlert(): InAppAlertService {
     return getInAppAlertService()
+  }
+
+  static assistant(): AssistantService {
+    return getAssistantService()
   }
 
   static chat(): ChatViewModel {

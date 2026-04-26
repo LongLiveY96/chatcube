@@ -3,8 +3,9 @@ import { ConfigurationConstant, common } from '@kit.AbilityKit'
 import { notificationManager } from '@kit.NotificationKit'
 import { motion } from '@kit.MultimodalAwarenessKit'
 import { BusinessError } from '@kit.BasicServicesKit'
-import { HdsTabs, HdsTabsFloatingStyle, hdsMaterial } from '@kit.UIDesignKit'
-import { ChatSession, ChatMessage } from '../models/ChatModels'
+import { HdsListItemCard, HdsTabs, HdsTabsFloatingStyle, hdsMaterial } from '@kit.UIDesignKit'
+import { ChatSession, ChatMessage, ModelProvider } from '../models/ChatModels'
+import { Assistant, DEFAULT_ASSISTANT_ID } from '../models/AssistantModels'
 import { ChatViewModel } from '../viewmodels/ChatViewModel'
 import { SettingsChangeCallback } from '../viewmodels/SettingsManager'
 import { ThemeMode, AppLanguage, PreferenceKeys } from '../services/PreferencesService'
@@ -39,6 +40,7 @@ import { IndexSettingsPanel } from '../components/index/IndexSettingsPanel'
 import { IndexSettingsSheetContent } from '../components/index/IndexSettingsSheetContent'
 import { IndexSessionListSection } from '../components/index/IndexSessionListSection'
 import { ChatMultiSelectToolbar } from '../components/chat/ChatMultiSelectToolbar'
+import { ModelSelectorContent } from '../components/ModelSelector'
 import { SettingsSheetType, SessionFilterType, SessionGroupData } from './index/IndexPageTypes'
 import { getFilteredSessionsForIndex, buildSessionGroupsForIndex } from './index/IndexSessionGroupHelper'
 import { SessionListGroupViewModel, rebuildSessionListGroupViewModels } from './index/IndexSessionListDataSource'
@@ -67,13 +69,16 @@ import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentati
 import { getAppUiState, observeAppUiState, setAppUiStateValue } from '../state/AppUiState'
 import { tryHandleProviderDetailInternalBack } from '../components/ProviderDetailSheet'
 import { tryHandleModelManageInternalBack } from './ModelManagePage'
+import { buildPointLightBorderEffect } from '../utils/HdsVisualEffectUtil'
+
 @Entry
 @ComponentV2
 struct Index {
   private static readonly COMPACT_TABS_BAR_HEIGHT: number = 56
   private static readonly COMPACT_TABS_FLOATING_SIDE_MARGIN: number = 16
   private static readonly TAB_CHAT: number = 0
-  private static readonly TAB_SETTINGS: number = 1
+  private static readonly TAB_ASSISTANTS: number = 1
+  private static readonly TAB_SETTINGS: number = 2
   @Local currentTabIndex: number = Index.TAB_CHAT
   @Local sessions: ChatSession[] = []
   @Local isLoading: boolean = false
@@ -98,6 +103,24 @@ struct Index {
   @Local searchText: string = ''
   @Local isSearchExpanded: boolean = false
   @Local currentSessionFilter: SessionFilterType = SessionFilterType.ALL
+  @Local assistants: Assistant[] = []
+  @Local assistantProviders: ModelProvider[] = []
+  @Local currentAssistantId: string = DEFAULT_ASSISTANT_ID
+  @Local showAssistantEditorSheet: boolean = false
+  @Local showAssistantModelSheet: boolean = false
+  @Local editingAssistantId: string = ''
+  @Local editingAssistantCreatedAt: number = 0
+  @Local editingAssistantSortOrder: number = 0
+  @Local editingAssistantIsDefault: boolean = false
+  @Local assistantFormName: string = ''
+  @Local assistantFormAvatarSymbol: string = 'AI'
+  @Local assistantFormColor: string = '#0A59F7'
+  @Local assistantFormSystemPrompt: string = ''
+  @Local assistantFormDefaultProviderId: string = ''
+  @Local assistantFormDefaultModelId: string = ''
+  @Local assistantFormDefaultModelName: string = ''
+  @Local assistantFormTemperatureEnabled: boolean = false
+  @Local assistantFormTemperature: number = 0.7
   @Local compactChatHeaderHeight: number = 0
   @Local tabletDetailSessionId: string = ''
   private get activeChatSessionId(): string {
@@ -195,12 +218,16 @@ struct Index {
   private tabletChatDetailPathStack: NavPathStack = new NavPathStack()
   private settingsNavPathStack: NavPathStack = new NavPathStack()
   private currentTabletDetailParams: ChatPageRouteParams | null = null
+  private settingsReturnTabIndex: number = Index.TAB_SETTINGS
   @Local currentSettingsRouteName: string = ''
   // 返回键退出控制
   private lastBackPressTime: number = 0
   private chatViewModel: ChatViewModel = ServiceRegistry.chat()
   private settingsManager = ServiceRegistry.settings()
   private preferencesService = ServiceRegistry.preferences()
+  private assistantService = ServiceRegistry.assistant()
+  private providerViewModel = ServiceRegistry.provider()
+  private assistantListScroller: ListScroller = new ListScroller()
   private settingsCallback: SettingsChangeCallback | null = null
   private holdingHandSubscribed: boolean = false
   private handAdaptiveLoadSeq: number = 0
@@ -331,6 +358,11 @@ struct Index {
       this.loadSessions()
       return
     }
+    if (index === Index.TAB_ASSISTANTS) {
+      this.loadAssistants()
+      this.loadSessions()
+      return
+    }
     if (index === Index.TAB_SETTINGS && shouldEnsureSettingsSplitLanding) {
       setAppUiStateValue(
         AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE,
@@ -374,16 +406,25 @@ struct Index {
     this.refreshSessionListProjection()
   }
 
-  private openSettingsDestination(routeName: SettingsRouteName): void {
+  private openSettingsDestination(routeName: SettingsRouteName, param: Object | null = null): void {
+    this.settingsReturnTabIndex = this.currentTabIndex !== Index.TAB_SETTINGS ? this.currentTabIndex : Index.TAB_SETTINGS
     this.switchToTab(Index.TAB_SETTINGS, false)
     this.dismissSettingsSheetForNavigation()
     this.currentSettingsRouteName = routeName
     this.syncSettingsDetailPresentationMode()
     if (this.isSettingsSplitMode() && this.settingsNavPathStack.size() > 0) {
-      this.settingsNavPathStack.replacePath({ name: routeName })
+      if (param !== null) {
+        this.settingsNavPathStack.replacePath({ name: routeName, param: param })
+      } else {
+        this.settingsNavPathStack.replacePath({ name: routeName })
+      }
       return
     }
-    this.settingsNavPathStack.pushPath({ name: routeName })
+    if (param !== null) {
+      this.settingsNavPathStack.pushPath({ name: routeName, param: param })
+    } else {
+      this.settingsNavPathStack.pushPath({ name: routeName })
+    }
   }
 
   private openPrivacyPolicy(): void {
@@ -420,6 +461,7 @@ struct Index {
 
   onSessionListRefresh(): void {
     if (this.sessionListRefreshAt > 0) {
+      this.loadAssistants()
       this.loadSessions()
     }
   }
@@ -491,10 +533,16 @@ struct Index {
         if (to === 'navBar' || this.settingsNavPathStack.size() <= 0) {
           this.currentSettingsRouteName = ''
           setAppUiStateValue(AppStorageKeys.SETTINGS_DETAIL_PRESENTATION_MODE, SettingsPagePresentationMode.PAGE)
+          const returnTabIndex = this.settingsReturnTabIndex
+          this.settingsReturnTabIndex = Index.TAB_SETTINGS
+          if (returnTabIndex !== Index.TAB_SETTINGS) {
+            this.switchToTab(returnTabIndex, false)
+          }
         }
       }
     })
 
+    this.loadAssistants()
     this.loadSessions()
     this.loadSettings()
     this.registerSettingsCallback()
@@ -503,6 +551,7 @@ struct Index {
   }
 
   onPageShow(): void {
+    this.loadAssistants()
     this.loadSessions()
     this.refreshSettingsState()
     this.loadHandAdaptiveSettings()
@@ -655,6 +704,82 @@ struct Index {
     this.lightColorMode = this.settingsManager.getLightColorMode()
     await this.loadHandAdaptiveSettings()
     this.syncSettingsSummaryToStorage()
+  }
+
+  private copyAssistantFields(target: Assistant, source: Assistant): void {
+    target.id = source.id
+    target.name = source.name
+    target.avatarSymbol = source.avatarSymbol
+    target.color = source.color
+    target.systemPrompt = source.systemPrompt
+    target.defaultProviderId = source.defaultProviderId
+    target.defaultModelId = source.defaultModelId
+    target.defaultModelName = source.defaultModelName
+    target.temperatureEnabled = source.temperatureEnabled
+    target.temperature = source.temperature
+    target.isDefault = source.isDefault
+    target.createdAt = source.createdAt
+    target.updatedAt = source.updatedAt
+    target.sortOrder = source.sortOrder
+  }
+
+  private getLoadedAssistantInstance(loadedAssistant: Assistant): Assistant {
+    for (let i = 0; i < this.assistants.length; i++) {
+      if (this.assistants[i].id === loadedAssistant.id) {
+        this.copyAssistantFields(this.assistants[i], loadedAssistant)
+        return this.assistants[i]
+      }
+    }
+    return loadedAssistant
+  }
+
+  private mergeLoadedAssistants(loadedAssistants: Assistant[]): Assistant[] {
+    const mergedAssistants: Assistant[] = []
+    for (let i = 0; i < loadedAssistants.length; i++) {
+      mergedAssistants.push(this.getLoadedAssistantInstance(loadedAssistants[i]))
+    }
+    return mergedAssistants
+  }
+
+  private async loadAssistants(): Promise<void> {
+    try {
+      const assistants = await this.assistantService.getAllAssistants()
+      const current = await this.assistantService.getCurrentAssistant()
+      this.assistants = this.mergeLoadedAssistants(assistants)
+      this.currentAssistantId = current.id !== '' ? current.id : DEFAULT_ASSISTANT_ID
+      this.refreshSessionListProjection()
+    } catch (error) {
+      console.error('Index', `Failed to load assistants: ${JSON.stringify(error)}`)
+      this.currentAssistantId = DEFAULT_ASSISTANT_ID
+    }
+  }
+
+  private async loadAssistantProvidersIfNeeded(): Promise<void> {
+    if (this.assistantProviders.length > 0) {
+      return
+    }
+    try {
+      this.assistantProviders = await this.providerViewModel.loadProviders()
+    } catch (error) {
+      console.error('Index', `Failed to load assistant providers: ${JSON.stringify(error)}`)
+      this.assistantProviders = []
+    }
+  }
+
+  private async switchAssistant(assistantId: string): Promise<void> {
+    const previousAssistantId = this.currentAssistantId
+    const assistant = await this.assistantService.setCurrentAssistantId(assistantId)
+    this.currentAssistantId = assistant.id !== '' ? assistant.id : DEFAULT_ASSISTANT_ID
+    this.selectedSessionIds = []
+    this.isMultiSelectMode = false
+    if (this.isSearchExpanded) {
+      this.searchText = ''
+      this.isSearchExpanded = false
+    }
+    if (previousAssistantId !== this.currentAssistantId && this.isExpandedLayout()) {
+      this.clearTabletChatDetail(false)
+    }
+    this.refreshSessionListProjection()
   }
 
   private refreshSettingsState(): void {
@@ -1021,6 +1146,7 @@ struct Index {
             existing.isFavorite = fresh.isFavorite
             existing.modelId = fresh.modelId
             existing.providerId = fresh.providerId
+            existing.assistantId = this.normalizeSessionAssistantId(fresh.assistantId)
             reorderedSessions.push(existing)
           }
         }
@@ -1049,7 +1175,7 @@ struct Index {
   }
 
   getFilteredSessions(): ChatSession[] {
-    return getFilteredSessionsForIndex(this.sessions, this.searchText, this.currentSessionFilter)
+    return getFilteredSessionsForIndex(this.getAssistantScopedSessions(), this.searchText, this.currentSessionFilter)
   }
 
   private refreshSessionListProjection(): void {
@@ -1168,6 +1294,33 @@ struct Index {
             }
           })
 
+        Column()
+          .width(0)
+          .height(0)
+          .bindSheet($$this.showAssistantEditorSheet, this.AssistantEditorSheetBuilder(), {
+            height: SheetSize.LARGE,
+            dragBar: true,
+            showClose: false,
+            backgroundColor: $r('app.color.background'),
+            preferType: SheetType.BOTTOM,
+            onDisappear: () => {
+              this.showAssistantEditorSheet = false
+              this.showAssistantModelSheet = false
+            }
+          })
+
+        Column()
+          .width(0)
+          .height(0)
+          .bindSheet($$this.showAssistantModelSheet, this.AssistantModelSheetBuilder(), {
+            height: SheetSize.LARGE,
+            dragBar: true,
+            showClose: true,
+            backgroundColor: $r('app.color.background'),
+            preferType: SheetType.BOTTOM,
+            title: { title: $r('app.string.assistant_default_model') }
+          })
+
       }
       .width('100%')
       .height('100%')
@@ -1202,6 +1355,11 @@ struct Index {
           .tabBar(this.TabBarChat())
 
           TabContent() {
+            this.AssistantsTab()
+          }
+          .tabBar(this.TabBarAssistants())
+
+          TabContent() {
             this.SettingsTab()
           }
           .tabBar(this.TabBarSettings())
@@ -1215,7 +1373,7 @@ struct Index {
         .barBackgroundBlurStyle(BlurStyle.COMPONENT_THIN)
         .barFloatingStyle(this.getCompactTabsFloatingStyle())
         .scrollable(false)
-        .cachedMaxCount(2, TabsCacheMode.CACHE_LATEST_SWITCHED)
+        .cachedMaxCount(3, TabsCacheMode.CACHE_LATEST_SWITCHED)
         .onChange((index: number) => {
           if (this.currentTabIndex !== index) {
             this.switchToTab(index)
@@ -1244,6 +1402,8 @@ struct Index {
   private CompactCurrentTabContent() {
     if (this.currentTabIndex === Index.TAB_CHAT) {
       this.ChatTab()
+    } else if (this.currentTabIndex === Index.TAB_ASSISTANTS) {
+      this.AssistantsTab()
     } else {
       this.SettingsTab()
     }
@@ -1267,6 +1427,8 @@ struct Index {
 
           if (this.currentTabIndex === Index.TAB_CHAT) {
             this.ExpandedChatTab()
+          } else if (this.currentTabIndex === Index.TAB_ASSISTANTS) {
+            this.ExpandedAssistantsTab()
           } else {
             this.ExpandedSettingsTab()
           }
@@ -1288,6 +1450,8 @@ struct Index {
         .height(this.px2vp(this.topAvoidHeight))
 
       this.RailTabButton(Index.TAB_CHAT, $r('sys.symbol.message_fill'), $r('sys.symbol.message'), $r('app.string.tab_chat'))
+      this.RailTabButton(Index.TAB_ASSISTANTS, $r('sys.symbol.person'), $r('sys.symbol.person'),
+        $r('app.string.tab_assistants'))
       this.RailTabButton(Index.TAB_SETTINGS, $r('sys.symbol.gearshape_fill'), $r('sys.symbol.gearshape'), $r('app.string.tab_settings'))
 
       Blank()
@@ -1357,6 +1521,63 @@ struct Index {
     return px / (this.getUIContext().getHostContext()?.resourceManager.getDeviceCapabilitySync().screenDensity ?? 3) * 160
   }
 
+  private normalizeSessionAssistantId(assistantId: string): string {
+    return assistantId !== '' ? assistantId : DEFAULT_ASSISTANT_ID
+  }
+
+  private getAssistantScopedSessions(): ChatSession[] {
+    const scopedSessions: ChatSession[] = []
+    for (let i = 0; i < this.sessions.length; i++) {
+      if (this.normalizeSessionAssistantId(this.sessions[i].assistantId) === this.currentAssistantId) {
+        scopedSessions.push(this.sessions[i])
+      }
+    }
+    return scopedSessions
+  }
+
+  private getCurrentAssistant(): Assistant | null {
+    for (let i = 0; i < this.assistants.length; i++) {
+      if (this.assistants[i].id === this.currentAssistantId) {
+        return this.assistants[i]
+      }
+    }
+    return this.assistants.length > 0 ? this.assistants[0] : null
+  }
+
+  private getCurrentAssistantName(): string {
+    const assistant = this.getCurrentAssistant()
+    return assistant !== null ? assistant.name : '默认助手'
+  }
+
+  private getCurrentAssistantSymbol(): string {
+    const assistant = this.getCurrentAssistant()
+    return assistant !== null && assistant.avatarSymbol !== '' ? assistant.avatarSymbol : 'AI'
+  }
+
+  private getCurrentAssistantColor(): string {
+    const assistant = this.getCurrentAssistant()
+    return assistant !== null && assistant.color !== '' ? assistant.color : this.themePrimary
+  }
+
+  private getAssistantRenderKey(assistant: Assistant): string {
+    return assistant.id
+  }
+
+  private getAssistantSwitchMaxWidth(): number {
+    if (this.windowWidthVp <= 0) {
+      return 260
+    }
+    return Math.max(140, this.windowWidthVp - 104)
+  }
+
+  private getAssistantSwitchNameMaxWidth(): number {
+    return Math.max(72, this.getAssistantSwitchMaxWidth() - 74)
+  }
+
+  private getAssistantMenuBackgroundColor(): string {
+    return this.isDarkMode ? '#A8212328' : '#BFFFFFFF'
+  }
+
   private isTabActive(index: number): boolean {
     return this.currentTabIndex === index
   }
@@ -1375,9 +1596,9 @@ struct Index {
   private getCompactTabsFloatingStyle(): HdsTabsFloatingStyle {
     return {
       barWidth: {
-        smallWidth: 188,
-        mediumWidth: 212,
-        largeWidth: 236
+        smallWidth: 248,
+        mediumWidth: 278,
+        largeWidth: 312
       },
       barSideMargin: Index.COMPACT_TABS_FLOATING_SIDE_MARGIN,
       barBottomMargin: this.getCompactTabsFloatingBottomMargin(),
@@ -1396,6 +1617,16 @@ struct Index {
       activeIcon: $r('sys.symbol.ellipsis_message_fill'),
       inactiveIcon: $r('sys.symbol.ellipsis_message'),
       label: $r('app.string.tab_chat')
+    })
+  }
+
+  @Builder
+  TabBarAssistants() {
+    IndexBottomTabItem({
+      active: this.isTabActive(Index.TAB_ASSISTANTS),
+      activeIcon: $r('sys.symbol.person'),
+      inactiveIcon: $r('sys.symbol.person'),
+      label: $r('app.string.tab_assistants')
     })
   }
 
@@ -1464,6 +1695,939 @@ struct Index {
     .backgroundColor($r('app.color.background'))
   }
 
+  private getAssistantSessionCount(assistantId: string): number {
+    const normalizedId = this.normalizeSessionAssistantId(assistantId)
+    let count = 0
+    for (let i = 0; i < this.sessions.length; i++) {
+      if (this.normalizeSessionAssistantId(this.sessions[i].assistantId) === normalizedId) {
+        count++
+      }
+    }
+    return count
+  }
+
+  private getAssistantLastChatTimestamp(assistantId: string): number {
+    const normalizedId = this.normalizeSessionAssistantId(assistantId)
+    let timestamp = 0
+    for (let i = 0; i < this.sessions.length; i++) {
+      const session = this.sessions[i]
+      if (this.normalizeSessionAssistantId(session.assistantId) === normalizedId && session.updatedAt > timestamp) {
+        timestamp = session.updatedAt
+      }
+    }
+    return timestamp
+  }
+
+  private getRelativeDiff(timestamp: number): number {
+    const now = Date.now()
+    return now > timestamp ? now - timestamp : 0
+  }
+
+  private isJustNow(timestamp: number): boolean {
+    return timestamp > 0 && this.getRelativeDiff(timestamp) < 60 * 1000
+  }
+
+  private isMinutesAgo(timestamp: number): boolean {
+    const diff = this.getRelativeDiff(timestamp)
+    return timestamp > 0 && diff >= 60 * 1000 && diff < 60 * 60 * 1000
+  }
+
+  private isHoursAgo(timestamp: number): boolean {
+    const diff = this.getRelativeDiff(timestamp)
+    return timestamp > 0 && diff >= 60 * 60 * 1000 && diff < 24 * 60 * 60 * 1000
+  }
+
+  private isDaysAgo(timestamp: number): boolean {
+    const diff = this.getRelativeDiff(timestamp)
+    return timestamp > 0 && diff >= 24 * 60 * 60 * 1000 && diff < 7 * 24 * 60 * 60 * 1000
+  }
+
+  private getMinutesAgoValue(timestamp: number): string {
+    return `${Math.floor(this.getRelativeDiff(timestamp) / (60 * 1000))}`
+  }
+
+  private getHoursAgoValue(timestamp: number): string {
+    return `${Math.floor(this.getRelativeDiff(timestamp) / (60 * 60 * 1000))}`
+  }
+
+  private getDaysAgoValue(timestamp: number): string {
+    return `${Math.floor(this.getRelativeDiff(timestamp) / (24 * 60 * 60 * 1000))}`
+  }
+
+  private formatDateMMDD(timestamp: number): string {
+    const date = new Date(timestamp)
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const dayNum = date.getDate().toString().padStart(2, '0')
+    return `${month}-${dayNum}`
+  }
+
+  private getAssistantDefaultModelText(assistant: Assistant): ResourceStr {
+    return assistant.defaultModelName !== '' ? assistant.defaultModelName : $r('app.string.assistant_model_follow_global')
+  }
+
+  private getAssistantTabBottomSpacerHeight(): number {
+    return this.isExpandedLayout() ? 16 : this.getCompactTabsBottomInset() + 12
+  }
+
+  private getAssistantsListHorizontalPadding(): number {
+    return this.isExpandedLayout() ? 20 : 16
+  }
+
+  private openAssistantManageForNew(): void {
+    this.openAssistantEditorForNew()
+  }
+
+  private async openAssistantSessions(assistant: Assistant): Promise<void> {
+    await this.switchAssistant(assistant.id)
+    this.switchToTab(Index.TAB_CHAT)
+  }
+
+  private async openAssistantNewChat(assistant: Assistant): Promise<void> {
+    await this.switchAssistant(assistant.id)
+    this.openChatRoute({} as ChatPageRouteParams)
+  }
+
+  private getAssistantColorOptions(): string[] {
+    return ['#0A59F7', '#16A34A', '#DC2626', '#9333EA', '#EA580C', '#0891B2', '#475569', '#BE123C']
+  }
+
+  private resetAssistantEditorForm(): void {
+    this.editingAssistantId = ''
+    this.editingAssistantCreatedAt = 0
+    this.editingAssistantSortOrder = 0
+    this.editingAssistantIsDefault = false
+    this.assistantFormName = ''
+    this.assistantFormAvatarSymbol = 'AI'
+    this.assistantFormColor = '#0A59F7'
+    this.assistantFormSystemPrompt = ''
+    this.assistantFormDefaultProviderId = ''
+    this.assistantFormDefaultModelId = ''
+    this.assistantFormDefaultModelName = ''
+    this.assistantFormTemperatureEnabled = false
+    this.assistantFormTemperature = 0.7
+  }
+
+  private fillAssistantEditorForm(assistant: Assistant): void {
+    this.editingAssistantId = assistant.id
+    this.editingAssistantCreatedAt = assistant.createdAt
+    this.editingAssistantSortOrder = assistant.sortOrder
+    this.editingAssistantIsDefault = assistant.id === DEFAULT_ASSISTANT_ID || assistant.isDefault
+    this.assistantFormName = assistant.name
+    this.assistantFormAvatarSymbol = assistant.avatarSymbol !== '' ? assistant.avatarSymbol : 'AI'
+    this.assistantFormColor = assistant.color !== '' ? assistant.color : '#0A59F7'
+    this.assistantFormSystemPrompt = assistant.systemPrompt
+    this.assistantFormDefaultProviderId = assistant.defaultProviderId
+    this.assistantFormDefaultModelId = assistant.defaultModelId
+    this.assistantFormDefaultModelName = assistant.defaultModelName
+    this.assistantFormTemperatureEnabled = assistant.temperatureEnabled
+    this.assistantFormTemperature = assistant.temperature
+  }
+
+  private async openAssistantEditorForNew(): Promise<void> {
+    this.resetAssistantEditorForm()
+    this.showAssistantEditorSheet = true
+    await this.loadAssistantProvidersIfNeeded()
+  }
+
+  private async openAssistantEditor(assistant: Assistant): Promise<void> {
+    this.fillAssistantEditorForm(assistant)
+    this.showAssistantEditorSheet = true
+    await this.loadAssistantProvidersIfNeeded()
+  }
+
+  private getAssistantEditorTitle(): Resource {
+    return this.editingAssistantId === '' ? $r('app.string.new_assistant') : $r('app.string.edit_assistant')
+  }
+
+  private getAssistantFormDefaultModelText(): ResourceStr {
+    return this.assistantFormDefaultModelName !== '' ? this.assistantFormDefaultModelName :
+      $r('app.string.assistant_model_follow_global')
+  }
+
+  private clearAssistantDefaultModel(): void {
+    this.assistantFormDefaultProviderId = ''
+    this.assistantFormDefaultModelId = ''
+    this.assistantFormDefaultModelName = ''
+  }
+
+  private selectAssistantDefaultModel(providerId: string, modelId: string, modelName: string): void {
+    this.assistantFormDefaultProviderId = providerId
+    this.assistantFormDefaultModelId = modelId
+    this.assistantFormDefaultModelName = modelName !== '' ? modelName : modelId
+    this.showAssistantModelSheet = false
+  }
+
+  private async saveAssistantEditor(): Promise<void> {
+    const name = this.assistantFormName.trim()
+    if (name === '') {
+      this.showIndexSnack($r('app.string.assistant_name_required'), 2000, SnackBarTone.ERROR)
+      return
+    }
+
+    const assistant = new Assistant(this.editingAssistantId, name)
+    assistant.avatarSymbol = this.assistantFormAvatarSymbol.trim() !== '' ? this.assistantFormAvatarSymbol.trim() : 'AI'
+    assistant.color = this.assistantFormColor
+    assistant.systemPrompt = this.assistantFormSystemPrompt.trim()
+    assistant.defaultProviderId = this.assistantFormDefaultProviderId
+    assistant.defaultModelId = this.assistantFormDefaultModelId
+    assistant.defaultModelName = this.assistantFormDefaultModelName
+    assistant.temperatureEnabled = this.assistantFormTemperatureEnabled
+    assistant.temperature = this.assistantFormTemperature
+    assistant.createdAt = this.editingAssistantCreatedAt
+    assistant.sortOrder = this.editingAssistantSortOrder
+    assistant.isDefault = this.editingAssistantIsDefault
+
+    if (assistant.id === '') {
+      await this.assistantService.createAssistant(assistant)
+    } else {
+      await this.assistantService.saveAssistant(assistant)
+    }
+    await this.loadAssistants()
+    this.showAssistantEditorSheet = false
+    this.showIndexSnack($r('app.string.assistant_saved'), 1500, SnackBarTone.SUCCESS)
+  }
+
+  private async deleteAssistantNow(assistant: Assistant): Promise<void> {
+    const deleted = await this.assistantService.deleteAssistant(assistant.id)
+    await this.loadAssistants()
+    this.showIndexSnack(deleted ? $r('app.string.assistant_deleted') : $r('app.string.assistant_delete_failed'), 1800,
+      deleted ? SnackBarTone.SUCCESS : SnackBarTone.ERROR)
+  }
+
+  private async deleteAssistantFromTab(assistant: Assistant): Promise<void> {
+    if (assistant.id === DEFAULT_ASSISTANT_ID || assistant.isDefault) {
+      return
+    }
+    if (this.getAssistantSessionCount(assistant.id) <= 0) {
+      await this.deleteAssistantNow(assistant)
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.assistant_delete_with_chats_title'),
+      message: $r('app.string.assistant_delete_with_chats_message'),
+      primaryButton: {
+        value: $r('app.string.cancel'),
+        action: () => {
+        }
+      },
+      secondaryButton: {
+        value: $r('app.string.delete'),
+        fontColor: $r('app.color.status_error'),
+        action: async () => {
+          await this.deleteAssistantNow(assistant)
+        }
+      }
+    })
+  }
+
+  private async moveAssistant(from: number, to: number): Promise<void> {
+    if (from === to || from < 0 || to < 0 || from >= this.assistants.length || to >= this.assistants.length) {
+      return
+    }
+    const reordered: Assistant[] = [...this.assistants]
+    const moving = reordered[from]
+    reordered.splice(from, 1)
+    reordered.splice(to, 0, moving)
+    for (let i = 0; i < reordered.length; i++) {
+      reordered[i].sortOrder = i
+    }
+    this.assistants = reordered
+    await this.assistantService.reorderAssistants(reordered)
+  }
+
+  @Builder
+  private AssistantsTabContent(applyTopInset: boolean) {
+    Stack({ alignContent: Alignment.BottomEnd }) {
+      Column() {
+        if (applyTopInset) {
+          Column()
+            .width('100%')
+            .height(this.px2vp(this.topAvoidHeight))
+        }
+
+        this.AssistantsHeader()
+        this.AssistantsList()
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('app.color.background'))
+
+      this.AssistantFloatingActionButton()
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder
+  AssistantsTab() {
+    this.AssistantsTabContent(!this.isExpandedLayout())
+  }
+
+  @Builder
+  ExpandedAssistantsTab() {
+    Row() {
+      Column() {
+        this.AssistantsTabContent(false)
+      }
+      .width('100%')
+      .height('100%')
+      .constraintSize({ maxWidth: 720 })
+      .backgroundColor($r('app.color.background'))
+      .borderRadius(24)
+      .clip(true)
+      .border({
+        width: 1,
+        color: $r('app.color.divider')
+      })
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .justifyContent(FlexAlign.Center)
+    .padding({
+      left: this.getExpandedPageHorizontalPadding(),
+      right: this.getExpandedPageHorizontalPadding(),
+      bottom: 12
+    })
+  }
+
+  @Builder
+  private AssistantsHeader() {
+    Row() {
+      Text($r('app.string.assistant_manage_title'))
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('app.color.text_primary'))
+        .layoutWeight(1)
+    }
+    .width('100%')
+    .height(58)
+    .padding({ left: 20, right: 20 })
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private AssistantsList() {
+    if (this.assistants.length === 0) {
+      Column() {
+        IndexEmptyStateCard({
+          icon: $r('sys.symbol.person'),
+          title: $r('app.string.assistant_manage_title'),
+          description: $r('app.string.loading')
+        })
+      }
+      .width('100%')
+      .layoutWeight(1)
+    } else {
+      List({ space: 8, scroller: this.assistantListScroller }) {
+        Repeat<Assistant>(this.assistants)
+          .each((obj: RepeatItem<Assistant>) => {
+            ListItem({ style: ListItemStyle.NONE }) {
+              this.AssistantJumpCard(obj.item)
+            }
+            .swipeAction({
+              start: this.AssistantStartSwipePanel(obj.item),
+              end: this.AssistantEndSwipePanel(obj.item)
+            })
+            .borderRadius(12)
+            .clip(true)
+          })
+          .key((assistant: Assistant) => {
+            return this.getAssistantRenderKey(assistant)
+          })
+          .virtualScroll({ totalCount: this.assistants.length })
+          .onMove((from: number, to: number): void => {
+            this.moveAssistant(from, to)
+          })
+
+        ListItem() {
+          Column()
+            .height(this.getAssistantTabBottomSpacerHeight())
+        }
+        .focusable(false)
+        .selectable(false)
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .padding({ left: this.getAssistantsListHorizontalPadding(), right: this.getAssistantsListHorizontalPadding(), top: 2 })
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+      .cachedCount(4)
+    }
+  }
+
+  @Builder
+  private AssistantStartSwipePanel(assistant: Assistant) {
+    Row() {
+      this.AssistantSwipeButton($r('sys.symbol.plus'), $r('app.string.new_chat'), this.themePrimary, 84, (): void => {
+        this.assistantListScroller.closeAllSwipeActions()
+        this.openAssistantNewChat(assistant)
+      })
+    }
+    .height('100%')
+    .borderRadius({ topLeft: 12, bottomLeft: 12 })
+    .clip(true)
+  }
+
+  @Builder
+  private AssistantEndSwipePanel(assistant: Assistant) {
+    Row() {
+      this.AssistantSwipeButton($r('sys.symbol.square_and_pencil'), $r('app.string.edit_assistant_short'),
+        this.themePrimary, 72, (): void => {
+          this.assistantListScroller.closeAllSwipeActions()
+          this.openAssistantEditor(assistant)
+        })
+
+      if (assistant.id !== DEFAULT_ASSISTANT_ID && !assistant.isDefault) {
+        this.AssistantSwipeButton($r('sys.symbol.trash'), $r('app.string.delete'), $r('app.color.status_error'),
+          72, (): void => {
+            this.assistantListScroller.closeAllSwipeActions()
+            this.deleteAssistantFromTab(assistant)
+          })
+      }
+    }
+    .height('100%')
+    .borderRadius({ topRight: 12, bottomRight: 12 })
+    .clip(true)
+  }
+
+  @Builder
+  private AssistantSwipeButton(symbol: Resource, label: ResourceStr, backgroundColor: ResourceColor, width: number,
+    onTap: () => void) {
+    Button() {
+      Column() {
+        SymbolGlyph(symbol)
+          .fontSize(18)
+          .fontColor([Color.White])
+
+        Text(label)
+          .fontSize(11)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(Color.White)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .textAlign(TextAlign.Center)
+          .margin({ top: 2 })
+      }
+      .width('100%')
+      .padding({ left: 4, right: 4 })
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+    }
+    .width(width)
+    .height('100%')
+    .borderRadius(0)
+    .backgroundColor(backgroundColor)
+    .onClick(() => {
+      onTap()
+    })
+  }
+
+  @Builder
+  private AssistantFloatingActionButton() {
+    Button() {
+      SymbolGlyph($r('sys.symbol.plus'))
+        .fontSize(24)
+        .fontColor([Color.White])
+    }
+    .width(INDEX_NEW_CHAT_FAB_SIZE)
+    .height(INDEX_NEW_CHAT_FAB_SIZE)
+    .borderRadius(INDEX_NEW_CHAT_FAB_SIZE / 2)
+    .backgroundColor(this.themePrimary)
+    .type(ButtonType.Circle)
+    .stateEffect(false)
+    .padding(0)
+    .position({ x: this.shouldPlaceFabOnLeft() ? 0 : '100%', y: '100%' })
+    .translate({ x: this.getFabOffsetX(), y: this.getFabOffsetY() })
+    .scale(getButtonScale(this.fabPressed))
+    .animation({
+      duration: 420,
+      curve: curves.springMotion(0.75, 0.86)
+    })
+    .shadow({
+      radius: this.fabPressed ? 20 : 14,
+      color: this.fabShadowColor,
+      offsetX: 0,
+      offsetY: 8
+    })
+    .onTouch(createButtonTouchHandler((pressed: boolean) => {
+      this.fabPressed = pressed
+    }))
+    .onClick(() => {
+      this.fabPressed = false
+      this.openAssistantManageForNew()
+    })
+  }
+
+  @Builder
+  private AssistantJumpCard(assistant: Assistant) {
+    HdsListItemCard({
+      textItem: {
+        customBuilder: (): void => {
+          this.AssistantJumpCardContent(assistant)
+        }
+      },
+      cardBackgroundColor: assistant.id === this.currentAssistantId ? this.themePrimaryLight : $r('app.color.surface'),
+      cardBorderRadius: 12,
+      accessibilityOptions: {
+        accessibilityText: assistant.name,
+        accessibilityGroup: {
+          isGroup: true
+        }
+      }
+    })
+    .width('100%')
+    .height(76)
+    .visualEffect(buildPointLightBorderEffect())
+    .onClick(() => {
+      this.openAssistantSessions(assistant)
+    })
+  }
+
+  @Builder
+  private AssistantJumpCardContent(assistant: Assistant) {
+    Row({ space: 10 }) {
+      Text(assistant.avatarSymbol !== '' ? assistant.avatarSymbol : 'AI')
+        .fontSize(13)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.White)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width(40)
+        .height(40)
+        .textAlign(TextAlign.Center)
+        .backgroundColor(assistant.color !== '' ? assistant.color : this.themePrimary)
+        .borderRadius(20)
+
+      Column({ space: 4 }) {
+        Text(assistant.name)
+          .fontSize(15)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        Text(this.getAssistantDefaultModelText(assistant))
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      Column({ space: 5 }) {
+        this.AssistantRelativeTimeText(this.getAssistantLastChatTimestamp(assistant.id))
+
+        Row({ space: 6 }) {
+          Row({ space: 2 }) {
+            SymbolGlyph($r('sys.symbol.message'))
+              .fontSize(10)
+              .fontColor([$r('app.color.text_tertiary')])
+            Text(this.getAssistantSessionCount(assistant.id).toString())
+              .fontSize(10)
+              .fontColor($r('app.color.text_tertiary'))
+          }
+        }
+        .justifyContent(FlexAlign.End)
+      }
+      .width(74)
+      .alignItems(HorizontalAlign.End)
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private AssistantRelativeTimeText(timestamp: number) {
+    Row({ space: 0 }) {
+      if (timestamp <= 0) {
+        Text($r('app.string.assistant_no_chat_time'))
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
+      } else if (this.isJustNow(timestamp)) {
+        Text($r('app.string.time_just_now'))
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
+      } else if (this.isMinutesAgo(timestamp)) {
+        Text(this.getMinutesAgoValue(timestamp))
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
+        Text($r('app.string.time_minutes_ago_suffix'))
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
+      } else if (this.isHoursAgo(timestamp)) {
+        Text(this.getHoursAgoValue(timestamp))
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
+        Text($r('app.string.time_hours_ago_suffix'))
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
+      } else if (this.isDaysAgo(timestamp)) {
+        Text(this.getDaysAgoValue(timestamp))
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
+        Text($r('app.string.time_days_ago_suffix'))
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
+      } else {
+        Text(this.formatDateMMDD(timestamp))
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
+      }
+    }
+    .justifyContent(FlexAlign.End)
+  }
+
+  @Builder
+  private AssistantEditorSheetBuilder() {
+    Column() {
+      this.AssistantEditorHeader()
+
+      Scroll() {
+        Row() {
+          Column({ space: 14 }) {
+            this.AssistantFormTextField($r('app.string.assistant_name'), this.assistantFormName,
+              $r('app.string.assistant_name_placeholder'), (value: string): void => {
+                this.assistantFormName = value
+              })
+            this.AssistantFormTextField($r('app.string.assistant_avatar_symbol'), this.assistantFormAvatarSymbol,
+              $r('app.string.assistant_avatar_placeholder'), (value: string): void => {
+                this.assistantFormAvatarSymbol = value
+              })
+
+            this.AssistantColorPicker()
+            this.AssistantPromptEditor()
+            this.AssistantDefaultModelRow()
+            this.AssistantTemperatureRow()
+          }
+          .width('100%')
+          .constraintSize({ maxWidth: 640 })
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.Center)
+        .padding({ left: 16, right: 16, bottom: 28 })
+      }
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.background'))
+  }
+
+  @Builder
+  private AssistantEditorHeader() {
+    Row() {
+      Button() {
+        SymbolGlyph($r('sys.symbol.xmark'))
+          .fontSize(18)
+          .fontColor([$r('app.color.text_secondary')])
+      }
+      .type(ButtonType.Circle)
+      .width(36)
+      .height(36)
+      .backgroundColor($r('app.color.divider'))
+      .onClick(() => {
+        this.showAssistantEditorSheet = false
+      })
+
+      Text(this.getAssistantEditorTitle())
+        .fontSize(17)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('app.color.text_primary'))
+        .layoutWeight(1)
+        .textAlign(TextAlign.Center)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+      Button() {
+        SymbolGlyph($r('sys.symbol.save'))
+          .fontSize(18)
+          .fontColor([Color.White])
+      }
+      .type(ButtonType.Circle)
+      .width(36)
+      .height(36)
+      .backgroundColor(this.themePrimary)
+      .onClick(() => {
+        this.saveAssistantEditor()
+      })
+    }
+    .width('100%')
+    .height(56)
+    .padding({ left: 16, right: 16 })
+  }
+
+  @Builder
+  private AssistantFormTextField(label: ResourceStr, value: string, placeholder: ResourceStr,
+    onChange: (value: string) => void) {
+    Column({ space: 8 }) {
+      Text(label)
+        .fontSize(13)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_secondary'))
+        .width('100%')
+      TextInput({ text: value, placeholder: placeholder })
+        .width('100%')
+        .height(44)
+        .fontSize(14)
+        .fontColor($r('app.color.text_primary'))
+        .placeholderColor($r('app.color.text_tertiary'))
+        .backgroundColor($r('app.color.surface'))
+        .borderRadius(16)
+        .padding({ left: 14, right: 14 })
+        .onChange((text: string) => {
+          onChange(text)
+        })
+    }
+    .width('100%')
+  }
+
+  @Builder
+  private AssistantColorPicker() {
+    Column({ space: 8 }) {
+      Text($r('app.string.assistant_color'))
+        .fontSize(13)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_secondary'))
+        .width('100%')
+
+      Row({ space: 10 }) {
+        ForEach(this.getAssistantColorOptions(), (color: string) => {
+          Stack() {
+            Circle()
+              .width(30)
+              .height(30)
+              .fill(color)
+            if (this.assistantFormColor === color) {
+              SymbolGlyph($r('sys.symbol.checkmark'))
+                .fontSize(16)
+                .fontColor([Color.White])
+            }
+          }
+          .width(34)
+          .height(34)
+          .onClick(() => {
+            this.assistantFormColor = color
+          })
+        }, (color: string) => color)
+      }
+      .width('100%')
+    }
+    .width('100%')
+  }
+
+  @Builder
+  private AssistantPromptEditor() {
+    Column({ space: 8 }) {
+      Text($r('app.string.assistant_prompt'))
+        .fontSize(13)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_secondary'))
+        .width('100%')
+
+      TextArea({ text: this.assistantFormSystemPrompt, placeholder: $r('app.string.assistant_prompt_placeholder') })
+        .width('100%')
+        .height(150)
+        .fontSize(14)
+        .fontColor($r('app.color.text_primary'))
+        .placeholderColor($r('app.color.text_tertiary'))
+        .backgroundColor($r('app.color.surface'))
+        .borderRadius(16)
+        .padding(14)
+        .onChange((value: string) => {
+          this.assistantFormSystemPrompt = value
+        })
+    }
+    .width('100%')
+  }
+
+  @Builder
+  private AssistantDefaultModelRow() {
+    Row({ space: 12 }) {
+      Column({ space: 2 }) {
+        Text($r('app.string.assistant_default_model'))
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+        Text(this.getAssistantFormDefaultModelText())
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      if (this.assistantFormDefaultModelId !== '') {
+        Button() {
+          SymbolGlyph($r('sys.symbol.xmark'))
+            .fontSize(16)
+            .fontColor([$r('app.color.text_secondary')])
+        }
+        .width(34)
+        .height(34)
+        .borderRadius(17)
+        .backgroundColor($r('app.color.background'))
+        .onClick(() => {
+          this.clearAssistantDefaultModel()
+        })
+      }
+
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(16)
+        .fontColor([$r('app.color.text_tertiary')])
+    }
+    .width('100%')
+    .padding({ left: 14, right: 12, top: 12, bottom: 12 })
+    .backgroundColor($r('app.color.surface'))
+    .borderRadius(16)
+    .onClick(() => {
+      this.showAssistantModelSheet = true
+      this.loadAssistantProvidersIfNeeded()
+    })
+  }
+
+  @Builder
+  private AssistantTemperatureRow() {
+    Column({ space: 10 }) {
+      Row() {
+        Text($r('app.string.assistant_temperature_override'))
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+
+        Toggle({ type: ToggleType.Switch, isOn: this.assistantFormTemperatureEnabled })
+          .selectedColor(this.themePrimary)
+          .onChange((value: boolean) => {
+            this.assistantFormTemperatureEnabled = value
+          })
+      }
+      .width('100%')
+
+      if (this.assistantFormTemperatureEnabled) {
+        Row({ space: 10 }) {
+          Slider({ value: this.assistantFormTemperature, min: 0, max: 2, step: 0.1, style: SliderStyle.InSet })
+            .layoutWeight(1)
+            .selectedColor(this.themePrimary)
+            .onChange((value: number, _mode: SliderChangeMode) => {
+              this.assistantFormTemperature = Math.round(value * 10) / 10
+            })
+          Text(this.assistantFormTemperature.toFixed(1))
+            .fontSize(13)
+            .fontColor($r('app.color.text_secondary'))
+            .width(34)
+            .textAlign(TextAlign.End)
+        }
+        .width('100%')
+      }
+    }
+    .width('100%')
+    .padding(14)
+    .backgroundColor($r('app.color.surface'))
+    .borderRadius(16)
+  }
+
+  @Builder
+  private AssistantModelSheetBuilder() {
+    Column() {
+      ModelSelectorContent({
+        currentModelId: this.assistantFormDefaultModelId,
+        currentProviderId: this.assistantFormDefaultProviderId,
+        providers: this.assistantProviders,
+        showEditEntry: false,
+        showFavoriteActions: false,
+        showFavoriteFilter: false,
+        showClearSelectionOption: true,
+        clearSelectionText: $r('app.string.assistant_model_follow_global'),
+        emptyStateMode: 'settings',
+        onSelectModel: (providerId: string, modelId: string, modelName: string): void => {
+          this.selectAssistantDefaultModel(providerId, modelId, modelName)
+        },
+        onClearSelection: (): void => {
+          this.clearAssistantDefaultModel()
+          this.showAssistantModelSheet = false
+        }
+      })
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.background'))
+  }
+
+  @Builder
+  private AssistantSwitchPill() {
+    Row({ space: 8 }) {
+      Text(this.getCurrentAssistantSymbol())
+        .fontSize(12)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.White)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width(28)
+        .height(28)
+        .textAlign(TextAlign.Center)
+        .backgroundColor(this.getCurrentAssistantColor())
+        .borderRadius(14)
+
+      Text(this.getCurrentAssistantName())
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('app.color.text_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .constraintSize({ maxWidth: this.getAssistantSwitchNameMaxWidth() })
+
+      SymbolGlyph($r('sys.symbol.chevron_down'))
+        .fontSize(13)
+        .fontColor([$r('app.color.text_secondary')])
+    }
+    .height(44)
+    .padding({ left: 0, right: 10 })
+    .alignItems(VerticalAlign.Center)
+    .constraintSize({ maxWidth: this.getAssistantSwitchMaxWidth() })
+    .bindMenu(this.AssistantMenuBuilder(), {
+      placement: Placement.BottomLeft,
+      offset: { x: 0, y: 10 },
+      backgroundColor: this.getAssistantMenuBackgroundColor(),
+      backgroundBlurStyle: BlurStyle.Regular
+    })
+    .transition(TransitionEffect.OPACITY.animation({
+      duration: 200,
+      curve: Curve.EaseOut
+    }))
+  }
+
+  @Builder
+  private AssistantMenuBuilder() {
+    Menu() {
+      ForEach(this.assistants, (assistant: Assistant) => {
+        this.AssistantMenuItem(assistant)
+      }, (assistant: Assistant) => this.getAssistantRenderKey(assistant))
+    }
+  }
+
+  @Builder
+  private AssistantMenuItem(assistant: Assistant) {
+    if (assistant.id === this.currentAssistantId) {
+      MenuItem({
+        startIcon: $r('sys.symbol.checkmark'),
+        content: assistant.name
+      })
+        .contentFont({ size: 14 })
+    } else {
+      MenuItem({
+        content: assistant.name
+      })
+        .contentFont({ size: 14 })
+        .onClick(() => {
+          this.switchAssistant(assistant.id)
+        })
+    }
+  }
+
   @Builder
   private ChatListHeaderContent(applyTopInset: boolean = false) {
     Column() {
@@ -1476,15 +2640,7 @@ struct Index {
       if (!this.isMultiSelectMode) {
         Row() {
           if (!this.isSearchExpanded) {
-            Text($r('app.string.tab_chat'))
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.text_primary'))
-              .layoutWeight(1)
-              .transition(TransitionEffect.OPACITY.animation({
-                duration: 200,
-                curve: Curve.EaseOut
-              }))
+            this.AssistantSwitchPill()
           }
 
           if (this.isSearchExpanded) {
@@ -1535,6 +2691,7 @@ struct Index {
                 TransitionEffect.OPACITY.animation({ duration: 150 })
               ))
           } else {
+            Blank()
             this.CollapsedSearchActionButton()
           }
         }
@@ -1612,7 +2769,7 @@ struct Index {
         }
         .width('100%')
         .layoutWeight(1)
-      } else if (this.sessions.length === 0) {
+      } else if (this.getAssistantScopedSessions().length === 0) {
         Column() {
           if (topSpacerHeight > 0) {
             Column()

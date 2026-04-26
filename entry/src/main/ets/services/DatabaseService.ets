@@ -12,6 +12,7 @@ import {
   AttachmentType,
   SearchReference
 } from '../models/ChatModels'
+import { Assistant, DEFAULT_ASSISTANT_ID, createDefaultAssistant } from '../models/AssistantModels'
 import { generateDefaultTextIcon } from '../utils/IconGeneratorUtils'
 import { isPresetProvider, getPresetProviderById } from '../config/PresetProviders'
 import { AppError, AppErrorCode, toErrorDetail } from '../models/AppError'
@@ -28,10 +29,11 @@ const DB_CONFIG: relationalStore.StoreConfig = {
 export class TableNames {
   static readonly SESSIONS: string = 'chat_sessions'
   static readonly MESSAGES: string = 'messages'
-  static readonly PROVIDERS: string = 'providers'
-  static readonly ATTACHMENTS: string = 'message_attachments'
-  static readonly TOOL_EVENTS: string = 'tool_events'
-}
+	  static readonly PROVIDERS: string = 'providers'
+	  static readonly ATTACHMENTS: string = 'message_attachments'
+	  static readonly TOOL_EVENTS: string = 'tool_events'
+	  static readonly ASSISTANTS: string = 'assistants'
+	}
 
 // 模型数据接口（用于 JSON 序列化，兼容扩展格式）
 interface ModelJsonData {
@@ -174,10 +176,11 @@ export class DatabaseService {
     const createSessionsTable = `
       CREATE TABLE IF NOT EXISTS ${TableNames.SESSIONS} (
         id TEXT PRIMARY KEY,
-        title TEXT,
-        model_id TEXT,
-        provider_id TEXT,
-        created_at INTEGER,
+	        title TEXT,
+	        model_id TEXT,
+	        provider_id TEXT,
+	        assistant_id TEXT DEFAULT 'default',
+	        created_at INTEGER,
         updated_at INTEGER,
         is_favorite INTEGER DEFAULT 0,
         last_message_preview TEXT DEFAULT '',
@@ -188,8 +191,27 @@ export class DatabaseService {
         last_modified INTEGER DEFAULT 0,
         sync_status TEXT DEFAULT 'synced',
         device_id TEXT DEFAULT ''
-      )
-    `
+	      )
+	    `
+
+	    const createAssistantsTable = `
+	      CREATE TABLE IF NOT EXISTS ${TableNames.ASSISTANTS} (
+	        id TEXT PRIMARY KEY,
+	        name TEXT,
+	        avatar_symbol TEXT,
+	        color TEXT,
+	        system_prompt TEXT,
+	        default_provider_id TEXT,
+	        default_model_id TEXT,
+	        default_model_name TEXT,
+	        temperature_enabled INTEGER DEFAULT 0,
+	        temperature REAL DEFAULT 0.7,
+	        is_default INTEGER DEFAULT 0,
+	        created_at INTEGER,
+	        updated_at INTEGER,
+	        sort_order INTEGER DEFAULT 0
+	      )
+	    `
 
     // 创建消息表
     const createMessagesTable = `
@@ -265,7 +287,8 @@ export class DatabaseService {
 
     try {
       await this.rdbStore.executeSql(createSessionsTable)
-      await this.rdbStore.executeSql(createMessagesTable)
+	      await this.rdbStore.executeSql(createMessagesTable)
+	      await this.rdbStore.executeSql(createAssistantsTable)
       await this.rdbStore.executeSql(createProvidersTable)
       await this.rdbStore.executeSql(createAttachmentsTable)
       await this.rdbStore.executeSql(createToolEventsTable)
@@ -283,16 +306,18 @@ export class DatabaseService {
       await this.addSyncColumnsIfNeeded()
       // 尝试添加会话元信息字段（用于会话列表增强）
       await this.addSessionMetaColumnsIfNeeded()
-      // 尝试添加草稿字段（用于会话级草稿恢复）
-      await this.addSessionDraftColumnsIfNeeded()
-      // 尝试添加搜索引用相关字段（用于联网搜索）
-      await this.addSearchColumnsIfNeeded()
+	      // 尝试添加草稿字段（用于会话级草稿恢复）
+	      await this.addSessionDraftColumnsIfNeeded()
+	      await this.addSessionAssistantColumnIfNeeded()
+	      // 尝试添加搜索引用相关字段（用于联网搜索）
+	      await this.addSearchColumnsIfNeeded()
       // 尝试添加工具事件元数据字段（用于通用 tools/MCP）
       await this.addToolEventMetaColumnsIfNeeded()
       // 尝试添加消息 model_id 字段（用于图标匹配）
       await this.addMessageModelIdColumnIfNeeded()
-      // 迁移现有供应商数据
-      await this.migrateExistingProviders()
+	      // 迁移现有供应商数据
+	      await this.migrateExistingProviders()
+	      await this.ensureDefaultAssistant()
     } catch (error) {
       console.error('DatabaseService', `Failed to create tables: ${JSON.stringify(error)}`)
       throw new AppError(
@@ -525,10 +550,10 @@ export class DatabaseService {
     }
   }
 
-  private async addSessionDraftColumnsIfNeeded(): Promise<void> {
-    if (this.rdbStore === null) {
-      return
-    }
+	  private async addSessionDraftColumnsIfNeeded(): Promise<void> {
+	    if (this.rdbStore === null) {
+	      return
+	    }
     try {
       await this.rdbStore.executeSql(`ALTER TABLE ${TableNames.SESSIONS} ADD COLUMN draft_text TEXT DEFAULT ''`)
     } catch (error) {
@@ -540,8 +565,129 @@ export class DatabaseService {
       )
     } catch (error) {
       console.info('DatabaseService', 'draft_attachments_json column may already exist')
-    }
-  }
+	    }
+	  }
+
+	  private async addSessionAssistantColumnIfNeeded(): Promise<void> {
+	    if (this.rdbStore === null) {
+	      return
+	    }
+	    try {
+	      await this.rdbStore.executeSql(
+	        `ALTER TABLE ${TableNames.SESSIONS} ADD COLUMN assistant_id TEXT DEFAULT '${DEFAULT_ASSISTANT_ID}'`
+	      )
+	    } catch (error) {
+	      console.info('DatabaseService', 'assistant_id column may already exist')
+	    }
+	    try {
+	      await this.rdbStore.executeSql(
+	        `UPDATE ${TableNames.SESSIONS} SET assistant_id = '${DEFAULT_ASSISTANT_ID}' WHERE assistant_id IS NULL OR assistant_id = ''`
+	      )
+	    } catch (error) {
+	      console.info('DatabaseService', 'assistant_id backfill skipped')
+	    }
+	  }
+
+	  private assistantToValueBucket(assistant: Assistant, includeId: boolean = true): relationalStore.ValuesBucket {
+	    const now = Date.now()
+	    if (assistant.updatedAt <= 0) {
+	      assistant.updatedAt = now
+	    }
+	    if (assistant.createdAt <= 0) {
+	      assistant.createdAt = now
+	    }
+	    const valueBucket: relationalStore.ValuesBucket = {
+	      name: assistant.name,
+	      avatar_symbol: assistant.avatarSymbol,
+	      color: assistant.color,
+	      system_prompt: assistant.systemPrompt,
+	      default_provider_id: assistant.defaultProviderId,
+	      default_model_id: assistant.defaultModelId,
+	      default_model_name: assistant.defaultModelName,
+	      temperature_enabled: assistant.temperatureEnabled ? 1 : 0,
+	      temperature: assistant.temperature,
+	      is_default: assistant.isDefault ? 1 : 0,
+	      created_at: assistant.createdAt,
+	      updated_at: assistant.updatedAt,
+	      sort_order: assistant.sortOrder
+	    }
+	    if (includeId) {
+	      valueBucket.id = assistant.id
+	    }
+	    return valueBucket
+	  }
+
+	  private buildAssistantFromResultSet(resultSet: relationalStore.ResultSet): Assistant {
+	    const assistant = new Assistant(
+	      this.safeGetString(resultSet, 'id'),
+	      this.safeGetString(resultSet, 'name')
+	    )
+	    assistant.avatarSymbol = this.safeGetString(resultSet, 'avatar_symbol', 'AI')
+	    assistant.color = this.safeGetString(resultSet, 'color', '#0A59F7')
+	    assistant.systemPrompt = this.safeGetString(resultSet, 'system_prompt')
+	    assistant.defaultProviderId = this.safeGetString(resultSet, 'default_provider_id')
+	    assistant.defaultModelId = this.safeGetString(resultSet, 'default_model_id')
+	    assistant.defaultModelName = this.safeGetString(resultSet, 'default_model_name')
+	    try {
+	      assistant.temperatureEnabled = resultSet.getLong(resultSet.getColumnIndex('temperature_enabled')) === 1
+	    } catch (error) {
+	      assistant.temperatureEnabled = false
+	    }
+	    try {
+	      assistant.temperature = resultSet.getDouble(resultSet.getColumnIndex('temperature'))
+	    } catch (error) {
+	      assistant.temperature = 0.7
+	    }
+	    try {
+	      assistant.isDefault = resultSet.getLong(resultSet.getColumnIndex('is_default')) === 1
+	    } catch (error) {
+	      assistant.isDefault = assistant.id === DEFAULT_ASSISTANT_ID
+	    }
+	    try {
+	      assistant.createdAt = resultSet.getLong(resultSet.getColumnIndex('created_at'))
+	    } catch (error) {
+	      assistant.createdAt = Date.now()
+	    }
+	    try {
+	      assistant.updatedAt = resultSet.getLong(resultSet.getColumnIndex('updated_at'))
+	    } catch (error) {
+	      assistant.updatedAt = assistant.createdAt
+	    }
+	    try {
+	      assistant.sortOrder = resultSet.getLong(resultSet.getColumnIndex('sort_order'))
+	    } catch (error) {
+	      assistant.sortOrder = assistant.isDefault ? 0 : assistant.createdAt
+	    }
+	    if (assistant.id === DEFAULT_ASSISTANT_ID) {
+	      assistant.isDefault = true
+	    }
+	    return assistant
+	  }
+
+	  private async ensureDefaultAssistant(): Promise<void> {
+	    if (this.rdbStore === null) {
+	      return
+	    }
+	    const existing = await this.queryAssistantByIdNoWait(DEFAULT_ASSISTANT_ID)
+	    if (existing !== null) {
+	      if (!existing.isDefault) {
+	        existing.isDefault = true
+	        const predicates = new relationalStore.RdbPredicates(TableNames.ASSISTANTS)
+	        predicates.equalTo('id', DEFAULT_ASSISTANT_ID)
+	        try {
+	          await this.rdbStore.update(this.assistantToValueBucket(existing, false), predicates)
+	        } catch (error) {
+	          console.error('DatabaseService', `Failed to update default assistant: ${JSON.stringify(error)}`)
+	        }
+	      }
+	      return
+	    }
+	    try {
+	      await this.rdbStore.insert(TableNames.ASSISTANTS, this.assistantToValueBucket(createDefaultAssistant()))
+	    } catch (error) {
+	      console.error('DatabaseService', `Failed to create default assistant: ${JSON.stringify(error)}`)
+	    }
+	  }
 
   // 添加搜索引用相关字段（用于联网搜索）
   private async addSearchColumnsIfNeeded(): Promise<void> {
@@ -766,19 +912,207 @@ export class DatabaseService {
     }
   }
 
-  private addUniqueSessionId(list: string[], sessionId: string): void {
-    if (sessionId === '') {
-      return
+	  private addUniqueSessionId(list: string[], sessionId: string): void {
+	    if (sessionId === '') {
+	      return
     }
     for (let i = 0; i < list.length; i++) {
       if (list[i] === sessionId) {
         return
       }
     }
-    list.push(sessionId)
-  }
+	    list.push(sessionId)
+	  }
 
-  // ============ 会话操作 ============
+	  // ============ 助手操作 ============
+
+	  private async queryAssistantByIdNoWait(assistantId: string): Promise<Assistant | null> {
+	    if (this.rdbStore === null || assistantId === '') {
+	      return null
+	    }
+	    const predicates = new relationalStore.RdbPredicates(TableNames.ASSISTANTS)
+	    predicates.equalTo('id', assistantId)
+	    try {
+	      const resultSet = await this.rdbStore.query(predicates)
+	      if (resultSet.goToNextRow()) {
+	        const assistant = this.buildAssistantFromResultSet(resultSet)
+	        resultSet.close()
+	        return assistant
+	      }
+	      resultSet.close()
+	    } catch (error) {
+	      console.error('DatabaseService', `Failed to get assistant: ${JSON.stringify(error)}`)
+	    }
+	    return null
+	  }
+
+	  private async getNextAssistantSortOrder(): Promise<number> {
+	    if (this.rdbStore === null) {
+	      return 1
+	    }
+	    const predicates = new relationalStore.RdbPredicates(TableNames.ASSISTANTS)
+	    predicates.orderByDesc('sort_order')
+	    try {
+	      const resultSet = await this.rdbStore.query(predicates)
+	      let nextSortOrder = 1
+	      if (resultSet.goToNextRow()) {
+	        nextSortOrder = resultSet.getLong(resultSet.getColumnIndex('sort_order')) + 1
+	      }
+	      resultSet.close()
+	      return nextSortOrder <= 0 ? 1 : nextSortOrder
+	    } catch (error) {
+	      console.error('DatabaseService', `Failed to get next assistant sort order: ${JSON.stringify(error)}`)
+	      return 1
+	    }
+	  }
+
+	  async getAllAssistants(): Promise<Assistant[]> {
+	    await this.waitForInitialization()
+	    if (this.rdbStore === null) {
+	      return []
+	    }
+	    const assistants: Assistant[] = []
+	    const predicates = new relationalStore.RdbPredicates(TableNames.ASSISTANTS)
+	    predicates.orderByAsc('sort_order')
+	    try {
+	      const resultSet = await this.rdbStore.query(predicates)
+	      while (resultSet.goToNextRow()) {
+	        assistants.push(this.buildAssistantFromResultSet(resultSet))
+	      }
+	      resultSet.close()
+	    } catch (error) {
+	      console.error('DatabaseService', `Failed to get assistants: ${JSON.stringify(error)}`)
+	    }
+	    if (assistants.length === 0) {
+	      const fallback = createDefaultAssistant()
+	      await this.createAssistant(fallback)
+	      assistants.push(fallback)
+	    }
+	    return assistants
+	  }
+
+	  async getAssistant(assistantId: string): Promise<Assistant | null> {
+	    await this.waitForInitialization()
+	    return await this.queryAssistantByIdNoWait(assistantId)
+	  }
+
+	  async createAssistant(assistant: Assistant): Promise<void> {
+	    await this.waitForInitialization()
+	    if (this.rdbStore === null) {
+	      return
+	    }
+	    if (assistant.id === '') {
+	      assistant.id = Date.now().toString() + Math.random().toString(36).substring(2, 9)
+	    }
+	    if (assistant.id === DEFAULT_ASSISTANT_ID) {
+	      assistant.isDefault = true
+	    } else if (assistant.sortOrder <= 0) {
+	      assistant.sortOrder = await this.getNextAssistantSortOrder()
+	    }
+	    const now = Date.now()
+	    if (assistant.createdAt <= 0) {
+	      assistant.createdAt = now
+	    }
+	    assistant.updatedAt = now
+	    try {
+	      await this.rdbStore.insert(TableNames.ASSISTANTS, this.assistantToValueBucket(assistant))
+	    } catch (error) {
+	      console.error('DatabaseService', `Failed to create assistant: ${JSON.stringify(error)}`)
+	    }
+	  }
+
+	  async saveAssistant(assistant: Assistant): Promise<void> {
+	    await this.waitForInitialization()
+	    if (this.rdbStore === null || assistant.id === '') {
+	      return
+	    }
+	    if (assistant.id === DEFAULT_ASSISTANT_ID) {
+	      assistant.isDefault = true
+	    }
+	    assistant.updatedAt = Date.now()
+	    const predicates = new relationalStore.RdbPredicates(TableNames.ASSISTANTS)
+	    predicates.equalTo('id', assistant.id)
+	    try {
+	      const existing = await this.queryAssistantByIdNoWait(assistant.id)
+	      if (existing === null) {
+	        await this.rdbStore.insert(TableNames.ASSISTANTS, this.assistantToValueBucket(assistant))
+	      } else {
+	        await this.rdbStore.update(this.assistantToValueBucket(assistant, false), predicates)
+	      }
+	    } catch (error) {
+	      console.error('DatabaseService', `Failed to save assistant: ${JSON.stringify(error)}`)
+	    }
+	  }
+
+	  async deleteAssistant(assistantId: string): Promise<boolean> {
+	    await this.waitForInitialization()
+	    if (this.rdbStore === null || assistantId === '' || assistantId === DEFAULT_ASSISTANT_ID) {
+	      return false
+	    }
+	    try {
+	      const sessionValueBucket: relationalStore.ValuesBucket = {
+	        assistant_id: DEFAULT_ASSISTANT_ID
+	      }
+	      const sessionPredicates = new relationalStore.RdbPredicates(TableNames.SESSIONS)
+	      sessionPredicates.equalTo('assistant_id', assistantId)
+	      await this.rdbStore.update(sessionValueBucket, sessionPredicates)
+
+	      const predicates = new relationalStore.RdbPredicates(TableNames.ASSISTANTS)
+	      predicates.equalTo('id', assistantId)
+	      await this.rdbStore.delete(predicates)
+	      setAppUiStateValue(AppStorageKeys.SESSION_LIST_REFRESH_AT, Date.now())
+	      return true
+	    } catch (error) {
+	      console.error('DatabaseService', `Failed to delete assistant: ${JSON.stringify(error)}`)
+	      return false
+	    }
+	  }
+
+	  async getAssistantSessionCount(assistantId: string): Promise<number> {
+	    await this.waitForInitialization()
+	    if (this.rdbStore === null || assistantId === '') {
+	      return 0
+	    }
+	    const predicates = new relationalStore.RdbPredicates(TableNames.SESSIONS)
+	    predicates.equalTo('assistant_id', assistantId)
+	    try {
+	      const resultSet = await this.rdbStore.query(predicates)
+	      let count = 0
+	      while (resultSet.goToNextRow()) {
+	        count++
+	      }
+	      resultSet.close()
+	      return count
+	    } catch (error) {
+	      console.error('DatabaseService', `Failed to count assistant sessions: ${JSON.stringify(error)}`)
+	      return 0
+	    }
+	  }
+
+	  async saveAssistantSortOrders(assistants: Assistant[]): Promise<void> {
+	    await this.waitForInitialization()
+	    if (this.rdbStore === null) {
+	      return
+	    }
+	    for (let i = 0; i < assistants.length; i++) {
+	      const assistant = assistants[i]
+	      const sortOrder = i
+	      assistant.sortOrder = sortOrder
+	      const predicates = new relationalStore.RdbPredicates(TableNames.ASSISTANTS)
+	      predicates.equalTo('id', assistant.id)
+	      const valueBucket: relationalStore.ValuesBucket = {
+	        sort_order: sortOrder
+	      }
+	      try {
+	        await this.rdbStore.update(valueBucket, predicates)
+	      } catch (error) {
+	        console.error('DatabaseService', `Failed to save assistant order: ${JSON.stringify(error)}`)
+	      }
+	    }
+	    setAppUiStateValue(AppStorageKeys.SESSION_LIST_REFRESH_AT, Date.now())
+	  }
+
+	  // ============ 会话操作 ============
 
   // 创建新会话
   async createSession(session: ChatSession): Promise<void> {
@@ -788,10 +1122,11 @@ export class DatabaseService {
     }
     const valueBucket: relationalStore.ValuesBucket = {
       id: session.id,
-      title: session.title,
-      model_id: session.modelId,
-      provider_id: session.providerId,  // 使用会话的 providerId 字段
-      created_at: session.createdAt,
+	      title: session.title,
+	      model_id: session.modelId,
+	      provider_id: session.providerId,  // 使用会话的 providerId 字段
+	      assistant_id: session.assistantId !== '' ? session.assistantId : DEFAULT_ASSISTANT_ID,
+	      created_at: session.createdAt,
       updated_at: session.updatedAt,
       is_favorite: session.isFavorite ? 1 : 0,
       last_message_preview: session.lastMessagePreview,
@@ -813,10 +1148,11 @@ export class DatabaseService {
       return
     }
     const valueBucket: relationalStore.ValuesBucket = {
-      title: session.title,
-      model_id: session.modelId,
-      provider_id: session.providerId,
-      updated_at: Date.now()
+	      title: session.title,
+	      model_id: session.modelId,
+	      provider_id: session.providerId,
+	      assistant_id: session.assistantId !== '' ? session.assistantId : DEFAULT_ASSISTANT_ID,
+	      updated_at: Date.now()
     }
     const predicates = new relationalStore.RdbPredicates(TableNames.SESSIONS)
     predicates.equalTo('id', session.id)
@@ -1050,22 +1386,24 @@ export class DatabaseService {
       const resultSet = await this.rdbStore.query(predicates)
       while (resultSet.goToNextRow()) {
         // 获取 provider_id 列索引，兼容旧数据库（可能不存在该列）
-        let providerId = ''
-        try {
-          const providerIdIndex = resultSet.getColumnIndex('provider_id')
-          if (providerIdIndex >= 0) {
-            providerId = resultSet.getString(providerIdIndex)
-          }
-        } catch (e) {
-          // 列不存在，使用默认值
-        }
+	        let providerId = ''
+	        try {
+	          const providerIdIndex = resultSet.getColumnIndex('provider_id')
+	          if (providerIdIndex >= 0) {
+	            providerId = resultSet.getString(providerIdIndex)
+	          }
+	        } catch (e) {
+	          // 列不存在，使用默认值
+	        }
+	        const assistantId = this.safeGetString(resultSet, 'assistant_id', DEFAULT_ASSISTANT_ID)
 
-        const session = new ChatSession(
-          resultSet.getString(resultSet.getColumnIndex('id')),
-          resultSet.getString(resultSet.getColumnIndex('title')),
-          resultSet.getString(resultSet.getColumnIndex('model_id')),
-          providerId  // 传递 providerId
-        )
+	        const session = new ChatSession(
+	          resultSet.getString(resultSet.getColumnIndex('id')),
+	          resultSet.getString(resultSet.getColumnIndex('title')),
+	          resultSet.getString(resultSet.getColumnIndex('model_id')),
+	          providerId,
+	          assistantId !== '' ? assistantId : DEFAULT_ASSISTANT_ID
+	        )
         session.createdAt = resultSet.getLong(resultSet.getColumnIndex('created_at'))
         session.updatedAt = resultSet.getLong(resultSet.getColumnIndex('updated_at'))
         try {
@@ -1128,22 +1466,24 @@ export class DatabaseService {
       const resultSet = await this.rdbStore.query(predicates)
       if (resultSet.goToNextRow()) {
         // 获取 provider_id 列索引，兼容旧数据库（可能不存在该列）
-        let providerId = ''
-        try {
-          const providerIdIndex = resultSet.getColumnIndex('provider_id')
-          if (providerIdIndex >= 0) {
-            providerId = resultSet.getString(providerIdIndex)
-          }
-        } catch (e) {
-          // 列不存在，使用默认值
-        }
+	        let providerId = ''
+	        try {
+	          const providerIdIndex = resultSet.getColumnIndex('provider_id')
+	          if (providerIdIndex >= 0) {
+	            providerId = resultSet.getString(providerIdIndex)
+	          }
+	        } catch (e) {
+	          // 列不存在，使用默认值
+	        }
+	        const assistantId = this.safeGetString(resultSet, 'assistant_id', DEFAULT_ASSISTANT_ID)
 
-        const session = new ChatSession(
-          resultSet.getString(resultSet.getColumnIndex('id')),
-          resultSet.getString(resultSet.getColumnIndex('title')),
-          resultSet.getString(resultSet.getColumnIndex('model_id')),
-          providerId  // 传递 providerId
-        )
+	        const session = new ChatSession(
+	          resultSet.getString(resultSet.getColumnIndex('id')),
+	          resultSet.getString(resultSet.getColumnIndex('title')),
+	          resultSet.getString(resultSet.getColumnIndex('model_id')),
+	          providerId,
+	          assistantId !== '' ? assistantId : DEFAULT_ASSISTANT_ID
+	        )
         session.createdAt = resultSet.getLong(resultSet.getColumnIndex('created_at'))
         session.updatedAt = resultSet.getLong(resultSet.getColumnIndex('updated_at'))
         try {

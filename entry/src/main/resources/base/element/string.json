@@ -45,6 +45,10 @@
       "value": "Chat"
     },
     {
+      "name": "tab_assistants",
+      "value": "Assistants"
+    },
+    {
       "name": "tab_settings",
       "value": "Settings"
     },
@@ -1711,6 +1715,110 @@
     {
       "name": "light_color_mode_theme",
       "value": "Follow Theme Color"
+    },
+    {
+      "name": "assistant_manage_title",
+      "value": "Assistants"
+    },
+    {
+      "name": "new_assistant",
+      "value": "New Assistant"
+    },
+    {
+      "name": "new_assistant_short",
+      "value": "New"
+    },
+    {
+      "name": "assistant_sessions_label",
+      "value": "Chats"
+    },
+    {
+      "name": "assistant_default_badge",
+      "value": "Default"
+    },
+    {
+      "name": "assistant_custom_badge",
+      "value": "Custom"
+    },
+    {
+      "name": "assistant_name",
+      "value": "Name"
+    },
+    {
+      "name": "assistant_name_placeholder",
+      "value": "Assistant name"
+    },
+    {
+      "name": "assistant_avatar_symbol",
+      "value": "Avatar Symbol"
+    },
+    {
+      "name": "assistant_avatar_placeholder",
+      "value": "AI"
+    },
+    {
+      "name": "assistant_color",
+      "value": "Color"
+    },
+    {
+      "name": "assistant_prompt",
+      "value": "Assistant Prompt"
+    },
+    {
+      "name": "assistant_prompt_placeholder",
+      "value": "Instructions only for this assistant"
+    },
+    {
+      "name": "assistant_default_model",
+      "value": "Default Model"
+    },
+    {
+      "name": "assistant_model_follow_global",
+      "value": "Follow global current model"
+    },
+    {
+      "name": "assistant_temperature_override",
+      "value": "Override Temperature"
+    },
+    {
+      "name": "assistant_name_required",
+      "value": "Please enter an assistant name"
+    },
+    {
+      "name": "assistant_saved",
+      "value": "Assistant saved"
+    },
+    {
+      "name": "assistant_deleted",
+      "value": "Assistant deleted"
+    },
+    {
+      "name": "common_done",
+      "value": "Done"
+    },
+    {
+      "name": "edit_assistant",
+      "value": "Edit Assistant"
+    },
+    {
+      "name": "edit_assistant_short",
+      "value": "Edit"
+    },
+    {
+      "name": "assistant_no_chat_time",
+      "value": "No chats"
+    },
+    {
+      "name": "assistant_delete_with_chats_title",
+      "value": "Delete Assistant?"
+    },
+    {
+      "name": "assistant_delete_with_chats_message",
+      "value": "This assistant already has chats. If you delete it, those chats will move to the default assistant."
+    },
+    {
+      "name": "assistant_delete_failed",
+      "value": "Failed to delete assistant"
     }
   ]
 }

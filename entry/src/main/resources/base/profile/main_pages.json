@@ -3,6 +3,7 @@
     "pages/Index",
     "pages/ModelManagePage",
     "pages/DefaultModelPage",
+    "pages/AssistantManagePage",
     "pages/ThemeModeSettingsPage",
     "pages/LanguageSettingsPage",
     "pages/ColorThemeSettingsPage",

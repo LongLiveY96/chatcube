@@ -792,6 +792,7 @@ export class ChatSession {
   @Trace messages: ChatMessage[]
   @Trace modelId: string
   @Trace providerId: string  // 供应商 ID，用于重启后恢复会话使用的供应商
+  @Trace assistantId: string
   @Trace createdAt: number
   @Trace updatedAt: number
   @Trace isFavorite: boolean
@@ -805,11 +806,12 @@ export class ChatSession {
   @Trace syncStatus: 'synced' | 'pending' | 'conflict' = 'synced'
   @Trace deviceId: string = ''
 
-  constructor(id: string, title: string, modelId: string, providerId: string = '') {
+  constructor(id: string, title: string, modelId: string, providerId: string = '', assistantId: string = 'default') {
     this.id = id
     this.title = title
     this.modelId = modelId
     this.providerId = providerId
+    this.assistantId = assistantId !== '' ? assistantId : 'default'
     this.messages = []
     this.createdAt = Date.now()
     this.updatedAt = Date.now()

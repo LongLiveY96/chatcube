@@ -3,6 +3,7 @@ import { AppStateManager } from '../../viewmodels/AppStateManager'
 import { ProviderViewModel } from '../../viewmodels/ProviderViewModel'
 import { ChatViewModel } from '../../viewmodels/ChatViewModel'
 import { PreferenceKeys, PreferencesService } from '../../services/PreferencesService'
+import { AssistantService } from '../../services/AssistantService'
 import { ChatPageRouteParams } from './ChatPageRouteTypes'
 
 export class ChatPageLoadResult {
@@ -24,6 +25,7 @@ export class ChatPageLoadResult {
 export interface ChatPageLoadFlowDependencies {
   appStateManager: AppStateManager
   preferencesService: PreferencesService
+  assistantService: AssistantService
   providerViewModel: ProviderViewModel
   chatViewModel: ChatViewModel
   parseToolIdsFromRoute: (raw: string) => string[]
@@ -74,7 +76,13 @@ export class ChatPageLoadFlow {
       return result
     }
 
-    const pendingSession = this.deps.chatViewModel.createPendingSession()
+    const assistant = await this.deps.assistantService.getCurrentAssistantForNewChat()
+    const pendingSession = this.deps.chatViewModel.createPendingSession(
+      '',
+      assistant.id,
+      assistant.defaultModelId,
+      assistant.defaultProviderId
+    )
     result.sessionId = pendingSession.id
     result.sessionTitle = pendingSession.title
     result.messages = []

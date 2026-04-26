@@ -119,7 +119,8 @@ export default class EntryAbility extends UIAbility {
       await ServiceRegistry.defaultModel().initialize();
       hilog.info(DOMAIN, 'testTag', 'DefaultModelService initialized successfully');
 
-      // 助手模块暂缓，启动阶段不再初始化相关服务
+      await ServiceRegistry.assistant().initialize();
+      hilog.info(DOMAIN, 'testTag', 'AssistantService initialized successfully');
 
       // 应用保存的主题设置
       void this.persistSystemDarkMode(this.context.config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK);

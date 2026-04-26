@@ -12,6 +12,7 @@ import { getAITaskService, AITaskService } from '../services/AITaskService'
 import { getAttachmentStorageService, AttachmentStorageService } from '../services/AttachmentStorageService'
 import { getToolExecutionService, ToolExecutionService } from '../services/ToolExecutionService'
 import { getProviderViewModel, ProviderViewModel } from './ProviderViewModel'
+import { getAssistantService, AssistantService, AssistantRuntimeConfig } from '../services/AssistantService'
 import { ChatMessage, ChatSession, MessageRole, ProviderType, ApiStyle, MessageAttachment, AttachmentType, ReasoningLevel, ToolDefinition, ToolCall, ToolResult, SearchReference, ModelParameters } from '../models/ChatModels'
 import { WebSearchResult, SearchResult } from '../services/WebSearchService'
 import { http } from '@kit.NetworkKit'
@@ -92,6 +93,7 @@ export class ChatViewModel {
   private attachmentStorageService: AttachmentStorageService
   private toolExecutionService: ToolExecutionService
   private providerViewModel: ProviderViewModel
+  private assistantService: AssistantService
   private sessionStore: ChatSessionStore
 
   // 当前会话
@@ -120,6 +122,7 @@ export class ChatViewModel {
     this.attachmentStorageService = getAttachmentStorageService()
     this.toolExecutionService = getToolExecutionService()
     this.providerViewModel = getProviderViewModel()
+    this.assistantService = getAssistantService()
     this.sessionStore = new ChatSessionStore(
       this.databaseService,
       this.appStateManager,
@@ -128,18 +131,45 @@ export class ChatViewModel {
     )
   }
 
-  private async getRenderedSystemPrompt(): Promise<string> {
-    const prefsService = getPreferencesService()
-    const enabled = await prefsService.getBoolean(PreferenceKeys.SYSTEM_PROMPT_ENABLED, true)
+	  private async getRenderedSystemPrompt(): Promise<string> {
+	    const prefsService = getPreferencesService()
+	    const enabled = await prefsService.getBoolean(PreferenceKeys.SYSTEM_PROMPT_ENABLED, true)
     if (!enabled) {
       return ''
     }
     const template = await prefsService.getString(
       PreferenceKeys.CUSTOM_SYSTEM_PROMPT,
       SystemPromptTemplateDefaults.DEFAULT_TEMPLATE
-    )
-    return renderSystemPromptTemplate(template)
-  }
+	    )
+	    return renderSystemPromptTemplate(template)
+	  }
+
+	  private getCurrentAssistantIdForRequest(): string {
+	    const session = this.sessionStore.getCurrentSession()
+	    if (session !== null && session.assistantId !== '') {
+	      return session.assistantId
+	    }
+	    return 'default'
+	  }
+
+	  private async getAssistantRuntimeConfig(): Promise<AssistantRuntimeConfig> {
+	    return await this.assistantService.getRuntimeConfig(this.getCurrentAssistantIdForRequest())
+	  }
+
+	  private async buildRequestSystemPrompt(extraPrompt: string = ''): Promise<string> {
+	    const globalPrompt = await this.getRenderedSystemPrompt()
+	    const assistantConfig = await this.getAssistantRuntimeConfig()
+	    const basePrompt = this.assistantService.combineSystemPrompts(globalPrompt, assistantConfig.systemPrompt)
+	    return this.assistantService.combineSystemPrompts(basePrompt, extraPrompt)
+	  }
+
+	  private async getRequestTemperature(): Promise<number> {
+	    const assistantConfig = await this.getAssistantRuntimeConfig()
+	    if (assistantConfig.temperatureEnabled) {
+	      return assistantConfig.temperature
+	    }
+	    return this.appStateManager.getDefaultTemperature()
+	  }
 
   private notifySessionListChanged(): void {
     setAppUiStateValue(AppStorageKeys.SESSION_LIST_REFRESH_AT, Date.now())
@@ -416,18 +446,28 @@ export class ChatViewModel {
   }
 
   // 创建新会话
-  async createNewSession(title: string = ''): Promise<ChatSession> {
-    const session = await this.sessionStore.createNewSession(title)
-    this.currentSession = this.sessionStore.getCurrentSession()
-    return session
-  }
+	  async createNewSession(
+	    title: string = '',
+	    assistantId: string = 'default',
+	    modelIdSeed: string = '',
+	    providerIdSeed: string = ''
+	  ): Promise<ChatSession> {
+	    const session = await this.sessionStore.createNewSession(title, assistantId, modelIdSeed, providerIdSeed)
+	    this.currentSession = this.sessionStore.getCurrentSession()
+	    return session
+	  }
 
-  // 创建待持久化的会话（仅内存中，不保存到数据库）
-  createPendingSession(title: string = ''): ChatSession {
-    const session = this.sessionStore.createPendingSession(title)
-    this.currentSession = this.sessionStore.getCurrentSession()
-    return session
-  }
+	  // 创建待持久化的会话（仅内存中，不保存到数据库）
+	  createPendingSession(
+	    title: string = '',
+	    assistantId: string = 'default',
+	    modelIdSeed: string = '',
+	    providerIdSeed: string = ''
+	  ): ChatSession {
+	    const session = this.sessionStore.createPendingSession(title, assistantId, modelIdSeed, providerIdSeed)
+	    this.currentSession = this.sessionStore.getCurrentSession()
+	    return session
+	  }
 
   // 持久化待处理的会话
   private async persistPendingSession(): Promise<void> {
@@ -437,12 +477,13 @@ export class ChatViewModel {
 
   async saveSessionDraft(content: string, attachments: MessageAttachment[]): Promise<ChatSession | null> {
     const hasDraftContent = content.trim() !== '' || attachments.length > 0
-    if (this.currentSession === null) {
-      if (!hasDraftContent) {
-        return null
-      }
-      this.createPendingSession()
-    }
+	    if (this.currentSession === null) {
+	      if (!hasDraftContent) {
+	        return null
+	      }
+	      const assistant = await this.assistantService.getCurrentAssistantForNewChat()
+	      this.createPendingSession('', assistant.id, assistant.defaultModelId, assistant.defaultProviderId)
+	    }
     if (hasDraftContent && this.sessionStore.isCurrentSessionPending()) {
       await this.persistPendingSession()
     }
@@ -533,9 +574,10 @@ export class ChatViewModel {
     }
 
     // 如果仍然没有当前会话，创建新的
-    if (this.currentSession === null) {
-      await this.createNewSession()
-    }
+	    if (this.currentSession === null) {
+	      const assistant = await this.assistantService.getCurrentAssistantForNewChat()
+	      await this.createNewSession('', assistant.id, assistant.defaultModelId, assistant.defaultProviderId)
+	    }
     if (this.isCancelled(cancelSnapshot)) {
       return
     }
@@ -594,12 +636,12 @@ export class ChatViewModel {
       return
     }
 
-    // 构建请求消息列表（从上下文起始位置开始，过滤掉上下文清空标记）
-    const requestMessages: RequestMessage[] = []
-    const renderedSystemPrompt = await this.getRenderedSystemPrompt()
-    if (renderedSystemPrompt !== '') {
-      requestMessages.push(new RequestMessage('system', renderedSystemPrompt))
-    }
+	    // 构建请求消息列表（从上下文起始位置开始，过滤掉上下文清空标记）
+	    const requestMessages: RequestMessage[] = []
+	    const renderedSystemPrompt = await this.buildRequestSystemPrompt()
+	    if (renderedSystemPrompt !== '') {
+	      requestMessages.push(new RequestMessage('system', renderedSystemPrompt))
+	    }
     for (let i = 0; i < historyMessages.length; i++) {
       requestMessages.push(historyMessages[i])
     }
@@ -650,7 +692,8 @@ export class ChatViewModel {
     }
 
     // 发送流式请求
-    const httpRequest = this.aiApiService.streamChatRequest(
+	    const requestTemperature = await this.getRequestTemperature()
+	    const httpRequest = this.aiApiService.streamChatRequest(
       apiConfig,
       requestMessages,
       modelId,
@@ -771,7 +814,7 @@ export class ChatViewModel {
         this.clearPendingAIMessageIfMatches(aiMessage.id)
         this.unregisterActiveRequest(requestId)
       },
-      this.appStateManager.getDefaultTemperature(),
+	      requestTemperature,
       this.appStateManager.getDefaultMaxTokens(),
       (reasoningContent: string) => {
         if (cancelled) {
@@ -836,9 +879,10 @@ export class ChatViewModel {
       return
     }
 
-    if (this.currentSession === null) {
-      await this.createNewSession()
-    }
+	    if (this.currentSession === null) {
+	      const assistant = await this.assistantService.getCurrentAssistantForNewChat()
+	      await this.createNewSession('', assistant.id, assistant.defaultModelId, assistant.defaultProviderId)
+	    }
     if (this.isCancelled(cancelSnapshot)) {
       return
     }
@@ -895,11 +939,10 @@ ${webContext.content}
       return
     }
 
-    // 构建请求消息列表
-    const requestMessages: RequestMessage[] = []
-    const renderedSystemPromptWeb = await this.getRenderedSystemPrompt()
-    const finalSystemPromptWeb = renderedSystemPromptWeb !== '' ? `${renderedSystemPromptWeb}\n\n${systemPrompt}` : systemPrompt
-    requestMessages.push(new RequestMessage('system', finalSystemPromptWeb))
+	    // 构建请求消息列表
+	    const requestMessages: RequestMessage[] = []
+	    const finalSystemPromptWeb = await this.buildRequestSystemPrompt(systemPrompt)
+	    requestMessages.push(new RequestMessage('system', finalSystemPromptWeb))
     for (let i = 0; i < historyMessages.length; i++) {
       requestMessages.push(historyMessages[i])
     }
@@ -939,7 +982,8 @@ ${webContext.content}
       return
     }
 
-    const httpRequest = this.aiApiService.streamChatRequest(
+	    const requestTemperature = await this.getRequestTemperature()
+	    const httpRequest = this.aiApiService.streamChatRequest(
       apiConfig,
       requestMessages,
       modelId,
@@ -1056,7 +1100,7 @@ ${webContext.content}
         this.clearPendingAIMessageIfMatches(aiMessage.id)
         this.unregisterActiveRequest(requestId)
       },
-      this.appStateManager.getDefaultTemperature(),
+	      requestTemperature,
       this.appStateManager.getDefaultMaxTokens(),
       (reasoningContent: string) => {
         if (cancelled) {
@@ -1122,9 +1166,10 @@ ${webContext.content}
       return
     }
 
-    if (this.currentSession === null) {
-      await this.createNewSession()
-    }
+	    if (this.currentSession === null) {
+	      const assistant = await this.assistantService.getCurrentAssistantForNewChat()
+	      await this.createNewSession('', assistant.id, assistant.defaultModelId, assistant.defaultProviderId)
+	    }
     if (this.isCancelled(cancelSnapshot)) {
       return
     }
@@ -1209,11 +1254,10 @@ ${limitedSearchContext}
       return
     }
 
-    // 构建请求消息列表
-    const requestMessages: RequestMessage[] = []
-    const renderedSystemPromptSearch = await this.getRenderedSystemPrompt()
-    const finalSystemPromptSearch = renderedSystemPromptSearch !== '' ? `${renderedSystemPromptSearch}\n\n${systemPrompt}` : systemPrompt
-    requestMessages.push(new RequestMessage('system', finalSystemPromptSearch))
+	    // 构建请求消息列表
+	    const requestMessages: RequestMessage[] = []
+	    const finalSystemPromptSearch = await this.buildRequestSystemPrompt(systemPrompt)
+	    requestMessages.push(new RequestMessage('system', finalSystemPromptSearch))
     for (let i = 0; i < historyMessages.length; i++) {
       requestMessages.push(historyMessages[i])
     }
@@ -1254,7 +1298,8 @@ ${limitedSearchContext}
       return
     }
 
-    const httpRequest = this.aiApiService.streamChatRequest(
+	    const requestTemperature = await this.getRequestTemperature()
+	    const httpRequest = this.aiApiService.streamChatRequest(
       apiConfig,
       requestMessages,
       modelId,
@@ -1371,7 +1416,7 @@ ${limitedSearchContext}
         this.clearPendingAIMessageIfMatches(aiMessage.id)
         this.unregisterActiveRequest(requestId)
       },
-      this.appStateManager.getDefaultTemperature(),
+	      requestTemperature,
       this.appStateManager.getDefaultMaxTokens(),
       (reasoningContent: string) => {
         if (cancelled) {
@@ -1441,9 +1486,10 @@ ${limitedSearchContext}
     }
 
     // 如果仍然没有当前会话，创建新的
-    if (this.currentSession === null) {
-      await this.createNewSession()
-    }
+	    if (this.currentSession === null) {
+	      const assistant = await this.assistantService.getCurrentAssistantForNewChat()
+	      await this.createNewSession('', assistant.id, assistant.defaultModelId, assistant.defaultProviderId)
+	    }
     if (this.isCancelled(cancelSnapshot)) {
       return
     }
@@ -1534,9 +1580,8 @@ ${limitedSearchContext}
     toolUsageSystemPrompt += `
 - 若用户提到“今天/昨天/明天/现在/最新”等相对时间，请以当前时间为基准理解，不要编造不一致的绝对日期。
 - 工具返回后必须给出最终回答，不要在没有必要的情况下重复调用工具。`
-    const renderedSystemPromptTools = await this.getRenderedSystemPrompt()
-    const finalToolUsageSystemPrompt = renderedSystemPromptTools !== '' ? `${renderedSystemPromptTools}\n\n${toolUsageSystemPrompt}` : toolUsageSystemPrompt
-    requestMessages.push(new RequestMessage('system', finalToolUsageSystemPrompt))
+	    const finalToolUsageSystemPrompt = await this.buildRequestSystemPrompt(toolUsageSystemPrompt)
+	    requestMessages.push(new RequestMessage('system', finalToolUsageSystemPrompt))
     for (let i = 0; i < historyMessages.length; i++) {
       requestMessages.push(historyMessages[i])
     }
@@ -1583,11 +1628,12 @@ ${limitedSearchContext}
     const localReasoningThrottle = createThrottle(150)
     const requestId = this.generateId()
 
-    if (this.isCancelled(cancelSnapshot)) {
-      return
-    }
+	    if (this.isCancelled(cancelSnapshot)) {
+	      return
+	    }
+	    const requestTemperature = await this.getRequestTemperature()
 
-    // 先注册到活跃请求 Map（使用占位 httpRequest，executeToolCallLoop 内部会更新实际引用）
+	    // 先注册到活跃请求 Map（使用占位 httpRequest，executeToolCallLoop 内部会更新实际引用）
     // 必须在 await 之前注册，否则 stopGeneration 无法取消正在执行的请求
     const placeholderHttp = http.createHttp()
     this.registerActiveRequest(requestId, placeholderHttp, () => {
@@ -1609,9 +1655,10 @@ ${limitedSearchContext}
       onComplete,
       onError,
       tools,
-      toolCallbacks,
-      reasoningLevel,
-      0,  // 初始迭代次数
+	      toolCallbacks,
+	      reasoningLevel,
+	      requestTemperature,
+	      0,  // 初始迭代次数
       snapshotSessionId,
       snapshotSession,
       shouldAutoGenerateTitle,
@@ -1688,10 +1735,11 @@ ${limitedSearchContext}
     onAIMessageUpdated: (message: ChatMessage) => void,
     onComplete: () => void,
     onError: (error: string) => void,
-    tools: ToolDefinition[],
-    toolCallbacks: ToolCallCallbacks | undefined,
-    reasoningLevel: ReasoningLevel,
-    iteration: number,
+	    tools: ToolDefinition[],
+	    toolCallbacks: ToolCallCallbacks | undefined,
+	    reasoningLevel: ReasoningLevel,
+	    requestTemperature: number,
+	    iteration: number,
     snapshotSessionId: string,
     snapshotSession: ChatSession | null,
     shouldAutoGenerateTitle: boolean,
@@ -2009,10 +2057,11 @@ ${limitedSearchContext}
             onAIMessageUpdated,
             onComplete,
             onError,
-            tools,
-            toolCallbacks,
-            reasoningLevel,
-            iteration + 1,
+	            tools,
+	            toolCallbacks,
+	            reasoningLevel,
+	            requestTemperature,
+	            iteration + 1,
             snapshotSessionId,
             snapshotSession,
             shouldAutoGenerateTitle,
@@ -2082,7 +2131,7 @@ ${limitedSearchContext}
         this.clearPendingAIMessageIfMatches(aiMessage.id)
         this.unregisterActiveRequest(requestId)
       },
-      this.appStateManager.getDefaultTemperature(),
+	      requestTemperature,
       this.appStateManager.getDefaultMaxTokens(),
       (reasoningContent: string) => {
         if (isCancelledFn()) {

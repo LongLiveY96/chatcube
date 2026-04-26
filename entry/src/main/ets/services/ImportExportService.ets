@@ -25,6 +25,7 @@ import {
   ToolCall,
   ToolResult
 } from '../models/ChatModels'
+import { Assistant, DEFAULT_ASSISTANT_ID } from '../models/AssistantModels'
 import { DatabaseService } from './DatabaseService'
 import { AttachmentStorageService } from './AttachmentStorageService'
 import { getPreferencesService, PreferenceKeys } from './PreferencesService'
@@ -77,6 +78,7 @@ export interface ManifestData {
   sessions: SessionSummary[]
   syncMetadata: SyncMetadata
   providersCount?: number
+  assistantsCount?: number
   preferencesCount?: number
 }
 
@@ -102,6 +104,23 @@ export interface ProviderExportData {
   textIcon: string
   textIconBgColor: string
   customImagePath: string
+}
+
+export interface AssistantExportData {
+  id: string
+  name: string
+  avatarSymbol: string
+  color: string
+  systemPrompt: string
+  defaultProviderId: string
+  defaultModelId: string
+  defaultModelName: string
+  temperatureEnabled: boolean
+  temperature: number
+  isDefault: boolean
+  createdAt: number
+  updatedAt: number
+  sortOrder: number
 }
 
 // 会话摘要
@@ -160,6 +179,7 @@ interface SessionData {
   title: string
   modelId: string
   providerId: string
+  assistantId?: string
   createdAt: number
   updatedAt: number
   isFavorite: boolean
@@ -235,6 +255,7 @@ interface ImportFileData {
   messages: Map<string, MessageData[]>
   attachmentsMetadata: Record<string, AttachmentMetadata[]>
   providers: ProviderExportData[]
+  assistants: AssistantExportData[]
   preferences: PreferenceEntry[]
   tempDir: string
 }
@@ -284,17 +305,18 @@ export class ImportExportService {
       const messages = await this.collectMessages(sessions, emitProgress)
       const attachments = this.collectAttachments(messages, options)
       const providers = options.includeProviders ? await this.collectProviders(options) : []
+      const assistants = await this.collectAssistants()
       const preferences = options.includePreferences ? await this.collectPreferences(options) : []
 
       emitProgress(30)
 
-      const manifest = this.generateManifest(sessions, messages, attachments, providers, preferences, options)
+      const manifest = this.generateManifest(sessions, messages, attachments, providers, assistants, preferences, options)
 
       const timestamp = Date.now()
       const tempDir = `${this.context.cacheDir}/export_temp_${timestamp}`
       fileIo.mkdirSync(tempDir)
 
-      await this.writeExportFiles(tempDir, manifest, sessions, messages, attachments, providers, preferences, options)
+      await this.writeExportFiles(tempDir, manifest, sessions, messages, attachments, providers, assistants, preferences, options)
 
       emitProgress(60)
 
@@ -411,6 +433,30 @@ export class ImportExportService {
     return providers
   }
 
+  private async collectAssistants(): Promise<AssistantExportData[]> {
+    const allAssistants = await this.dbService.getAllAssistants()
+    const assistants: AssistantExportData[] = []
+    for (const assistant of allAssistants) {
+      assistants.push({
+        id: assistant.id,
+        name: assistant.name,
+        avatarSymbol: assistant.avatarSymbol,
+        color: assistant.color,
+        systemPrompt: assistant.systemPrompt,
+        defaultProviderId: assistant.defaultProviderId,
+        defaultModelId: assistant.defaultModelId,
+        defaultModelName: assistant.defaultModelName,
+        temperatureEnabled: assistant.temperatureEnabled,
+        temperature: assistant.temperature,
+        isDefault: assistant.isDefault,
+        createdAt: assistant.createdAt,
+        updatedAt: assistant.updatedAt,
+        sortOrder: assistant.sortOrder
+      })
+    }
+    return assistants
+  }
+
   private async collectPreferences(options: ExportOptions): Promise<PreferenceEntry[]> {
     const entries: PreferenceEntry[] = []
     try {
@@ -449,6 +495,7 @@ export class ImportExportService {
     messages: Map<string, ChatMessage[]>,
     attachments: Map<string, MessageAttachment[]>,
     providers: ProviderExportData[],
+    assistants: AssistantExportData[],
     preferences: PreferenceEntry[],
     options: ExportOptions
   ): ManifestData {
@@ -509,6 +556,7 @@ export class ImportExportService {
       sessions: sessionSummaries,
       syncMetadata: syncMetadata,
       providersCount: providers.length,
+      assistantsCount: assistants.length,
       preferencesCount: preferences.length
     }
 
@@ -522,6 +570,7 @@ export class ImportExportService {
     messages: Map<string, ChatMessage[]>,
     attachments: Map<string, MessageAttachment[]>,
     providers: ProviderExportData[],
+    assistants: AssistantExportData[],
     preferences: PreferenceEntry[],
     options: ExportOptions
   ): Promise<void> {
@@ -534,6 +583,7 @@ export class ImportExportService {
         title: s.title,
         modelId: s.modelId,
         providerId: s.providerId,
+        assistantId: s.assistantId !== '' ? s.assistantId : DEFAULT_ASSISTANT_ID,
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,
         isFavorite: s.isFavorite,
@@ -676,6 +726,10 @@ export class ImportExportService {
     // 写入供应商数据
     if (options.includeProviders && providers.length > 0) {
       this.writeTextFile(`${tempDir}/providers.json`, JSON.stringify(providers, null, 2))
+    }
+
+    if (assistants.length > 0) {
+      this.writeTextFile(`${tempDir}/assistants.json`, JSON.stringify(assistants, null, 2))
     }
 
     // 写入偏好设置数据
@@ -833,6 +887,14 @@ export class ImportExportService {
       console.info('ImportExportService', 'No providers data found')
     }
 
+    let assistants: AssistantExportData[] = []
+    try {
+      const assistantsText = this.readTextFile(`${tempDir}/assistants.json`)
+      assistants = JSON.parse(assistantsText) as AssistantExportData[]
+    } catch (e) {
+      console.info('ImportExportService', 'No assistants data found')
+    }
+
     // 读取偏好设置数据
     let preferences: PreferenceEntry[] = []
     try {
@@ -848,6 +910,7 @@ export class ImportExportService {
       messages: messages,
       attachmentsMetadata: attachmentsMetadata,
       providers: providers,
+      assistants: assistants,
       preferences: preferences,
       tempDir: tempDir
     }
@@ -868,6 +931,10 @@ export class ImportExportService {
     const attachmentsMetadata = importData.attachmentsMetadata
     const tempDir = importData.tempDir
 
+    if (importData.assistants.length > 0) {
+      await this.importAssistants(importData.assistants)
+    }
+
     for (const sessionData of sessions) {
       const existingSession = await this.dbService.getSession(sessionData.id)
 
@@ -887,7 +954,17 @@ export class ImportExportService {
         }
       }
 
-      const session = new ChatSession(finalSessionId, finalTitle, sessionData.modelId, sessionData.providerId)
+      const assistantId = sessionData.assistantId !== undefined && sessionData.assistantId !== '' ?
+        sessionData.assistantId : DEFAULT_ASSISTANT_ID
+      const existingAssistant = await this.dbService.getAssistant(assistantId)
+      const effectiveAssistantId = existingAssistant !== null ? assistantId : DEFAULT_ASSISTANT_ID
+      const session = new ChatSession(
+        finalSessionId,
+        finalTitle,
+        sessionData.modelId,
+        sessionData.providerId,
+        effectiveAssistantId
+      )
       session.createdAt = sessionData.createdAt
       session.updatedAt = sessionData.updatedAt
       session.isFavorite = sessionData.isFavorite || false
@@ -1028,6 +1105,28 @@ export class ImportExportService {
     }
 
     return result
+  }
+
+  private async importAssistants(assistants: AssistantExportData[]): Promise<void> {
+    for (const assistantData of assistants) {
+      const assistant = new Assistant(
+        assistantData.id !== '' ? assistantData.id : DEFAULT_ASSISTANT_ID,
+        assistantData.name
+      )
+      assistant.avatarSymbol = assistantData.avatarSymbol !== '' ? assistantData.avatarSymbol : 'AI'
+      assistant.color = assistantData.color !== '' ? assistantData.color : '#0A59F7'
+      assistant.systemPrompt = assistantData.systemPrompt || ''
+      assistant.defaultProviderId = assistantData.defaultProviderId || ''
+      assistant.defaultModelId = assistantData.defaultModelId || ''
+      assistant.defaultModelName = assistantData.defaultModelName || ''
+      assistant.temperatureEnabled = assistantData.temperatureEnabled === true
+      assistant.temperature = assistantData.temperature !== undefined ? assistantData.temperature : 0.7
+      assistant.isDefault = assistant.id === DEFAULT_ASSISTANT_ID || assistantData.isDefault === true
+      assistant.createdAt = assistantData.createdAt
+      assistant.updatedAt = assistantData.updatedAt
+      assistant.sortOrder = assistant.isDefault ? 0 : assistantData.sortOrder
+      await this.dbService.saveAssistant(assistant)
+    }
   }
 
   private async importProvider(providerData: ProviderExportData): Promise<void> {

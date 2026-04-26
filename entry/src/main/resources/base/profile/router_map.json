@@ -16,6 +16,11 @@
       "buildFunction": "DefaultModelPageBuilder"
     },
     {
+      "name": "AssistantManagePage",
+      "pageSourceFile": "src/main/ets/pages/AssistantManagePage.ets",
+      "buildFunction": "AssistantManagePageBuilder"
+    },
+    {
       "name": "ThemeModeSettingsPage",
       "pageSourceFile": "src/main/ets/pages/ThemeModeSettingsPage.ets",
       "buildFunction": "ThemeModeSettingsPageBuilder"
