@@ -33,7 +33,6 @@ export struct ChatInputAreaSection {
   @Param reasoningControlMode: ReasoningControlMode = ReasoningControlMode.NONE
   @Param reasoningXhighAvailable: boolean = false
   @Param reasoningLevel: ReasoningLevel = ReasoningLevel.OFF
-  @Param reasoningBudget: number = -1
   @Event onReasoningBudgetChange: (value: ReasoningLevel, budget: number) => void =
     (_value: ReasoningLevel, _budget: number): void => {}
   @Param hasRecentScreenshot: boolean = false
@@ -89,7 +88,6 @@ export struct ChatInputAreaSection {
           reasoningControlMode: this.reasoningControlMode,
           reasoningXhighAvailable: this.reasoningXhighAvailable,
           reasoningLevel: this.reasoningLevel,
-          reasoningBudget: this.reasoningBudget,
           onReasoningBudgetChange: (value: ReasoningLevel, budget: number): void => {
             this.onReasoningBudgetChange(value, budget)
           }

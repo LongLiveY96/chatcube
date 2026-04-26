@@ -919,6 +919,11 @@ export default function refactorGuardTest() {
         baseUrl: 'https://api.minimaxi.com/v1',
         apiStyle: ApiStyle.OPENAI
       }, 'MiniMax-M2.5', true)
+      const deepSeekMode = resolveReasoningControlMode({
+        providerId: 'deepseek',
+        baseUrl: 'https://api.deepseek.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'deepseek-v4', true)
       const unknownMode = resolveReasoningControlMode({
         providerId: 'custom',
         baseUrl: 'https://example.com/v1',
@@ -937,6 +942,7 @@ export default function refactorGuardTest() {
 
       expect(openaiMode).assertEqual(ReasoningControlMode.EFFORT)
       expect(minimaxMode).assertEqual(ReasoningControlMode.TOGGLE)
+      expect(deepSeekMode).assertEqual(ReasoningControlMode.HIGH_MAX)
       expect(unknownMode).assertEqual(ReasoningControlMode.EFFORT)
       expect(overrideMode).assertEqual(ReasoningControlMode.EFFORT)
       expect(openAICompatOverrideMode).assertEqual(ReasoningControlMode.EFFORT)
@@ -1016,6 +1022,11 @@ export default function refactorGuardTest() {
         baseUrl: 'https://llm.example.com/v1',
         apiStyle: ApiStyle.OPENAI
       }, 'custom-reasoning-model', true, ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT)
+      const deepSeekXhigh = supportsReasoningXhighControl({
+        providerId: 'deepseek',
+        baseUrl: 'https://api.deepseek.com/v1',
+        apiStyle: ApiStyle.OPENAI
+      }, 'deepseek-v4', true)
       const openRouterNoXhigh = supportsReasoningXhighControl({
         providerId: 'openrouter',
         baseUrl: 'https://openrouter.ai/api/v1',
@@ -1025,6 +1036,7 @@ export default function refactorGuardTest() {
       expect(openAIXhigh).assertTrue()
       expect(openAINoXhigh).assertFalse()
       expect(compatXhigh).assertTrue()
+      expect(deepSeekXhigh).assertTrue()
       expect(openRouterNoXhigh).assertFalse()
     })
 
@@ -1033,11 +1045,15 @@ export default function refactorGuardTest() {
         .assertEqual(ReasoningLevel.HIGH)
       expect(normalizeReasoningLevelForControl(ReasoningLevel.XHIGH, ReasoningControlMode.EFFORT))
         .assertEqual(ReasoningLevel.XHIGH)
-      expect(normalizeReasoningLevelForControl(ReasoningLevel.CUSTOM, ReasoningControlMode.EFFORT))
-        .assertEqual(ReasoningLevel.CUSTOM)
-      expect(normalizeReasoningLevelForControl(ReasoningLevel.CUSTOM, ReasoningControlMode.TOGGLE))
-        .assertEqual(ReasoningLevel.AUTO)
       expect(normalizeReasoningLevelForControl(ReasoningLevel.HIGH, ReasoningControlMode.TOGGLE))
+        .assertEqual(ReasoningLevel.AUTO)
+      expect(normalizeReasoningLevelForControl(ReasoningLevel.LOW, ReasoningControlMode.HIGH_MAX))
+        .assertEqual(ReasoningLevel.HIGH)
+      expect(normalizeReasoningLevelForControl(ReasoningLevel.MEDIUM, ReasoningControlMode.HIGH_MAX))
+        .assertEqual(ReasoningLevel.HIGH)
+      expect(normalizeReasoningLevelForControl(ReasoningLevel.XHIGH, ReasoningControlMode.HIGH_MAX))
+        .assertEqual(ReasoningLevel.XHIGH)
+      expect(normalizeReasoningLevelForControl(ReasoningLevel.AUTO, ReasoningControlMode.HIGH_MAX))
         .assertEqual(ReasoningLevel.AUTO)
       expect(normalizeReasoningLevelForControl(ReasoningLevel.AUTO, ReasoningControlMode.NONE))
         .assertEqual(ReasoningLevel.OFF)

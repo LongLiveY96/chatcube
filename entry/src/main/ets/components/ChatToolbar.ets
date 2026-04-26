@@ -13,7 +13,6 @@ const REASONING_BUDGET_LOW: number = 1024
 const REASONING_BUDGET_MEDIUM: number = 16000
 const REASONING_BUDGET_HIGH: number = 32000
 const REASONING_BUDGET_XHIGH: number = 64000
-const REASONING_BUDGET_CUSTOM_DEFAULT: number = 2048
 
 @ComponentV2
 export struct ChatToolbar {
@@ -29,7 +28,6 @@ export struct ChatToolbar {
   @Param reasoningXhighAvailable: boolean = false
   // 推理级别状态
   @Param reasoningLevel: ReasoningLevel = ReasoningLevel.OFF
-  @Param reasoningBudget: number = -1
   @Event onReasoningBudgetChange: (value: ReasoningLevel, budget: number) => void =
     (_value: ReasoningLevel, _budget: number): void => {}
 
@@ -200,6 +198,10 @@ export struct ChatToolbar {
     return this.reasoningControlMode === ReasoningControlMode.EFFORT
   }
 
+  private supportsHighMaxLevels(): boolean {
+    return this.reasoningControlMode === ReasoningControlMode.HIGH_MAX
+  }
+
   private getBudgetForLevel(level: ReasoningLevel): number {
     switch (level) {
       case ReasoningLevel.OFF:
@@ -214,8 +216,6 @@ export struct ChatToolbar {
         return REASONING_BUDGET_HIGH
       case ReasoningLevel.XHIGH:
         return REASONING_BUDGET_XHIGH
-      case ReasoningLevel.CUSTOM:
-        return this.reasoningBudget >= REASONING_BUDGET_LOW ? this.reasoningBudget : REASONING_BUDGET_CUSTOM_DEFAULT
       default:
         return REASONING_BUDGET_AUTO
     }
@@ -233,10 +233,6 @@ export struct ChatToolbar {
         return $r('app.string.reasoning_level_high')
       case ReasoningLevel.XHIGH:
         return $r('app.string.reasoning_level_xhigh')
-      case ReasoningLevel.CUSTOM:
-        return this.reasoningBudget >= REASONING_BUDGET_LOW ?
-          `${this.reasoningBudget} tokens` :
-          $r('app.string.reasoning_budget_custom')
       default:
         return $r('app.string.reasoning_level_off')
     }
@@ -254,7 +250,11 @@ export struct ChatToolbar {
         if (this.reasoningXhighAvailable) {
           this.ReasoningMenuItem(ReasoningLevel.XHIGH)
         }
-        this.ReasoningMenuItem(ReasoningLevel.CUSTOM)
+      } else if (this.supportsHighMaxLevels()) {
+        this.ReasoningMenuItem(ReasoningLevel.HIGH)
+        if (this.reasoningXhighAvailable) {
+          this.ReasoningMenuItem(ReasoningLevel.XHIGH)
+        }
       }
     }
   }

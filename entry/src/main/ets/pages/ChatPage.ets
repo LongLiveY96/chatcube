@@ -94,7 +94,6 @@ const REASONING_BUDGET_LOW: number = 1024
 const REASONING_BUDGET_MEDIUM: number = 16000
 const REASONING_BUDGET_HIGH: number = 32000
 const REASONING_BUDGET_XHIGH: number = 64000
-const REASONING_BUDGET_CUSTOM_DEFAULT: number = 2048
 
 class ProviderModelSelection {
   provider: ModelProvider
@@ -900,8 +899,6 @@ export struct ChatPage {
         return REASONING_BUDGET_HIGH
       case ReasoningLevel.XHIGH:
         return REASONING_BUDGET_XHIGH
-      case ReasoningLevel.CUSTOM:
-        return budget >= REASONING_BUDGET_LOW ? budget : REASONING_BUDGET_CUSTOM_DEFAULT
       default:
         return REASONING_BUDGET_AUTO
     }
@@ -2174,7 +2171,6 @@ export struct ChatPage {
                 this.showToolPickerSheet = true
               },
               reasoningLevel: this.getActiveComposerReasoningLevel(),
-              reasoningBudget: this.getActiveComposerReasoningBudget(),
               onReasoningBudgetChange: (value: ReasoningLevel, budget: number): void => {
                 this.handleReasoningBudgetSelected(value, budget)
               },

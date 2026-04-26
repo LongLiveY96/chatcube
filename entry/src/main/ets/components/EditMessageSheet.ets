@@ -156,8 +156,6 @@ export struct EditMessageSheet {
         return $r('app.string.reasoning_level_high')
       case ReasoningLevel.XHIGH:
         return $r('app.string.reasoning_level_xhigh')
-      case ReasoningLevel.CUSTOM:
-        return $r('app.string.reasoning_budget_custom')
       default:
         return $r('app.string.reasoning_level_off')
     }
@@ -171,6 +169,11 @@ export struct EditMessageSheet {
       if (this.reasoningControlMode === ReasoningControlMode.EFFORT) {
         this.ReasoningMenuItem(ReasoningLevel.LOW)
         this.ReasoningMenuItem(ReasoningLevel.MEDIUM)
+        this.ReasoningMenuItem(ReasoningLevel.HIGH)
+        if (this.reasoningXhighAvailable) {
+          this.ReasoningMenuItem(ReasoningLevel.XHIGH)
+        }
+      } else if (this.reasoningControlMode === ReasoningControlMode.HIGH_MAX) {
         this.ReasoningMenuItem(ReasoningLevel.HIGH)
         if (this.reasoningXhighAvailable) {
           this.ReasoningMenuItem(ReasoningLevel.XHIGH)

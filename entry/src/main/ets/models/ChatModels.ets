@@ -246,8 +246,7 @@ export enum ReasoningLevel {
   LOW = 'low',           // 轻度推理
   MEDIUM = 'medium',     // 中度推理
   HIGH = 'high',         // 重度推理
-  XHIGH = 'xhigh',       // 极限推理
-  CUSTOM = 'custom'      // 自定义推理预算
+  XHIGH = 'xhigh'        // 极限推理
 }
 
 // 默认模型配置类

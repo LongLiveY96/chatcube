@@ -557,18 +557,6 @@
       "value": "最大推理，更慢且成本更高"
     },
     {
-      "name": "reasoning_budget_custom",
-      "value": "自定义预算"
-    },
-    {
-      "name": "reasoning_budget_custom_desc",
-      "value": "指定 thinking budget token 数"
-    },
-    {
-      "name": "reasoning_budget_custom_placeholder",
-      "value": "预算 token 数"
-    },
-    {
       "name": "search_service_config",
       "value": "搜索服务"
     },

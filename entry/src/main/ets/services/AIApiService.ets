@@ -216,7 +216,7 @@ interface OpenAIRequestBody {
   temperature?: number
   max_tokens: number
   stream?: boolean
-  reasoning_effort?: string  // OpenAI/OpenAI-compatible 推理级别: none, low, medium, high, xhigh
+  reasoning_effort?: string  // OpenAI/OpenAI-compatible 推理级别: none, low, medium, high, xhigh/max
   reasoning?: OpenRouterReasoningConfig  // OpenRouter 统一推理控制
   reasoning_split?: boolean  // MiniMax 推理内容分离（reasoning_details 字段）
   thinking?: ThinkingConfig  // Kimi / DeepSeek / 小米 MiMo / 智谱 GLM 思考模式配置
@@ -1225,7 +1225,7 @@ export class AIApiService {
   ): OpenAIRequestBody | OpenAIResponsesRequestBody | AnthropicRequestBody | GoogleRequestBody {
     const reasoningRequestStrategy = this.getReasoningRequestStrategy(config, model)
     const normalizedReasoningLevel = normalizeReasoningLevelForControl(reasoningLevel)
-    const normalizedReasoningBudget = this.getReasoningBudget(normalizedReasoningLevel, config.reasoningBudget)
+    const normalizedReasoningBudget = this.getReasoningBudget(normalizedReasoningLevel)
 
     if (config.apiStyle === ApiStyle.GOOGLE) {
       // Google Gemini 格式
@@ -1463,8 +1463,7 @@ export class AIApiService {
         const effort = this.getOpenAIReasoningEffortForStrategy(
           reasoningRequestStrategy,
           model,
-          normalizedReasoningLevel,
-          normalizedReasoningBudget
+          normalizedReasoningLevel
         )
         if (effort !== undefined) {
           responsesBody.reasoning = { effort: effort }
@@ -1608,8 +1607,7 @@ export class AIApiService {
       const effort = this.getOpenAIReasoningEffortForStrategy(
         reasoningRequestStrategy,
         model,
-        normalizedReasoningLevel,
-        normalizedReasoningBudget
+        normalizedReasoningLevel
       )
       if (effort !== undefined) {
         requestBody.reasoning_effort = effort
@@ -1625,6 +1623,10 @@ export class AIApiService {
     } else if (reasoningRequestStrategy === ReasoningRequestStrategy.DEEPSEEK_THINKING) {
       if (normalizedReasoningLevel !== ReasoningLevel.OFF) {
         requestBody.thinking = { type: 'enabled' }
+        const effort = this.getDeepSeekReasoningEffort(normalizedReasoningLevel)
+        if (effort !== undefined) {
+          requestBody.reasoning_effort = effort
+        }
       } else {
         requestBody.thinking = { type: 'disabled' }
       }
@@ -1880,7 +1882,7 @@ export class AIApiService {
     return result
   }
 
-  private getReasoningBudget(level: ReasoningLevel, customBudget?: number): number {
+  private getReasoningBudget(level: ReasoningLevel): number {
     switch (level) {
       case ReasoningLevel.OFF:
         return 0
@@ -1894,21 +1896,9 @@ export class AIApiService {
         return 32000
       case ReasoningLevel.XHIGH:
         return 64000
-      case ReasoningLevel.CUSTOM:
-        return this.normalizeCustomReasoningBudget(customBudget)
       default:
         return -1
     }
-  }
-
-  private normalizeCustomReasoningBudget(customBudget?: number): number {
-    if (customBudget === undefined || customBudget < 1024) {
-      return 2048
-    }
-    if (customBudget > 200000) {
-      return 200000
-    }
-    return Math.floor(customBudget)
   }
 
   // 获取 Anthropic 思考预算（token 数量）
@@ -1962,7 +1952,7 @@ export class AIApiService {
     body.frequency_penalty = undefined
   }
 
-  private getAnthropicAdaptiveEffort(model: string, level: ReasoningLevel, budget: number): string | undefined {
+  private getAnthropicAdaptiveEffort(model: string, level: ReasoningLevel): string | undefined {
     switch (level) {
       case ReasoningLevel.LOW:
         return 'low'
@@ -1972,24 +1962,9 @@ export class AIApiService {
         return 'high'
       case ReasoningLevel.XHIGH:
         return this.getAnthropicMaxEffort(model)
-      case ReasoningLevel.CUSTOM:
-        return this.getAnthropicEffortForBudget(model, budget)
       default:
         return undefined
     }
-  }
-
-  private getAnthropicEffortForBudget(model: string, budget: number): string {
-    if (budget <= 2000) {
-      return 'low'
-    }
-    if (budget <= 20000) {
-      return 'medium'
-    }
-    if (budget <= 32000) {
-      return 'high'
-    }
-    return this.getAnthropicMaxEffort(model)
   }
 
   private getAnthropicMaxEffort(model: string): string {
@@ -2027,7 +2002,7 @@ export class AIApiService {
         display: 'summarized'
       }
       body.temperature = undefined
-      const effort = this.getAnthropicAdaptiveEffort(model, level, budget)
+      const effort = this.getAnthropicAdaptiveEffort(model, level)
       if (effort !== undefined) {
         body.output_config = { effort: effort }
       }
@@ -2044,16 +2019,15 @@ export class AIApiService {
   private getOpenAIReasoningEffortForStrategy(
     strategy: ReasoningRequestStrategy,
     model: string,
-    level: ReasoningLevel,
-    budget: number
+    level: ReasoningLevel
   ): string | undefined {
     if (strategy === ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT) {
-      return this.getOpenAICompatReasoningEffort(level, budget)
+      return this.getOpenAICompatReasoningEffort(level)
     }
-    return this.getOpenAIReasoningEffort(model, level, budget)
+    return this.getOpenAIReasoningEffort(model, level)
   }
 
-  private getOpenAIReasoningEffort(model: string, level: ReasoningLevel, budget: number): string | undefined {
+  private getOpenAIReasoningEffort(model: string, level: ReasoningLevel): string | undefined {
     switch (level) {
       case ReasoningLevel.OFF:
         return this.supportsOpenAINoReasoning(model) ? 'none' : undefined
@@ -2067,8 +2041,6 @@ export class AIApiService {
         return 'high'
       case ReasoningLevel.XHIGH:
         return this.supportsOpenAIXhighReasoning(model) ? 'xhigh' : 'high'
-      case ReasoningLevel.CUSTOM:
-        return this.getOpenAIEffortForBudget(budget, this.supportsOpenAIXhighReasoning(model))
       default:
         return undefined
     }
@@ -2087,7 +2059,7 @@ export class AIApiService {
       modelLower.startsWith('gpt-5.2')
   }
 
-  private getOpenAICompatReasoningEffort(level: ReasoningLevel, budget: number): string | undefined {
+  private getOpenAICompatReasoningEffort(level: ReasoningLevel): string | undefined {
     switch (level) {
       case ReasoningLevel.OFF:
         return 'none'
@@ -2101,24 +2073,24 @@ export class AIApiService {
         return 'high'
       case ReasoningLevel.XHIGH:
         return 'xhigh'
-      case ReasoningLevel.CUSTOM:
-        return this.getOpenAIEffortForBudget(budget, true)
       default:
         return undefined
     }
   }
 
-  private getOpenAIEffortForBudget(budget: number, xhighAvailable: boolean): string {
-    if (budget <= 2000) {
-      return 'low'
+  private getDeepSeekReasoningEffort(level: ReasoningLevel): string | undefined {
+    switch (level) {
+      case ReasoningLevel.OFF:
+      case ReasoningLevel.AUTO:
+        return undefined
+      case ReasoningLevel.XHIGH:
+        return 'max'
+      case ReasoningLevel.LOW:
+      case ReasoningLevel.MEDIUM:
+      case ReasoningLevel.HIGH:
+      default:
+        return 'high'
     }
-    if (budget <= 20000) {
-      return 'medium'
-    }
-    if (budget >= 64000 && xhighAvailable) {
-      return 'xhigh'
-    }
-    return 'high'
   }
 
   private getOpenRouterReasoningConfig(level: ReasoningLevel, budget: number): OpenRouterReasoningConfig | undefined {
@@ -2131,7 +2103,6 @@ export class AIApiService {
       case ReasoningLevel.MEDIUM:
       case ReasoningLevel.HIGH:
       case ReasoningLevel.XHIGH:
-      case ReasoningLevel.CUSTOM:
         return { enabled: true, max_tokens: budget }
       default:
         return undefined
@@ -2181,7 +2152,7 @@ export class AIApiService {
     return this.normalizeGoogleModelId(model).startsWith('gemini-2.5-pro')
   }
 
-  private getGoogleThinkingLevel(level: ReasoningLevel, budget: number): string | undefined {
+  private getGoogleThinkingLevel(level: ReasoningLevel): string | undefined {
     switch (level) {
       case ReasoningLevel.OFF:
         return 'minimal'
@@ -2192,22 +2163,10 @@ export class AIApiService {
       case ReasoningLevel.XHIGH:
       case ReasoningLevel.HIGH:
         return 'high'
-      case ReasoningLevel.CUSTOM:
-        return this.getGoogleThinkingLevelForBudget(budget)
       case ReasoningLevel.MEDIUM:
       default:
         return 'medium'
     }
-  }
-
-  private getGoogleThinkingLevelForBudget(budget: number): string {
-    if (budget <= 2000) {
-      return 'low'
-    }
-    if (budget <= 20000) {
-      return 'medium'
-    }
-    return 'high'
   }
 
   private getGoogleThinkingBudget(model: string, level: ReasoningLevel, budget: number): number | undefined {
@@ -2224,8 +2183,6 @@ export class AIApiService {
         return 32000
       case ReasoningLevel.XHIGH:
         return 64000
-      case ReasoningLevel.CUSTOM:
-        return budget
       default:
         return undefined
     }
@@ -2245,7 +2202,7 @@ export class AIApiService {
       const config: GoogleThinkingConfig = {
         includeThoughts: reasoningLevel !== ReasoningLevel.OFF
       }
-      const thinkingLevel = this.getGoogleThinkingLevel(reasoningLevel, reasoningBudget)
+      const thinkingLevel = this.getGoogleThinkingLevel(reasoningLevel)
       if (thinkingLevel !== undefined) {
         config.thinkingLevel = thinkingLevel
       }

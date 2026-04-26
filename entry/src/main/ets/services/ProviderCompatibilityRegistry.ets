@@ -24,7 +24,8 @@ export enum OpenAIStreamContentMode {
 export enum ReasoningControlMode {
   NONE = 'none',
   TOGGLE = 'toggle',
-  EFFORT = 'effort'
+  EFFORT = 'effort',
+  HIGH_MAX = 'high_max'
 }
 
 export enum ReasoningRequestStrategy {
@@ -286,7 +287,7 @@ export function resolveProviderCompatibilityProfile(info: CompatibilityProviderI
       anthropicBearerRetryOnAuthFailure: false,
       openAIStreamContentMode: OpenAIStreamContentMode.INCREMENTAL,
       preserveAssistantReasoningDetails: false,
-      reasoningControlMode: ReasoningControlMode.TOGGLE,
+      reasoningControlMode: ReasoningControlMode.HIGH_MAX,
       defaultReasoningRequestStrategy: ReasoningRequestStrategy.DEEPSEEK_THINKING
     }
   }
@@ -485,8 +486,9 @@ function getReasoningControlModeForStrategy(strategy: ReasoningRequestStrategy):
     case ReasoningRequestStrategy.GOOGLE_THINKING_CONFIG:
     case ReasoningRequestStrategy.SILICONFLOW_THINKING_BUDGET:
       return ReasoningControlMode.EFFORT
-    case ReasoningRequestStrategy.OPENAI_REASONING_SPLIT:
     case ReasoningRequestStrategy.DEEPSEEK_THINKING:
+      return ReasoningControlMode.HIGH_MAX
+    case ReasoningRequestStrategy.OPENAI_REASONING_SPLIT:
     case ReasoningRequestStrategy.ZHIPU_THINKING:
     case ReasoningRequestStrategy.KIMI_THINKING:
       return ReasoningControlMode.TOGGLE
@@ -546,8 +548,12 @@ export function supportsReasoningXhighControl(
   modelSupportsReasoning: boolean,
   rawOverride?: string
 ): boolean {
-  if (resolveReasoningControlMode(info, modelId, modelSupportsReasoning, rawOverride) !== ReasoningControlMode.EFFORT) {
+  const controlMode = resolveReasoningControlMode(info, modelId, modelSupportsReasoning, rawOverride)
+  if (controlMode !== ReasoningControlMode.EFFORT && controlMode !== ReasoningControlMode.HIGH_MAX) {
     return false
+  }
+  if (controlMode === ReasoningControlMode.HIGH_MAX) {
+    return true
   }
   const strategy = resolveReasoningRequestStrategyWithOverride(info, modelId, rawOverride)
   if (strategy === ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT) {
@@ -572,13 +578,24 @@ export function normalizeReasoningLevelForControl(
   if (controlMode === ReasoningControlMode.TOGGLE) {
     return ReasoningLevel.AUTO
   }
+  if (controlMode === ReasoningControlMode.HIGH_MAX) {
+    switch (level) {
+      case ReasoningLevel.AUTO:
+      case ReasoningLevel.XHIGH:
+        return level
+      case ReasoningLevel.LOW:
+      case ReasoningLevel.MEDIUM:
+      case ReasoningLevel.HIGH:
+      default:
+        return ReasoningLevel.HIGH
+    }
+  }
   switch (level) {
     case ReasoningLevel.AUTO:
     case ReasoningLevel.LOW:
     case ReasoningLevel.MEDIUM:
     case ReasoningLevel.HIGH:
     case ReasoningLevel.XHIGH:
-    case ReasoningLevel.CUSTOM:
       return level
     default:
       return ReasoningLevel.AUTO
