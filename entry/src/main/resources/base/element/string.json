@@ -1709,6 +1709,38 @@
       "value": "Assistants"
     },
     {
+      "name": "assistant_switch_title",
+      "value": "Switch assistant"
+    },
+    {
+      "name": "assistant_total_label",
+      "value": "Assistants"
+    },
+    {
+      "name": "assistant_active_badge",
+      "value": "Active"
+    },
+    {
+      "name": "assistant_model_label",
+      "value": "Model"
+    },
+    {
+      "name": "assistant_prompt_label",
+      "value": "Prompt"
+    },
+    {
+      "name": "assistant_prompt_configured",
+      "value": "Configured"
+    },
+    {
+      "name": "assistant_prompt_empty",
+      "value": "No prompt"
+    },
+    {
+      "name": "assistant_temperature_global",
+      "value": "Global"
+    },
+    {
       "name": "new_assistant",
       "value": "New Assistant"
     },
@@ -1738,11 +1770,91 @@
     },
     {
       "name": "assistant_avatar_symbol",
-      "value": "Avatar Symbol"
+      "value": "Avatar"
     },
     {
       "name": "assistant_avatar_placeholder",
-      "value": "AI"
+      "value": "AI / 🤖"
+    },
+    {
+      "name": "assistant_avatar_quick_pick",
+      "value": "Quick Pick"
+    },
+    {
+      "name": "assistant_avatar_type_symbol",
+      "value": "Symbol"
+    },
+    {
+      "name": "assistant_avatar_type_image",
+      "value": "Image URL"
+    },
+    {
+      "name": "assistant_avatar_type_qq",
+      "value": "QQ Avatar"
+    },
+    {
+      "name": "assistant_avatar_image_url",
+      "value": "Image link"
+    },
+    {
+      "name": "assistant_avatar_image_placeholder",
+      "value": "https://example.com/avatar.png"
+    },
+    {
+      "name": "assistant_avatar_qq_number",
+      "value": "QQ number"
+    },
+    {
+      "name": "assistant_avatar_qq_placeholder",
+      "value": "Enter QQ number"
+    },
+    {
+      "name": "assistant_avatar_reset",
+      "value": "Reset"
+    },
+    {
+      "name": "assistant_avatar_edit_title",
+      "value": "Edit Avatar"
+    },
+    {
+      "name": "assistant_avatar_source_text",
+      "value": "Text"
+    },
+    {
+      "name": "assistant_avatar_source_link",
+      "value": "Link"
+    },
+    {
+      "name": "assistant_avatar_source_gallery",
+      "value": "Gallery"
+    },
+    {
+      "name": "assistant_avatar_text_label",
+      "value": "Text or emoji"
+    },
+    {
+      "name": "assistant_avatar_text_placeholder",
+      "value": "AI / 🤖"
+    },
+    {
+      "name": "assistant_avatar_link_label",
+      "value": "Image link"
+    },
+    {
+      "name": "assistant_avatar_link_placeholder",
+      "value": "http://example.com/avatar.png"
+    },
+    {
+      "name": "assistant_avatar_random_qq",
+      "value": "Random QQ"
+    },
+    {
+      "name": "assistant_avatar_gallery_hint",
+      "value": "Choose an image from your gallery."
+    },
+    {
+      "name": "assistant_avatar_pick_gallery",
+      "value": "Choose Image"
     },
     {
       "name": "assistant_color",

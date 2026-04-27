@@ -34,6 +34,10 @@ import { getSettingsManager } from '../viewmodels/SettingsManager'
 import { getAppStateManager } from '../viewmodels/AppStateManager'
 import { getProviderViewModel } from '../viewmodels/ProviderViewModel'
 import { buildProviderImportOrder } from '../config/ProviderOrderUtils'
+import { AppStorageKeys } from '../config/AppStorageKeys'
+import { setAppUiStateValue } from '../state/AppUiState'
+
+const ASSISTANT_AVATAR_EXPORT_DIR: string = 'assistant_avatars'
 
 // 导出选项
 export interface ExportOptions {
@@ -110,6 +114,7 @@ export interface AssistantExportData {
   id: string
   name: string
   avatarSymbol: string
+  avatarFileName?: string
   color: string
   systemPrompt: string
   defaultProviderId: string
@@ -729,6 +734,7 @@ export class ImportExportService {
     }
 
     if (assistants.length > 0) {
+      await this.writeAssistantAvatarFiles(tempDir, assistants)
       this.writeTextFile(`${tempDir}/assistants.json`, JSON.stringify(assistants, null, 2))
     }
 
@@ -932,7 +938,7 @@ export class ImportExportService {
     const tempDir = importData.tempDir
 
     if (importData.assistants.length > 0) {
-      await this.importAssistants(importData.assistants)
+      await this.importAssistants(importData.assistants, tempDir)
     }
 
     for (const sessionData of sessions) {
@@ -1097,6 +1103,8 @@ export class ImportExportService {
       await this.refreshAfterImport()
     }
 
+    setAppUiStateValue(AppStorageKeys.SESSION_LIST_REFRESH_AT, Date.now())
+
     const result: ImportResult = {
       imported: imported,
       skipped: skipped,
@@ -1107,13 +1115,13 @@ export class ImportExportService {
     return result
   }
 
-  private async importAssistants(assistants: AssistantExportData[]): Promise<void> {
+  private async importAssistants(assistants: AssistantExportData[], tempDir: string): Promise<void> {
     for (const assistantData of assistants) {
       const assistant = new Assistant(
         assistantData.id !== '' ? assistantData.id : DEFAULT_ASSISTANT_ID,
         assistantData.name
       )
-      assistant.avatarSymbol = assistantData.avatarSymbol !== '' ? assistantData.avatarSymbol : 'AI'
+      assistant.avatarSymbol = await this.resolveImportedAssistantAvatarSymbol(assistantData, tempDir)
       assistant.color = assistantData.color !== '' ? assistantData.color : '#0A59F7'
       assistant.systemPrompt = assistantData.systemPrompt || ''
       assistant.defaultProviderId = assistantData.defaultProviderId || ''
@@ -1260,6 +1268,104 @@ export class ImportExportService {
       await getAppStateManager().loadState()
     } catch (error) {
       console.warn('ImportExportService', `Failed to reload app state: ${JSON.stringify(error)}`)
+    }
+  }
+
+  private isLocalFileAvatar(value: string): boolean {
+    return value.trim().toLowerCase().startsWith('file://')
+  }
+
+  private getPathFromFileUri(value: string): string {
+    const trimmed = value.trim()
+    return trimmed.toLowerCase().startsWith('file://') ? trimmed.substring(7) : trimmed
+  }
+
+  private sanitizeFileName(value: string): string {
+    const safeName = value.trim().replace(/[^0-9A-Za-z._-]/g, '_').replace(/\.\./g, '_')
+    if (safeName === '' || safeName === '.' || safeName === '..') {
+      return 'avatar'
+    }
+    return safeName
+  }
+
+  private buildExportedAssistantAvatarFileName(assistant: AssistantExportData): string {
+    const sourcePath = this.getPathFromFileUri(assistant.avatarSymbol)
+    const ext = this.getExtension(sourcePath.split('?')[0])
+    const baseName = this.sanitizeFileName(assistant.id !== '' ? assistant.id : DEFAULT_ASSISTANT_ID)
+    return `${baseName}${ext !== '' ? ext : '.jpg'}`
+  }
+
+  private ensureDirectory(dirPath: string): void {
+    try {
+      fileIo.mkdirSync(dirPath, true)
+    } catch (error) {
+      console.warn('ImportExportService', `Directory may already exist: ${JSON.stringify(error)}`)
+    }
+  }
+
+  private async writeAssistantAvatarFiles(tempDir: string, assistants: AssistantExportData[]): Promise<void> {
+    let avatarDirReady = false
+    const avatarDir = `${tempDir}/${ASSISTANT_AVATAR_EXPORT_DIR}`
+    for (const assistant of assistants) {
+      if (!this.isLocalFileAvatar(assistant.avatarSymbol)) {
+        continue
+      }
+      const sourcePath = this.getPathFromFileUri(assistant.avatarSymbol)
+      let sourceExists = false
+      try {
+        sourceExists = fileIo.accessSync(sourcePath)
+      } catch (error) {
+        console.warn('ImportExportService', `Assistant avatar access failed: ${JSON.stringify(error)}`)
+        sourceExists = false
+      }
+      if (!sourceExists) {
+        continue
+      }
+      if (!avatarDirReady) {
+        this.ensureDirectory(avatarDir)
+        avatarDirReady = true
+      }
+      const fileName = this.buildExportedAssistantAvatarFileName(assistant)
+      try {
+        await fileIo.copyFile(sourcePath, `${avatarDir}/${fileName}`)
+        assistant.avatarFileName = fileName
+      } catch (error) {
+        console.warn('ImportExportService', `Failed to export assistant avatar: ${JSON.stringify(error)}`)
+      }
+    }
+  }
+
+  private async resolveImportedAssistantAvatarSymbol(assistantData: AssistantExportData, tempDir: string): Promise<string> {
+    const fallbackAvatar = assistantData.avatarSymbol !== undefined && assistantData.avatarSymbol !== '' ?
+      assistantData.avatarSymbol : 'AI'
+    const avatarFileName = assistantData.avatarFileName !== undefined ? this.sanitizeFileName(assistantData.avatarFileName) : ''
+    if (avatarFileName === '' || this.context === null) {
+      return fallbackAvatar
+    }
+
+    const sourcePath = `${tempDir}/${ASSISTANT_AVATAR_EXPORT_DIR}/${avatarFileName}`
+    let sourceExists = false
+    try {
+      sourceExists = fileIo.accessSync(sourcePath)
+    } catch (error) {
+      console.warn('ImportExportService', `Imported assistant avatar access failed: ${JSON.stringify(error)}`)
+      sourceExists = false
+    }
+    if (!sourceExists) {
+      return fallbackAvatar
+    }
+
+    const avatarDir = `${this.context.filesDir}/${ASSISTANT_AVATAR_EXPORT_DIR}`
+    this.ensureDirectory(avatarDir)
+    const ext = this.getExtension(avatarFileName)
+    const assistantId = this.sanitizeFileName(assistantData.id !== '' ? assistantData.id : DEFAULT_ASSISTANT_ID)
+    const targetPath = `${avatarDir}/avatar_${assistantId}_${Date.now()}${ext !== '' ? ext : '.jpg'}`
+    try {
+      await fileIo.copyFile(sourcePath, targetPath)
+      return `file://${targetPath}`
+    } catch (error) {
+      console.warn('ImportExportService', `Failed to import assistant avatar: ${JSON.stringify(error)}`)
+      return fallbackAvatar
     }
   }
 

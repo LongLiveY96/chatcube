@@ -3,7 +3,7 @@ import { ConfigurationConstant, common } from '@kit.AbilityKit'
 import { notificationManager } from '@kit.NotificationKit'
 import { motion } from '@kit.MultimodalAwarenessKit'
 import { BusinessError } from '@kit.BasicServicesKit'
-import { HdsListItemCard, HdsTabs, HdsTabsFloatingStyle, hdsMaterial } from '@kit.UIDesignKit'
+import { HdsTabs, HdsTabsFloatingStyle, hdsMaterial } from '@kit.UIDesignKit'
 import { ChatSession, ChatMessage, ModelProvider } from '../models/ChatModels'
 import { Assistant, DEFAULT_ASSISTANT_ID } from '../models/AssistantModels'
 import { ChatViewModel } from '../viewmodels/ChatViewModel'
@@ -41,6 +41,12 @@ import { IndexSettingsSheetContent } from '../components/index/IndexSettingsShee
 import { IndexSessionListSection } from '../components/index/IndexSessionListSection'
 import { ChatMultiSelectToolbar } from '../components/chat/ChatMultiSelectToolbar'
 import { ModelSelectorContent } from '../components/ModelSelector'
+import {
+  AssistantAvatarView,
+  normalizeAssistantAvatarValue,
+  refreshAssistantAvatarCache
+} from '../components/AssistantAvatar'
+import { AssistantAvatarEditorSheet } from '../components/AssistantAvatarEditorSheet'
 import { SettingsSheetType, SessionFilterType, SessionGroupData } from './index/IndexPageTypes'
 import { getFilteredSessionsForIndex, buildSessionGroupsForIndex } from './index/IndexSessionGroupHelper'
 import { SessionListGroupViewModel, rebuildSessionListGroupViewModels } from './index/IndexSessionListDataSource'
@@ -69,7 +75,6 @@ import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentati
 import { getAppUiState, observeAppUiState, setAppUiStateValue } from '../state/AppUiState'
 import { tryHandleProviderDetailInternalBack } from '../components/ProviderDetailSheet'
 import { tryHandleModelManageInternalBack } from './ModelManagePage'
-import { buildPointLightBorderEffect } from '../utils/HdsVisualEffectUtil'
 
 @Entry
 @ComponentV2
@@ -106,8 +111,12 @@ struct Index {
   @Local assistants: Assistant[] = []
   @Local assistantProviders: ModelProvider[] = []
   @Local currentAssistantId: string = DEFAULT_ASSISTANT_ID
+  @Local showAssistantSwitchSheet: boolean = false
+  @Local openingAssistantId: string = ''
   @Local showAssistantEditorSheet: boolean = false
   @Local showAssistantModelSheet: boolean = false
+  @Local showAssistantAvatarEditorSheet: boolean = false
+  @Local assistantAvatarRenderTick: number = 0
   @Local editingAssistantId: string = ''
   @Local editingAssistantCreatedAt: number = 0
   @Local editingAssistantSortOrder: number = 0
@@ -198,6 +207,18 @@ struct Index {
   @Monitor('sessionListRefreshAt')
   onSessionListRefreshMonitor(): void {
     this.onSessionListRefresh()
+  }
+
+  @Computed
+  get assistantAvatarRefreshAt(): number {
+    return getAppUiState().assistantAvatarRefreshAt
+  }
+
+  @Monitor('assistantAvatarRefreshAt')
+  onAssistantAvatarRefreshMonitor(): void {
+    if (this.assistantAvatarRefreshAt > 0) {
+      this.bumpAssistantAvatarRenderTick()
+    }
   }
   @Monitor('isMultiSelectMode')
   onMultiSelectModeMonitor(): void {
@@ -733,6 +754,23 @@ struct Index {
     return loadedAssistant
   }
 
+  private patchAssistantInMemory(assistant: Assistant): void {
+    const nextAssistants: Assistant[] = []
+    let replaced = false
+    for (let i = 0; i < this.assistants.length; i++) {
+      if (this.assistants[i].id === assistant.id) {
+        nextAssistants.push(assistant)
+        replaced = true
+      } else {
+        nextAssistants.push(this.assistants[i])
+      }
+    }
+    if (replaced) {
+      this.assistants = nextAssistants
+      this.bumpAssistantAvatarRenderTick()
+    }
+  }
+
   private mergeLoadedAssistants(loadedAssistants: Assistant[]): Assistant[] {
     const mergedAssistants: Assistant[] = []
     for (let i = 0; i < loadedAssistants.length; i++) {
@@ -741,11 +779,28 @@ struct Index {
     return mergedAssistants
   }
 
+  private buildAssistantAvatarStateKey(assistants: Assistant[]): string {
+    const parts: string[] = []
+    for (let i = 0; i < assistants.length; i++) {
+      parts.push(`${assistants[i].id}:${assistants[i].avatarSymbol}:${assistants[i].color}`)
+    }
+    return parts.join('|')
+  }
+
+  private bumpAssistantAvatarRenderTick(): void {
+    const now = Date.now()
+    this.assistantAvatarRenderTick = now > this.assistantAvatarRenderTick ? now : this.assistantAvatarRenderTick + 1
+  }
+
   private async loadAssistants(): Promise<void> {
     try {
+      const previousAvatarState = this.buildAssistantAvatarStateKey(this.assistants)
       const assistants = await this.assistantService.getAllAssistants()
       const current = await this.assistantService.getCurrentAssistant()
       this.assistants = this.mergeLoadedAssistants(assistants)
+      if (previousAvatarState !== this.buildAssistantAvatarStateKey(this.assistants)) {
+        this.bumpAssistantAvatarRenderTick()
+      }
       this.currentAssistantId = current.id !== '' ? current.id : DEFAULT_ASSISTANT_ID
       this.refreshSessionListProjection()
     } catch (error) {
@@ -1297,6 +1352,21 @@ struct Index {
         Column()
           .width(0)
           .height(0)
+          .bindSheet($$this.showAssistantSwitchSheet, this.AssistantSwitchSheetBuilder(), {
+            height: SheetSize.MEDIUM,
+            dragBar: true,
+            showClose: true,
+            backgroundColor: $r('app.color.background'),
+            preferType: SheetType.BOTTOM,
+            title: { title: $r('app.string.assistant_switch_title') },
+            onDisappear: () => {
+              this.showAssistantSwitchSheet = false
+            }
+          })
+
+        Column()
+          .width(0)
+          .height(0)
           .bindSheet($$this.showAssistantEditorSheet, this.AssistantEditorSheetBuilder(), {
             height: SheetSize.LARGE,
             dragBar: true,
@@ -1306,6 +1376,21 @@ struct Index {
             onDisappear: () => {
               this.showAssistantEditorSheet = false
               this.showAssistantModelSheet = false
+              this.showAssistantAvatarEditorSheet = false
+            }
+          })
+
+        Column()
+          .width(0)
+          .height(0)
+          .bindSheet($$this.showAssistantAvatarEditorSheet, this.AssistantAvatarEditorSheetBuilder(), {
+            height: SheetSize.FIT_CONTENT,
+            dragBar: true,
+            showClose: false,
+            backgroundColor: $r('app.color.background'),
+            preferType: SheetType.BOTTOM,
+            onDisappear: () => {
+              this.showAssistantAvatarEditorSheet = false
             }
           })
 
@@ -1551,12 +1636,16 @@ struct Index {
 
   private getCurrentAssistantSymbol(): string {
     const assistant = this.getCurrentAssistant()
-    return assistant !== null && assistant.avatarSymbol !== '' ? assistant.avatarSymbol : 'AI'
+    return assistant !== null ? this.normalizeAssistantAvatarSymbol(assistant.avatarSymbol) : 'AI'
   }
 
   private getCurrentAssistantColor(): string {
     const assistant = this.getCurrentAssistant()
     return assistant !== null && assistant.color !== '' ? assistant.color : this.themePrimary
+  }
+
+  private normalizeAssistantAvatarSymbol(value: string): string {
+    return normalizeAssistantAvatarValue(value)
   }
 
   private getAssistantRenderKey(assistant: Assistant): string {
@@ -1572,10 +1661,6 @@ struct Index {
 
   private getAssistantSwitchNameMaxWidth(): number {
     return Math.max(72, this.getAssistantSwitchMaxWidth() - 74)
-  }
-
-  private getAssistantMenuBackgroundColor(): string {
-    return this.isDarkMode ? '#A8212328' : '#BFFFFFFF'
   }
 
   private isTabActive(index: number): boolean {
@@ -1718,6 +1803,33 @@ struct Index {
     return timestamp
   }
 
+  private getTotalAssistantSessionCount(): number {
+    let count = 0
+    for (let i = 0; i < this.sessions.length; i++) {
+      if (this.normalizeSessionAssistantId(this.sessions[i].assistantId) !== '') {
+        count++
+      }
+    }
+    return count
+  }
+
+  private getAssistantAccentColor(assistant: Assistant): string {
+    return assistant.color !== '' ? assistant.color : this.themePrimary
+  }
+
+  private getAssistantPromptStateText(assistant: Assistant): ResourceStr {
+    return assistant.systemPrompt.trim() !== '' ? $r('app.string.assistant_prompt_configured') :
+      $r('app.string.assistant_prompt_empty')
+  }
+
+  private getAssistantPromptPreviewText(assistant: Assistant): ResourceStr {
+    return assistant.systemPrompt.trim() !== '' ? assistant.systemPrompt.trim() : $r('app.string.assistant_prompt_empty')
+  }
+
+  private getAssistantTemperatureText(assistant: Assistant): ResourceStr {
+    return assistant.temperatureEnabled ? assistant.temperature.toFixed(1) : $r('app.string.assistant_temperature_global')
+  }
+
   private getRelativeDiff(timestamp: number): number {
     const now = Date.now()
     return now > timestamp ? now - timestamp : 0
@@ -1778,17 +1890,35 @@ struct Index {
   }
 
   private async openAssistantSessions(assistant: Assistant): Promise<void> {
-    await this.switchAssistant(assistant.id)
-    this.switchToTab(Index.TAB_CHAT)
+    if (this.openingAssistantId !== '') {
+      return
+    }
+    this.getUIContext().animateTo({
+      duration: 120,
+      curve: Curve.EaseOut
+    }, () => {
+      this.openingAssistantId = assistant.id
+    })
+    setTimeout(async () => {
+      try {
+        await this.switchAssistant(assistant.id)
+        this.getUIContext().animateTo({
+          duration: 240,
+          curve: Curve.EaseOut
+        }, () => {
+          this.switchToTab(Index.TAB_CHAT)
+        })
+      } finally {
+        setTimeout(() => {
+          this.openingAssistantId = ''
+        }, 260)
+      }
+    }, 90)
   }
 
   private async openAssistantNewChat(assistant: Assistant): Promise<void> {
     await this.switchAssistant(assistant.id)
     this.openChatRoute({} as ChatPageRouteParams)
-  }
-
-  private getAssistantColorOptions(): string[] {
-    return ['#0A59F7', '#16A34A', '#DC2626', '#9333EA', '#EA580C', '#0891B2', '#475569', '#BE123C']
   }
 
   private resetAssistantEditorForm(): void {
@@ -1813,7 +1943,7 @@ struct Index {
     this.editingAssistantSortOrder = assistant.sortOrder
     this.editingAssistantIsDefault = assistant.id === DEFAULT_ASSISTANT_ID || assistant.isDefault
     this.assistantFormName = assistant.name
-    this.assistantFormAvatarSymbol = assistant.avatarSymbol !== '' ? assistant.avatarSymbol : 'AI'
+    this.assistantFormAvatarSymbol = this.normalizeAssistantAvatarSymbol(assistant.avatarSymbol)
     this.assistantFormColor = assistant.color !== '' ? assistant.color : '#0A59F7'
     this.assistantFormSystemPrompt = assistant.systemPrompt
     this.assistantFormDefaultProviderId = assistant.defaultProviderId
@@ -1821,6 +1951,12 @@ struct Index {
     this.assistantFormDefaultModelName = assistant.defaultModelName
     this.assistantFormTemperatureEnabled = assistant.temperatureEnabled
     this.assistantFormTemperature = assistant.temperature
+  }
+
+  private setAssistantFormAvatarSymbol(value: string): void {
+    this.assistantFormAvatarSymbol = this.normalizeAssistantAvatarSymbol(value)
+    this.bumpAssistantAvatarRenderTick()
+    refreshAssistantAvatarCache(this.assistantFormAvatarSymbol)
   }
 
   private async openAssistantEditorForNew(): Promise<void> {
@@ -1865,7 +2001,7 @@ struct Index {
     }
 
     const assistant = new Assistant(this.editingAssistantId, name)
-    assistant.avatarSymbol = this.assistantFormAvatarSymbol.trim() !== '' ? this.assistantFormAvatarSymbol.trim() : 'AI'
+    assistant.avatarSymbol = this.normalizeAssistantAvatarSymbol(this.assistantFormAvatarSymbol)
     assistant.color = this.assistantFormColor
     assistant.systemPrompt = this.assistantFormSystemPrompt.trim()
     assistant.defaultProviderId = this.assistantFormDefaultProviderId
@@ -1882,6 +2018,7 @@ struct Index {
     } else {
       await this.assistantService.saveAssistant(assistant)
     }
+    this.patchAssistantInMemory(assistant)
     await this.loadAssistants()
     this.showAssistantEditorSheet = false
     this.showIndexSnack($r('app.string.assistant_saved'), 1500, SnackBarTone.SUCCESS)
@@ -1992,17 +2129,64 @@ struct Index {
 
   @Builder
   private AssistantsHeader() {
-    Row() {
-      Text($r('app.string.assistant_manage_title'))
-        .fontSize(18)
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('app.color.text_primary'))
-        .layoutWeight(1)
+    Column() {
+      Row() {
+        Text($r('app.string.assistant_manage_title'))
+          .fontSize(22)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+
+        Row({ space: 8 }) {
+          this.AssistantHeaderPill(this.assistants.length.toString(), $r('app.string.assistant_total_label'))
+          this.AssistantHeaderPill(this.getTotalAssistantSessionCount().toString(), $r('app.string.assistant_sessions_label'))
+        }
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    .height(58)
-    .padding({ left: 20, right: 20 })
-    .alignItems(VerticalAlign.Center)
+    .padding({ left: 20, right: 20, top: 12, bottom: 8 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private AssistantHeaderPill(value: string, label: ResourceStr) {
+    Row({ space: 4 }) {
+      Text(value)
+        .fontSize(13)
+        .fontWeight(FontWeight.Bold)
+        .fontColor($r('app.color.text_primary'))
+      Text(label)
+        .fontSize(12)
+        .fontColor($r('app.color.text_secondary'))
+    }
+    .height(30)
+    .padding({ left: 10, right: 10 })
+    .backgroundColor($r('app.color.surface'))
+    .borderRadius(15)
+    .border({ width: 1, color: $r('app.color.divider') })
+  }
+
+  @Builder
+  private AssistantStatusBadge(label: ResourceStr, color: ResourceColor) {
+    Row({ space: 5 }) {
+      Circle()
+        .width(6)
+        .height(6)
+        .fill(color)
+      Text(label)
+        .fontSize(11)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_secondary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .height(22)
+    .padding({ left: 8, right: 8 })
+    .backgroundColor($r('app.color.background'))
+    .borderRadius(11)
+    .border({ width: 1, color: $r('app.color.divider') })
   }
 
   @Builder
@@ -2047,6 +2231,7 @@ struct Index {
         .selectable(false)
       }
       .width('100%')
+      .height(0)
       .layoutWeight(1)
       .padding({ left: this.getAssistantsListHorizontalPadding(), right: this.getAssistantsListHorizontalPadding(), top: 2 })
       .scrollBar(BarState.Off)
@@ -2160,24 +2345,24 @@ struct Index {
 
   @Builder
   private AssistantJumpCard(assistant: Assistant) {
-    HdsListItemCard({
-      textItem: {
-        customBuilder: (): void => {
-          this.AssistantJumpCardContent(assistant)
-        }
-      },
-      cardBackgroundColor: assistant.id === this.currentAssistantId ? this.themePrimaryLight : $r('app.color.surface'),
-      cardBorderRadius: 12,
-      accessibilityOptions: {
-        accessibilityText: assistant.name,
-        accessibilityGroup: {
-          isGroup: true
-        }
-      }
-    })
+    Column() {
+      this.AssistantJumpCardContent(assistant)
+    }
     .width('100%')
-    .height(76)
-    .visualEffect(buildPointLightBorderEffect())
+    .padding({ left: 14, right: 14, top: 12, bottom: 12 })
+    .backgroundColor($r('app.color.surface'))
+    .borderRadius(16)
+    .border({
+      width: assistant.id === this.currentAssistantId || this.openingAssistantId === assistant.id ? 1.5 : 1,
+      color: assistant.id === this.currentAssistantId || this.openingAssistantId === assistant.id ? this.themePrimary :
+      $r('app.color.divider')
+    })
+    .scale({
+      x: this.openingAssistantId === assistant.id ? 0.985 : 1,
+      y: this.openingAssistantId === assistant.id ? 0.985 : 1
+    })
+    .opacity(this.openingAssistantId === assistant.id ? 0.92 : 1)
+    .animation({ duration: 180, curve: Curve.EaseOut })
     .onClick(() => {
       this.openAssistantSessions(assistant)
     })
@@ -2185,56 +2370,92 @@ struct Index {
 
   @Builder
   private AssistantJumpCardContent(assistant: Assistant) {
-    Row({ space: 10 }) {
-      Text(assistant.avatarSymbol !== '' ? assistant.avatarSymbol : 'AI')
-        .fontSize(13)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(Color.White)
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .width(40)
-        .height(40)
-        .textAlign(TextAlign.Center)
-        .backgroundColor(assistant.color !== '' ? assistant.color : this.themePrimary)
-        .borderRadius(20)
+    Column({ space: 10 }) {
+      Row({ space: 12 }) {
+        this.AssistantAvatarBadge(assistant.avatarSymbol, this.getAssistantAccentColor(assistant), 44, 15, 23)
 
-      Column({ space: 4 }) {
-        Text(assistant.name)
-          .fontSize(15)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Column({ space: 5 }) {
+          Row({ space: 6 }) {
+            Text(assistant.name)
+              .fontSize(16)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.text_primary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .layoutWeight(1)
 
-        Text(this.getAssistantDefaultModelText(assistant))
-          .fontSize(12)
-          .fontColor($r('app.color.text_secondary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
+            if (assistant.id === this.currentAssistantId) {
+              this.AssistantStatusBadge($r('app.string.assistant_active_badge'), this.getAssistantAccentColor(assistant))
+            }
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
 
-      Column({ space: 5 }) {
-        this.AssistantRelativeTimeText(this.getAssistantLastChatTimestamp(assistant.id))
+          Text(this.getAssistantDefaultModelText(assistant))
+            .fontSize(12)
+            .fontColor($r('app.color.text_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
 
-        Row({ space: 6 }) {
-          Row({ space: 2 }) {
+        Column({ space: 5 }) {
+          Row({ space: 3 }) {
             SymbolGlyph($r('sys.symbol.message'))
-              .fontSize(10)
+              .fontSize(12)
               .fontColor([$r('app.color.text_tertiary')])
             Text(this.getAssistantSessionCount(assistant.id).toString())
-              .fontSize(10)
-              .fontColor($r('app.color.text_tertiary'))
+              .fontSize(12)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.text_secondary'))
           }
+          .justifyContent(FlexAlign.End)
+
+          this.AssistantRelativeTimeText(this.getAssistantLastChatTimestamp(assistant.id))
         }
-        .justifyContent(FlexAlign.End)
+        .width(74)
+        .alignItems(HorizontalAlign.End)
       }
-      .width(74)
-      .alignItems(HorizontalAlign.End)
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Row({ space: 8 }) {
+        this.AssistantListMetaItem($r('app.string.assistant_prompt_label'), this.getAssistantPromptStateText(assistant))
+        this.AssistantListMetaItem($r('app.string.assistant_temperature_override'), this.getAssistantTemperatureText(assistant))
+      }
+      .width('100%')
+
+      Text(this.getAssistantPromptPreviewText(assistant))
+        .fontSize(12)
+        .fontColor($r('app.color.text_tertiary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
     }
     .width('100%')
-    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private AssistantListMetaItem(label: ResourceStr, value: ResourceStr) {
+    Row({ space: 4 }) {
+      Text(label)
+        .fontSize(11)
+        .fontColor($r('app.color.text_tertiary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(value)
+        .fontSize(11)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_secondary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .layoutWeight(1)
+    .height(28)
+    .padding({ left: 10, right: 10 })
+    .backgroundColor($r('app.color.background'))
+    .borderRadius(10)
   }
 
   @Builder
@@ -2286,16 +2507,7 @@ struct Index {
       Scroll() {
         Row() {
           Column({ space: 14 }) {
-            this.AssistantFormTextField($r('app.string.assistant_name'), this.assistantFormName,
-              $r('app.string.assistant_name_placeholder'), (value: string): void => {
-                this.assistantFormName = value
-              })
-            this.AssistantFormTextField($r('app.string.assistant_avatar_symbol'), this.assistantFormAvatarSymbol,
-              $r('app.string.assistant_avatar_placeholder'), (value: string): void => {
-                this.assistantFormAvatarSymbol = value
-              })
-
-            this.AssistantColorPicker()
+            this.AssistantNameAvatarRow()
             this.AssistantPromptEditor()
             this.AssistantDefaultModelRow()
             this.AssistantTemperatureRow()
@@ -2360,62 +2572,70 @@ struct Index {
   }
 
   @Builder
-  private AssistantFormTextField(label: ResourceStr, value: string, placeholder: ResourceStr,
-    onChange: (value: string) => void) {
+  private AssistantAvatarBadge(symbol: string, color: ResourceColor, size: number, radius: number, fontSize: number) {
+    AssistantAvatarView({
+      value: symbol,
+      color: color,
+      avatarSize: size,
+      radius: radius,
+      fontSize: fontSize,
+      cacheKey: this.assistantAvatarRenderTick
+    })
+  }
+
+  @Builder
+  private AssistantNameAvatarRow() {
     Column({ space: 8 }) {
-      Text(label)
+      Text($r('app.string.assistant_name'))
         .fontSize(13)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.text_secondary'))
         .width('100%')
-      TextInput({ text: value, placeholder: placeholder })
-        .width('100%')
-        .height(44)
-        .fontSize(14)
-        .fontColor($r('app.color.text_primary'))
-        .placeholderColor($r('app.color.text_tertiary'))
-        .backgroundColor($r('app.color.surface'))
-        .borderRadius(16)
-        .padding({ left: 14, right: 14 })
-        .onChange((text: string) => {
-          onChange(text)
+
+      Row({ space: 12 }) {
+        TextInput({ text: this.assistantFormName, placeholder: $r('app.string.assistant_name_placeholder') })
+          .layoutWeight(1)
+          .height(52)
+          .fontSize(15)
+          .fontColor($r('app.color.text_primary'))
+          .placeholderColor($r('app.color.text_tertiary'))
+          .backgroundColor($r('app.color.surface'))
+          .borderRadius(18)
+          .padding({ left: 14, right: 14 })
+          .onChange((text: string) => {
+            this.assistantFormName = text
+          })
+
+        Button() {
+          this.AssistantAvatarBadge(this.assistantFormAvatarSymbol, this.assistantFormColor, 60, 20, 34)
+        }
+        .width(60)
+        .height(60)
+        .padding(0)
+        .backgroundColor(Color.Transparent)
+        .borderRadius(20)
+        .onClick(() => {
+          this.showAssistantAvatarEditorSheet = true
         })
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
   }
 
   @Builder
-  private AssistantColorPicker() {
-    Column({ space: 8 }) {
-      Text($r('app.string.assistant_color'))
-        .fontSize(13)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.text_secondary'))
-        .width('100%')
-
-      Row({ space: 10 }) {
-        ForEach(this.getAssistantColorOptions(), (color: string) => {
-          Stack() {
-            Circle()
-              .width(30)
-              .height(30)
-              .fill(color)
-            if (this.assistantFormColor === color) {
-              SymbolGlyph($r('sys.symbol.checkmark'))
-                .fontSize(16)
-                .fontColor([Color.White])
-            }
-          }
-          .width(34)
-          .height(34)
-          .onClick(() => {
-            this.assistantFormColor = color
-          })
-        }, (color: string) => color)
+  private AssistantAvatarEditorSheetBuilder() {
+    AssistantAvatarEditorSheet({
+      avatarValue: this.assistantFormAvatarSymbol,
+      $avatarValue: (value: string): void => {
+        this.setAssistantFormAvatarSymbol(value)
+      },
+      avatarColor: this.assistantFormColor !== '' ? this.assistantFormColor : this.themePrimary,
+      onClose: (): void => {
+        this.showAssistantAvatarEditorSheet = false
       }
-      .width('100%')
-    }
-    .width('100%')
+    })
   }
 
   @Builder
@@ -2560,17 +2780,7 @@ struct Index {
   @Builder
   private AssistantSwitchPill() {
     Row({ space: 8 }) {
-      Text(this.getCurrentAssistantSymbol())
-        .fontSize(12)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(Color.White)
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .width(28)
-        .height(28)
-        .textAlign(TextAlign.Center)
-        .backgroundColor(this.getCurrentAssistantColor())
-        .borderRadius(14)
+      this.AssistantAvatarBadge(this.getCurrentAssistantSymbol(), this.getCurrentAssistantColor(), 28, 14, 15)
 
       Text(this.getCurrentAssistantName())
         .fontSize(18)
@@ -2588,11 +2798,8 @@ struct Index {
     .padding({ left: 0, right: 10 })
     .alignItems(VerticalAlign.Center)
     .constraintSize({ maxWidth: this.getAssistantSwitchMaxWidth() })
-    .bindMenu(this.AssistantMenuBuilder(), {
-      placement: Placement.BottomLeft,
-      offset: { x: 0, y: 10 },
-      backgroundColor: this.getAssistantMenuBackgroundColor(),
-      backgroundBlurStyle: BlurStyle.Regular
+    .onClick(() => {
+      this.showAssistantSwitchSheet = true
     })
     .transition(TransitionEffect.OPACITY.animation({
       duration: 200,
@@ -2601,31 +2808,117 @@ struct Index {
   }
 
   @Builder
-  private AssistantMenuBuilder() {
-    Menu() {
-      ForEach(this.assistants, (assistant: Assistant) => {
-        this.AssistantMenuItem(assistant)
-      }, (assistant: Assistant) => this.getAssistantRenderKey(assistant))
+  private AssistantSwitchSheetBuilder() {
+    Column() {
+      if (this.assistants.length === 0) {
+        Column() {
+          IndexEmptyStateCard({
+            icon: $r('sys.symbol.person'),
+            title: $r('app.string.assistant_manage_title'),
+            description: $r('app.string.loading')
+          })
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+      } else {
+        List({ space: 8 }) {
+          ForEach(this.assistants, (assistant: Assistant) => {
+            ListItem({ style: ListItemStyle.NONE }) {
+              this.AssistantSwitchSheetRow(assistant)
+            }
+          }, (assistant: Assistant) => this.getAssistantRenderKey(assistant))
+
+          ListItem() {
+            Column()
+              .height(24)
+          }
+          .focusable(false)
+          .selectable(false)
+        }
+        .width('100%')
+        .height(0)
+        .layoutWeight(1)
+        .padding({ left: 16, right: 16, top: 6 })
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+        .cachedCount(4)
+      }
     }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('app.color.background'))
   }
 
   @Builder
-  private AssistantMenuItem(assistant: Assistant) {
-    if (assistant.id === this.currentAssistantId) {
-      MenuItem({
-        startIcon: $r('sys.symbol.checkmark'),
-        content: assistant.name
-      })
-        .contentFont({ size: 14 })
-    } else {
-      MenuItem({
-        content: assistant.name
-      })
-        .contentFont({ size: 14 })
-        .onClick(() => {
+  private AssistantSwitchSheetRow(assistant: Assistant) {
+    Row({ space: 12 }) {
+      this.AssistantAvatarBadge(assistant.avatarSymbol, this.getAssistantAccentColor(assistant), 42, 14, 22)
+
+      Column({ space: 5 }) {
+        Row({ space: 6 }) {
+          Text(assistant.name)
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.text_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+
+          if (assistant.id === this.currentAssistantId) {
+            this.AssistantStatusBadge($r('app.string.assistant_active_badge'), this.getAssistantAccentColor(assistant))
+          }
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        Row({ space: 8 }) {
+          Text(this.getAssistantDefaultModelText(assistant))
+            .fontSize(12)
+            .fontColor($r('app.color.text_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+
+          Row({ space: 3 }) {
+            SymbolGlyph($r('sys.symbol.message'))
+              .fontSize(11)
+              .fontColor([$r('app.color.text_tertiary')])
+            Text(this.getAssistantSessionCount(assistant.id).toString())
+              .fontSize(12)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.text_secondary'))
+          }
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      SymbolGlyph(assistant.id === this.currentAssistantId ? $r('sys.symbol.checkmark_circle_fill') :
+      $r('sys.symbol.chevron_right'))
+        .fontSize(18)
+        .fontColor([assistant.id === this.currentAssistantId ? this.getAssistantAccentColor(assistant) :
+        $r('app.color.text_tertiary')])
+    }
+    .width('100%')
+    .constraintSize({ minHeight: 70 })
+    .padding({ left: 14, right: 14, top: 12, bottom: 12 })
+    .backgroundColor($r('app.color.surface'))
+    .borderRadius(16)
+    .border({ width: 1, color: $r('app.color.divider') })
+    .onClick(() => {
+      this.showAssistantSwitchSheet = false
+      if (assistant.id !== this.currentAssistantId) {
+        this.getUIContext().animateTo({
+          duration: 180,
+          curve: Curve.EaseOut
+        }, () => {
           this.switchAssistant(assistant.id)
         })
-    }
+      }
+    })
   }
 
   @Builder

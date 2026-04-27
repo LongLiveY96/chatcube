@@ -1,16 +1,20 @@
 import { Assistant, DEFAULT_ASSISTANT_ID } from '../models/AssistantModels'
 import { ModelProvider } from '../models/ChatModels'
-import { HdsListItemCard } from '@kit.UIDesignKit'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { AssistantService } from '../services/AssistantService'
 import { ProviderViewModel } from '../viewmodels/ProviderViewModel'
 import { ModelSelectorContent } from '../components/ModelSelector'
 import { SettingsCompactPageHeader } from '../components/settings/SettingsCompactPageHeader'
 import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentation'
+import {
+  AssistantAvatarView,
+  normalizeAssistantAvatarValue,
+  refreshAssistantAvatarCache
+} from '../components/AssistantAvatar'
+import { AssistantAvatarEditorSheet } from '../components/AssistantAvatarEditorSheet'
 import { getSettingsPageContentMaxWidth, getSettingsPageCompactTabsTotalInset } from '../utils/SettingsPageLayoutHelper'
 import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
 import { getAppUiState } from '../state/AppUiState'
-import { buildPointLightBorderEffect } from '../utils/HdsVisualEffectUtil'
 
 let assistantManagePathStack: NavPathStack | null = null
 
@@ -57,8 +61,16 @@ struct AssistantManagePage {
     return getAppUiState().themePrimary
   }
 
-  private get themePrimaryLight(): string {
-    return getAppUiState().themePrimaryLight
+  @Computed
+  get assistantAvatarRefreshAt(): number {
+    return getAppUiState().assistantAvatarRefreshAt
+  }
+
+  @Monitor('assistantAvatarRefreshAt')
+  onAssistantAvatarRefreshMonitor(): void {
+    if (this.assistantAvatarRefreshAt > 0) {
+      this.bumpAssistantAvatarRenderTick()
+    }
   }
 
   @Local assistants: Assistant[] = []
@@ -78,6 +90,8 @@ struct AssistantManagePage {
   @Local formTemperatureEnabled: boolean = false
   @Local formTemperature: number = 0.7
   @Local showModelSheet: boolean = false
+  @Local showAvatarEditorSheet: boolean = false
+  @Local assistantAvatarRenderTick: number = 0
   @Local consumedInitialAction: boolean = false
 
   private assistantService: AssistantService = ServiceRegistry.assistant()
@@ -119,8 +133,12 @@ struct AssistantManagePage {
   }
 
   private async loadData(): Promise<void> {
+    const previousAvatarState = this.buildAssistantAvatarStateKey(this.assistants)
     this.providers = await this.providerViewModel.loadProviders()
     this.assistants = await this.assistantService.getAllAssistants()
+    if (previousAvatarState !== this.buildAssistantAvatarStateKey(this.assistants)) {
+      this.bumpAssistantAvatarRenderTick()
+    }
     if (!this.consumedInitialAction && this.initialAction === 'new') {
       this.consumedInitialAction = true
       this.startNewAssistant()
@@ -138,7 +156,7 @@ struct AssistantManagePage {
     this.editingSortOrder = assistant.sortOrder
     this.editingIsDefault = assistant.id === DEFAULT_ASSISTANT_ID || assistant.isDefault
     this.formName = assistant.name
-    this.formAvatarSymbol = assistant.avatarSymbol !== '' ? assistant.avatarSymbol : 'AI'
+    this.formAvatarSymbol = this.normalizeAvatarSymbol(assistant.avatarSymbol)
     this.formColor = assistant.color !== '' ? assistant.color : '#0A59F7'
     this.formSystemPrompt = assistant.systemPrompt
     this.formDefaultProviderId = assistant.defaultProviderId
@@ -165,12 +183,78 @@ struct AssistantManagePage {
     this.formTemperature = 0.7
   }
 
-  private getColorOptions(): string[] {
-    return ['#0A59F7', '#16A34A', '#DC2626', '#9333EA', '#EA580C', '#0891B2', '#475569', '#BE123C']
+  private patchAssistantInMemory(assistant: Assistant): void {
+    const nextAssistants: Assistant[] = []
+    let replaced = false
+    for (let i = 0; i < this.assistants.length; i++) {
+      if (this.assistants[i].id === assistant.id) {
+        nextAssistants.push(assistant)
+        replaced = true
+      } else {
+        nextAssistants.push(this.assistants[i])
+      }
+    }
+    if (replaced) {
+      this.assistants = nextAssistants
+      this.bumpAssistantAvatarRenderTick()
+    }
+  }
+
+  private buildAssistantAvatarStateKey(assistants: Assistant[]): string {
+    const parts: string[] = []
+    for (let i = 0; i < assistants.length; i++) {
+      parts.push(`${assistants[i].id}:${assistants[i].avatarSymbol}:${assistants[i].color}`)
+    }
+    return parts.join('|')
+  }
+
+  private bumpAssistantAvatarRenderTick(): void {
+    const now = Date.now()
+    this.assistantAvatarRenderTick = now > this.assistantAvatarRenderTick ? now : this.assistantAvatarRenderTick + 1
   }
 
   private getDefaultModelText(): ResourceStr {
     return this.formDefaultModelName !== '' ? this.formDefaultModelName : $r('app.string.assistant_model_follow_global')
+  }
+
+  private getAssistantDefaultModelText(assistant: Assistant): ResourceStr {
+    return assistant.defaultModelName !== '' ? assistant.defaultModelName : $r('app.string.assistant_model_follow_global')
+  }
+
+  private getAssistantAccentColor(assistant: Assistant): string {
+    return assistant.color !== '' ? assistant.color : this.themePrimary
+  }
+
+  private getCurrentFormAccentColor(): string {
+    return this.formColor !== '' ? this.formColor : this.themePrimary
+  }
+
+  private normalizeAvatarSymbol(value: string): string {
+    return normalizeAssistantAvatarValue(value)
+  }
+
+  private setFormAvatarSymbol(value: string): void {
+    this.formAvatarSymbol = this.normalizeAvatarSymbol(value)
+    this.bumpAssistantAvatarRenderTick()
+    refreshAssistantAvatarCache(this.formAvatarSymbol)
+  }
+
+  private getAssistantPromptStateText(assistant: Assistant): ResourceStr {
+    return assistant.systemPrompt.trim() !== '' ? $r('app.string.assistant_prompt_configured') :
+      $r('app.string.assistant_prompt_empty')
+  }
+
+  private getAssistantTemperatureText(assistant: Assistant): ResourceStr {
+    return assistant.temperatureEnabled ? assistant.temperature.toFixed(1) : $r('app.string.assistant_temperature_global')
+  }
+
+  private getFormPromptStateText(): ResourceStr {
+    return this.formSystemPrompt.trim() !== '' ? $r('app.string.assistant_prompt_configured') :
+      $r('app.string.assistant_prompt_empty')
+  }
+
+  private getFormTemperatureText(): ResourceStr {
+    return this.formTemperatureEnabled ? this.formTemperature.toFixed(1) : $r('app.string.assistant_temperature_global')
   }
 
   private clearDefaultModel(): void {
@@ -187,7 +271,7 @@ struct AssistantManagePage {
     }
 
     const assistant = new Assistant(this.editingAssistantId, name)
-    assistant.avatarSymbol = this.formAvatarSymbol.trim() !== '' ? this.formAvatarSymbol.trim() : 'AI'
+    assistant.avatarSymbol = this.normalizeAvatarSymbol(this.formAvatarSymbol)
     assistant.color = this.formColor
     assistant.systemPrompt = this.formSystemPrompt.trim()
     assistant.defaultProviderId = this.formDefaultProviderId
@@ -204,8 +288,10 @@ struct AssistantManagePage {
     } else {
       await this.assistantService.saveAssistant(assistant)
     }
+    this.patchAssistantInMemory(assistant)
     await this.loadData()
-    this.selectAssistant(assistant)
+    const savedAssistant = this.assistants.find((item: Assistant) => item.id === assistant.id)
+    this.selectAssistant(savedAssistant !== undefined ? savedAssistant : assistant)
     this.showPageSnack($r('app.string.assistant_saved'), SnackBarTone.SUCCESS)
   }
 
@@ -297,28 +383,32 @@ struct AssistantManagePage {
       Row() {
         Column({ space: 16 }) {
           if (!this.isDetailPaneMode()) {
-            Row() {
-              Text($r('app.string.assistant_manage_title'))
-                .fontSize(20)
-                .fontWeight(FontWeight.Bold)
-                .fontColor($r('app.color.text_primary'))
-                .layoutWeight(1)
+            Column() {
+              Row() {
+                Text($r('app.string.assistant_manage_title'))
+                  .fontSize(22)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.text_primary'))
+                  .layoutWeight(1)
 
-              Button() {
-                SymbolGlyph($r('sys.symbol.plus'))
-                  .fontSize(18)
-                  .fontColor([Color.White])
+                Button() {
+                  SymbolGlyph($r('sys.symbol.plus'))
+                    .fontSize(18)
+                    .fontColor([Color.White])
+                }
+                .width(36)
+                .height(36)
+                .borderRadius(18)
+                .backgroundColor(this.themePrimary)
+                .onClick(() => {
+                  this.startNewAssistant()
+                })
               }
-              .width(36)
-              .height(36)
-              .borderRadius(18)
-              .backgroundColor(this.themePrimary)
-              .onClick(() => {
-                this.startNewAssistant()
-              })
+              .width('100%')
+              .alignItems(VerticalAlign.Center)
             }
             .width('100%')
-            .alignItems(VerticalAlign.Center)
+            .alignItems(HorizontalAlign.Start)
           }
 
           this.AssistantListCard()
@@ -351,23 +441,17 @@ struct AssistantManagePage {
 
   @Builder
   private AssistantRow(assistant: Assistant) {
-    HdsListItemCard({
-      textItem: {
-        customBuilder: (): void => {
-          this.AssistantRowContent(assistant)
-        }
-      },
-      cardBackgroundColor: assistant.id === this.editingAssistantId ? this.themePrimaryLight : $r('app.color.surface'),
-      cardBorderRadius: 16,
-      accessibilityOptions: {
-        accessibilityText: assistant.name,
-        accessibilityGroup: {
-          isGroup: true
-        }
-      }
-    })
+    Column() {
+      this.AssistantRowContent(assistant)
+    }
     .width('100%')
-    .visualEffect(buildPointLightBorderEffect())
+    .padding({ left: 14, right: 14, top: 12, bottom: 12 })
+    .backgroundColor($r('app.color.surface'))
+    .borderRadius(16)
+    .border({
+      width: assistant.id === this.editingAssistantId ? 1.5 : 1,
+      color: assistant.id === this.editingAssistantId ? this.themePrimary : $r('app.color.divider')
+    })
     .onClick(() => {
       this.selectAssistant(assistant)
     })
@@ -375,72 +459,104 @@ struct AssistantManagePage {
 
   @Builder
   private AssistantRowContent(assistant: Assistant) {
-    Row({ space: 12 }) {
-      Text(assistant.avatarSymbol !== '' ? assistant.avatarSymbol : 'AI')
-        .fontSize(12)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(Color.White)
-        .width(34)
-        .height(34)
-        .textAlign(TextAlign.Center)
-        .backgroundColor(assistant.color !== '' ? assistant.color : this.themePrimary)
-        .borderRadius(17)
+    Column({ space: 10 }) {
+      Row({ space: 12 }) {
+        this.AssistantAvatarBadge(assistant.avatarSymbol, this.getAssistantAccentColor(assistant), 44, 15, 23)
 
-      Column({ space: 2 }) {
-        Text(assistant.name)
-          .fontSize(15)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(assistant.isDefault ? $r('app.string.assistant_default_badge') :
-          $r('app.string.assistant_custom_badge'))
-          .fontSize(11)
-          .fontColor($r('app.color.text_secondary'))
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
+        Column({ space: 5 }) {
+          Row({ space: 6 }) {
+            Text(assistant.name)
+              .fontSize(16)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.text_primary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .layoutWeight(1)
 
-      if (assistant.id === this.editingAssistantId) {
-        SymbolGlyph($r('sys.symbol.checkmark'))
-          .fontSize(18)
-          .fontColor([this.themePrimary])
-      }
+            Text(assistant.isDefault ? $r('app.string.assistant_default_badge') :
+              $r('app.string.assistant_custom_badge'))
+              .fontSize(11)
+              .fontColor($r('app.color.text_secondary'))
+              .height(22)
+              .padding({ left: 8, right: 8 })
+              .backgroundColor($r('app.color.background'))
+              .borderRadius(11)
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
 
-      if (assistant.id !== DEFAULT_ASSISTANT_ID && !assistant.isDefault) {
-        Button() {
-          SymbolGlyph($r('sys.symbol.trash'))
-            .fontSize(17)
-            .fontColor([$r('app.color.status_error')])
+          Text(this.getAssistantDefaultModelText(assistant))
+            .fontSize(12)
+            .fontColor($r('app.color.text_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
-        .type(ButtonType.Normal)
-        .stateEffect(false)
-        .width(36)
-        .height(36)
-        .borderRadius(18)
-        .backgroundColor(Color.Transparent)
-        .onClick(() => {
-          this.deleteAssistant(assistant)
-        })
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        if (assistant.id === this.editingAssistantId) {
+          SymbolGlyph($r('sys.symbol.checkmark'))
+            .fontSize(18)
+            .fontColor([this.getAssistantAccentColor(assistant)])
+        }
+
+        if (assistant.id !== DEFAULT_ASSISTANT_ID && !assistant.isDefault) {
+          Button() {
+            SymbolGlyph($r('sys.symbol.trash'))
+              .fontSize(17)
+              .fontColor([$r('app.color.status_error')])
+          }
+          .type(ButtonType.Normal)
+          .stateEffect(false)
+          .width(36)
+          .height(36)
+          .borderRadius(18)
+          .backgroundColor(Color.Transparent)
+          .onClick(() => {
+            this.deleteAssistant(assistant)
+          })
+        }
       }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Row({ space: 8 }) {
+        this.AssistantRowMeta($r('app.string.assistant_prompt_label'), this.getAssistantPromptStateText(assistant))
+        this.AssistantRowMeta($r('app.string.assistant_temperature_override'), this.getAssistantTemperatureText(assistant))
+      }
+      .width('100%')
     }
     .width('100%')
-    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private AssistantRowMeta(label: ResourceStr, value: ResourceStr) {
+    Row({ space: 4 }) {
+      Text(label)
+        .fontSize(11)
+        .fontColor($r('app.color.text_tertiary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(value)
+        .fontSize(11)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_secondary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .layoutWeight(1)
+    .height(28)
+    .padding({ left: 10, right: 10 })
+    .backgroundColor($r('app.color.background'))
+    .borderRadius(10)
   }
 
   @Builder
   private AssistantEditorCard() {
     Column({ space: 14 }) {
-      this.FormTextField($r('app.string.assistant_name'), this.formName, $r('app.string.assistant_name_placeholder'),
-        (value: string): void => {
-          this.formName = value
-        })
-      this.FormTextField($r('app.string.assistant_avatar_symbol'), this.formAvatarSymbol,
-        $r('app.string.assistant_avatar_placeholder'), (value: string): void => {
-          this.formAvatarSymbol = value
-        })
+      this.AssistantEditorPreview()
 
-      this.ColorPicker()
+      this.NameAvatarRow()
 
       Text($r('app.string.assistant_prompt'))
         .fontSize(13)
@@ -504,61 +620,169 @@ struct AssistantManagePage {
   }
 
   @Builder
-  private FormTextField(label: ResourceStr, value: string, placeholder: ResourceStr, onChange: (value: string) => void) {
-    Column({ space: 8 }) {
+  private AssistantEditorPreview() {
+    Column({ space: 12 }) {
+      Row({ space: 12 }) {
+        this.AssistantAvatarBadge(this.formAvatarSymbol, this.getCurrentFormAccentColor(), 52, 18, 28)
+
+        Column({ space: 5 }) {
+          Row({ space: 6 }) {
+            this.AssistantEditorStatusBadge(this.editingAssistantId === '' ? $r('app.string.new_assistant') :
+              $r('app.string.edit_assistant'))
+
+            Text(this.editingIsDefault ? $r('app.string.assistant_default_badge') :
+              $r('app.string.assistant_custom_badge'))
+              .fontSize(11)
+              .fontColor($r('app.color.text_secondary'))
+              .height(22)
+              .padding({ left: 8, right: 8 })
+              .backgroundColor($r('app.color.background'))
+              .borderRadius(11)
+          }
+          .width('100%')
+
+          Text(this.formName.trim() !== '' ? this.formName.trim() : $r('app.string.assistant_name_placeholder'))
+            .fontSize(18)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.text_primary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Row({ space: 8 }) {
+        this.AssistantEditorMetric($r('app.string.assistant_model_label'), this.getDefaultModelText())
+        this.AssistantEditorMetric($r('app.string.assistant_prompt_label'), this.getFormPromptStateText())
+      }
+      .width('100%')
+
+      Row({ space: 8 }) {
+        this.AssistantEditorMetric($r('app.string.assistant_temperature_override'), this.getFormTemperatureText())
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding(14)
+    .backgroundColor($r('app.color.background'))
+    .borderRadius(16)
+  }
+
+  @Builder
+  private AssistantEditorMetric(label: ResourceStr, value: ResourceStr) {
+    Column({ space: 3 }) {
+      Text(value)
+        .fontSize(13)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
       Text(label)
+        .fontSize(11)
+        .fontColor($r('app.color.text_tertiary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+    }
+    .layoutWeight(1)
+    .height(50)
+    .padding({ left: 12, right: 12 })
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Start)
+    .backgroundColor($r('app.color.surface'))
+    .borderRadius(12)
+  }
+
+  @Builder
+  private AssistantEditorStatusBadge(label: ResourceStr) {
+    Row({ space: 5 }) {
+      Circle()
+        .width(6)
+        .height(6)
+        .fill(this.getCurrentFormAccentColor())
+      Text(label)
+        .fontSize(11)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_secondary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .height(22)
+    .padding({ left: 8, right: 8 })
+    .backgroundColor($r('app.color.background'))
+    .borderRadius(11)
+    .border({ width: 1, color: $r('app.color.divider') })
+  }
+
+  @Builder
+  private AssistantAvatarBadge(symbol: string, color: ResourceColor, size: number, radius: number, fontSize: number) {
+    AssistantAvatarView({
+      value: symbol,
+      color: color,
+      avatarSize: size,
+      radius: radius,
+      fontSize: fontSize,
+      cacheKey: this.assistantAvatarRenderTick
+    })
+  }
+
+  @Builder
+  private NameAvatarRow() {
+    Column({ space: 8 }) {
+      Text($r('app.string.assistant_name'))
         .fontSize(13)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('app.color.text_secondary'))
         .width('100%')
-      TextInput({ text: value, placeholder: placeholder })
-        .width('100%')
-        .height(44)
-        .fontSize(14)
-        .fontColor($r('app.color.text_primary'))
-        .placeholderColor($r('app.color.text_tertiary'))
-        .backgroundColor($r('app.color.background'))
-        .borderRadius(16)
-        .padding({ left: 14, right: 14 })
-        .onChange((text: string) => {
-          onChange(text)
+
+      Row({ space: 12 }) {
+        TextInput({ text: this.formName, placeholder: $r('app.string.assistant_name_placeholder') })
+          .layoutWeight(1)
+          .height(52)
+          .fontSize(15)
+          .fontColor($r('app.color.text_primary'))
+          .placeholderColor($r('app.color.text_tertiary'))
+          .backgroundColor($r('app.color.background'))
+          .borderRadius(18)
+          .padding({ left: 14, right: 14 })
+          .onChange((text: string) => {
+            this.formName = text
+          })
+
+        Button() {
+          this.AssistantAvatarBadge(this.formAvatarSymbol, this.getCurrentFormAccentColor(), 60, 20, 34)
+        }
+        .width(60)
+        .height(60)
+        .padding(0)
+        .backgroundColor(Color.Transparent)
+        .borderRadius(20)
+        .onClick(() => {
+          this.showAvatarEditorSheet = true
         })
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
   }
 
   @Builder
-  private ColorPicker() {
-    Column({ space: 8 }) {
-      Text($r('app.string.assistant_color'))
-        .fontSize(13)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.text_secondary'))
-        .width('100%')
-
-      Row({ space: 10 }) {
-        ForEach(this.getColorOptions(), (color: string) => {
-          Stack() {
-            Circle()
-              .width(30)
-              .height(30)
-              .fill(color)
-            if (this.formColor === color) {
-              SymbolGlyph($r('sys.symbol.checkmark'))
-                .fontSize(16)
-                .fontColor([Color.White])
-            }
-          }
-          .width(34)
-          .height(34)
-          .onClick(() => {
-            this.formColor = color
-          })
-        }, (color: string) => color)
+  private AvatarEditorSheetBuilder() {
+    AssistantAvatarEditorSheet({
+      avatarValue: this.formAvatarSymbol,
+      $avatarValue: (value: string): void => {
+        this.setFormAvatarSymbol(value)
+      },
+      avatarColor: this.getCurrentFormAccentColor(),
+      onClose: (): void => {
+        this.showAvatarEditorSheet = false
       }
-      .width('100%')
-    }
-    .width('100%')
+    })
   }
 
   @Builder
@@ -697,6 +921,20 @@ struct AssistantManagePage {
           dragBar: true,
           showClose: true,
           title: { title: $r('app.string.assistant_default_model') }
+        })
+
+      Column()
+        .width(0)
+        .height(0)
+        .bindSheet($$this.showAvatarEditorSheet, this.AvatarEditorSheetBuilder(), {
+          height: SheetSize.FIT_CONTENT,
+          dragBar: true,
+          showClose: false,
+          backgroundColor: $r('app.color.background'),
+          preferType: SheetType.BOTTOM,
+          onDisappear: () => {
+            this.showAvatarEditorSheet = false
+          }
         })
     }
     .width('100%')

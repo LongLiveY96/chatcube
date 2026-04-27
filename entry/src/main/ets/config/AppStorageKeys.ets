@@ -4,6 +4,7 @@ export class AppStorageKeys {
   static readonly OPEN_NEW_CHAT: string = 'openNewChat'
   static readonly OPEN_SESSION_PAYLOAD: string = 'openSessionPayload'
   static readonly SESSION_LIST_REFRESH_AT: string = 'session_list_refresh_at'
+  static readonly ASSISTANT_AVATAR_REFRESH_AT: string = 'assistant_avatar_refresh_at'
   static readonly SCREENSHOT_DISMISSED_TS: string = 'screenshot_dismissed_ts'
   static readonly TASK_EVENT_TICK: string = 'task_event_tick'
   static readonly IN_APP_TASK_ALERT_PAYLOAD: string = 'in_app_task_alert_payload'

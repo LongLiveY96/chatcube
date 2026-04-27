@@ -1709,6 +1709,38 @@
       "value": "助手"
     },
     {
+      "name": "assistant_switch_title",
+      "value": "切换助手"
+    },
+    {
+      "name": "assistant_total_label",
+      "value": "助手"
+    },
+    {
+      "name": "assistant_active_badge",
+      "value": "当前"
+    },
+    {
+      "name": "assistant_model_label",
+      "value": "模型"
+    },
+    {
+      "name": "assistant_prompt_label",
+      "value": "提示词"
+    },
+    {
+      "name": "assistant_prompt_configured",
+      "value": "已配置"
+    },
+    {
+      "name": "assistant_prompt_empty",
+      "value": "未配置"
+    },
+    {
+      "name": "assistant_temperature_global",
+      "value": "全局"
+    },
+    {
       "name": "new_assistant",
       "value": "新建助手"
     },
@@ -1738,11 +1770,91 @@
     },
     {
       "name": "assistant_avatar_symbol",
-      "value": "头像符号"
+      "value": "头像"
     },
     {
       "name": "assistant_avatar_placeholder",
-      "value": "AI"
+      "value": "AI / 🤖"
+    },
+    {
+      "name": "assistant_avatar_quick_pick",
+      "value": "快速选择"
+    },
+    {
+      "name": "assistant_avatar_type_symbol",
+      "value": "符号"
+    },
+    {
+      "name": "assistant_avatar_type_image",
+      "value": "图片链接"
+    },
+    {
+      "name": "assistant_avatar_type_qq",
+      "value": "QQ头像"
+    },
+    {
+      "name": "assistant_avatar_image_url",
+      "value": "图片链接"
+    },
+    {
+      "name": "assistant_avatar_image_placeholder",
+      "value": "https://example.com/avatar.png"
+    },
+    {
+      "name": "assistant_avatar_qq_number",
+      "value": "QQ 号"
+    },
+    {
+      "name": "assistant_avatar_qq_placeholder",
+      "value": "输入 QQ 号"
+    },
+    {
+      "name": "assistant_avatar_reset",
+      "value": "重置"
+    },
+    {
+      "name": "assistant_avatar_edit_title",
+      "value": "编辑头像"
+    },
+    {
+      "name": "assistant_avatar_source_text",
+      "value": "文字"
+    },
+    {
+      "name": "assistant_avatar_source_link",
+      "value": "链接"
+    },
+    {
+      "name": "assistant_avatar_source_gallery",
+      "value": "图库"
+    },
+    {
+      "name": "assistant_avatar_text_label",
+      "value": "文字或 emoji"
+    },
+    {
+      "name": "assistant_avatar_text_placeholder",
+      "value": "AI / 🤖"
+    },
+    {
+      "name": "assistant_avatar_link_label",
+      "value": "图片链接"
+    },
+    {
+      "name": "assistant_avatar_link_placeholder",
+      "value": "http://example.com/avatar.png"
+    },
+    {
+      "name": "assistant_avatar_random_qq",
+      "value": "随机 QQ"
+    },
+    {
+      "name": "assistant_avatar_gallery_hint",
+      "value": "从图库选择一张图片作为头像。"
+    },
+    {
+      "name": "assistant_avatar_pick_gallery",
+      "value": "选择图片"
     },
     {
       "name": "assistant_color",
