@@ -1,9 +1,18 @@
-import { curves } from '@kit.ArkUI'
+import { curves, LengthMetrics } from '@kit.ArkUI'
 import { ConfigurationConstant, common } from '@kit.AbilityKit'
 import { notificationManager } from '@kit.NotificationKit'
 import { motion } from '@kit.MultimodalAwarenessKit'
 import { BusinessError } from '@kit.BasicServicesKit'
-import { HdsTabs, HdsTabsFloatingStyle, hdsMaterial } from '@kit.UIDesignKit'
+import {
+  BlurStrategy,
+  HdsNavigation,
+  HdsNavigationTitleBarOptions,
+  HdsNavigationTitleMode,
+  HdsTabs,
+  HdsTabsFloatingStyle,
+  ScrollEffectType,
+  hdsMaterial
+} from '@kit.UIDesignKit'
 import { ChatSession, ChatMessage, ModelProvider } from '../models/ChatModels'
 import { Assistant, DEFAULT_ASSISTANT_ID } from '../models/AssistantModels'
 import { ChatViewModel } from '../viewmodels/ChatViewModel'
@@ -130,7 +139,6 @@ struct Index {
   @Local assistantFormDefaultModelName: string = ''
   @Local assistantFormTemperatureEnabled: boolean = false
   @Local assistantFormTemperature: number = 0.7
-  @Local compactChatHeaderHeight: number = 0
   @Local tabletDetailSessionId: string = ''
   private get activeChatSessionId(): string {
     return getAppUiState().activeChatSessionId
@@ -222,7 +230,6 @@ struct Index {
   }
   @Monitor('isMultiSelectMode')
   onMultiSelectModeMonitor(): void {
-    this.compactChatHeaderHeight = 0
     this.compactMultiSelectToolbarHeightVp = 0
   }
   // 多选模式状态
@@ -984,7 +991,7 @@ struct Index {
   }
 
   private getCompactChatHeaderOverlayHeight(): number {
-    return this.compactChatHeaderHeight > 0 ? this.compactChatHeaderHeight : this.getCompactChatHeaderDefaultHeight()
+    return this.getCompactChatHeaderDefaultHeight()
   }
 
   private getChatListTopSpacerHeight(): number {
@@ -997,14 +1004,6 @@ struct Index {
       return 0
     }
     return height
-  }
-
-  private handleCompactChatHeaderAreaChange(area: Area): void {
-    const nextHeight = this.readMeasuredAreaHeight(area)
-    if (nextHeight <= 0 || Math.abs(nextHeight - this.compactChatHeaderHeight) < 0.5) {
-      return
-    }
-    this.compactChatHeaderHeight = nextHeight
   }
 
   private handleCompactMultiSelectToolbarAreaChange(area: Area): void {
@@ -1772,12 +1771,80 @@ struct Index {
 
   @Builder
   ChatTab() {
-    Column() {
+    HdsNavigation() {
       this.ChatListPanel()
     }
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.background'))
+    .titleBar(this.getCompactChatTitleBarOptions())
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .hideBackButton(true)
+    .hideToolBar(true)
+    .mode(NavigationMode.Stack)
+    .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
+  }
+
+  private getCompactChatTitleBarOptions(): HdsNavigationTitleBarOptions {
+    return {
+      padding: {
+        start: LengthMetrics.vp(0),
+        end: LengthMetrics.vp(0)
+      },
+      content: {
+        title: {
+          mainTitle: ' '
+        },
+        stackBuilder: (): void => this.CompactChatTitleStackBuilder(),
+        bottomBuilder: this.isMultiSelectMode ? undefined : {
+          builder: (): void => this.CompactChatTitleBottomBuilder(),
+          height: 36
+        }
+      },
+      style: {
+        scrollEffectOpts: {
+          enableScrollEffect: false,
+          scrollEffectType: ScrollEffectType.GRADIENT_BLUR
+        },
+        originalStyle: {
+          backgroundStyle: {
+            maskExtraHeight: 16,
+            blurRadius: 12
+          }
+        },
+        scrollEffectStyle: {
+          backgroundStyle: {
+            maskExtraHeight: 16,
+            blurRadius: 12
+          }
+        },
+        blurStrategy: BlurStrategy.ENABLE,
+        systemMaterialEffect: {
+          materialType: this.materialType as hdsMaterial.MaterialType,
+          materialLevel: this.materialLevel as hdsMaterial.MaterialLevel
+        }
+      },
+      avoidLayoutSafeArea: true,
+      enableComponentSafeArea: false
+    }
+  }
+
+  @Builder
+  private CompactChatTitleStackBuilder() {
+    Column() {
+      this.ChatListHeaderMainRow()
+    }
+    .width('100%')
+    .height(56)
+  }
+
+  @Builder
+  private CompactChatTitleBottomBuilder() {
+    Column() {
+      this.ChatListHeaderFilterBar()
+    }
+    .width('100%')
+    .height(36)
   }
 
   private getAssistantSessionCount(assistantId: string): number {
@@ -2930,113 +2997,111 @@ struct Index {
           .height(this.px2vp(this.topAvoidHeight))
       }
 
-      if (!this.isMultiSelectMode) {
-        Row() {
-          if (!this.isSearchExpanded) {
-            this.AssistantSwitchPill()
-          }
-
-          if (this.isSearchExpanded) {
-            Row({ space: 8 }) {
-              SymbolGlyph($r('sys.symbol.magnifyingglass'))
-                .fontSize(18)
-                .fontColor([$r('app.color.text_tertiary')])
-
-              TextInput({ text: this.searchText, placeholder: $r('app.string.search_sessions_placeholder') })
-                .id(this.searchInputFocusId)
-                .layoutWeight(1)
-                .height(36)
-                .fontSize(14)
-                .fontColor($r('app.color.text_primary'))
-                .backgroundColor(Color.Transparent)
-                .padding({ left: 2, right: 0 })
-                .caretColor(this.themePrimary)
-                .placeholderColor($r('app.color.text_tertiary'))
-                .onChange((value: string) => {
-                  this.searchText = value
-                  this.refreshSessionListProjection()
-                })
-                .onSubmit(() => {
-                  if (this.searchText.trim() === '') {
-                    this.collapseSearch()
-                  }
-                })
-            }
-            .layoutWeight(1)
-            .height(40)
-            .padding({ left: 12, right: 12 })
-            .alignItems(VerticalAlign.Center)
-            .backgroundColor($r('app.color.surface'))
-            .borderRadius(20)
-            .geometryTransition('SEARCH_BAR_ID', { follow: true })
-            .transition(TransitionEffect.OPACITY)
-
-            Text($r('app.string.cancel'))
-              .fontSize(15)
-              .fontColor(this.themePrimary)
-              .margin({ left: 12 })
-              .onClick(() => {
-                this.collapseSearch()
-              })
-              .transition(TransitionEffect.asymmetric(
-                TransitionEffect.OPACITY.combine(TransitionEffect.translate({ x: 20 }))
-                  .animation({ duration: 250, curve: Curve.EaseOut }),
-                TransitionEffect.OPACITY.animation({ duration: 150 })
-              ))
-          } else {
-            Blank()
-            this.CollapsedSearchActionButton()
-          }
-        }
-        .width('100%')
-        .height(56)
-        .padding({ left: 8, right: 8 })
-        .alignItems(VerticalAlign.Center)
-
-        IndexFilterBar({
-          currentFilter: this.currentSessionFilter,
-          countText: this.getFilterCountText(),
-          onFilterChange: (filterType: SessionFilterType): void => {
-            this.currentSessionFilter = filterType
-            this.refreshSessionListProjection()
-          }
-        })
-      } else {
-        Row() {
-          Text($r('app.string.select_conversations'))
-            .fontSize(18)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.text_primary'))
-
-          Blank()
-
-          Text($r('app.string.cancel'))
-            .fontSize(15)
-            .fontColor(this.themePrimary)
-            .onClick(() => {
-              this.handleExitMultiSelectMode()
-            })
-        }
-        .width('100%')
-        .height(56)
-        .padding({ left: 8, right: 8 })
-        .alignItems(VerticalAlign.Center)
-      }
+      this.ChatListHeaderMainRow()
+      this.ChatListHeaderFilterBar()
     }
     .width('100%')
   }
 
   @Builder
-  private CompactChatHeaderOverlay() {
-    Column() {
-      this.ChatListHeaderContent(true)
+  private ChatListHeaderMainRow() {
+    if (!this.isMultiSelectMode) {
+      Row() {
+        if (!this.isSearchExpanded) {
+          this.AssistantSwitchPill()
+        }
+
+        if (this.isSearchExpanded) {
+          Row({ space: 8 }) {
+            SymbolGlyph($r('sys.symbol.magnifyingglass'))
+              .fontSize(18)
+              .fontColor([$r('app.color.text_tertiary')])
+
+            TextInput({ text: this.searchText, placeholder: $r('app.string.search_sessions_placeholder') })
+              .id(this.searchInputFocusId)
+              .layoutWeight(1)
+              .height(36)
+              .fontSize(14)
+              .fontColor($r('app.color.text_primary'))
+              .backgroundColor(Color.Transparent)
+              .padding({ left: 2, right: 0 })
+              .caretColor(this.themePrimary)
+              .placeholderColor($r('app.color.text_tertiary'))
+              .onChange((value: string) => {
+                this.searchText = value
+                this.refreshSessionListProjection()
+              })
+              .onSubmit(() => {
+                if (this.searchText.trim() === '') {
+                  this.collapseSearch()
+                }
+              })
+          }
+          .layoutWeight(1)
+          .height(40)
+          .padding({ left: 12, right: 12 })
+          .alignItems(VerticalAlign.Center)
+          .backgroundColor($r('app.color.surface'))
+          .borderRadius(20)
+          .geometryTransition('SEARCH_BAR_ID', { follow: true })
+          .transition(TransitionEffect.OPACITY)
+
+          Text($r('app.string.cancel'))
+            .fontSize(15)
+            .fontColor(this.themePrimary)
+            .margin({ left: 12 })
+            .onClick(() => {
+              this.collapseSearch()
+            })
+            .transition(TransitionEffect.asymmetric(
+              TransitionEffect.OPACITY.combine(TransitionEffect.translate({ x: 20 }))
+                .animation({ duration: 250, curve: Curve.EaseOut }),
+              TransitionEffect.OPACITY.animation({ duration: 150 })
+            ))
+        } else {
+          Blank()
+          this.CollapsedSearchActionButton()
+        }
+      }
+      .width('100%')
+      .height(56)
+      .padding({ left: 8, right: 8 })
+      .alignItems(VerticalAlign.Center)
+    } else {
+      Row() {
+        Text($r('app.string.select_conversations'))
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+
+        Blank()
+
+        Text($r('app.string.cancel'))
+          .fontSize(15)
+          .fontColor(this.themePrimary)
+          .onClick(() => {
+            this.handleExitMultiSelectMode()
+          })
+      }
+      .width('100%')
+      .height(56)
+      .padding({ left: 8, right: 8 })
+      .alignItems(VerticalAlign.Center)
     }
-    .width('100%')
-    .backgroundColor(Color.Transparent)
-    .backgroundBlurStyle(BlurStyle.COMPONENT_THIN)
-    .onAreaChange((_oldArea: Area, newArea: Area) => {
-      this.handleCompactChatHeaderAreaChange(newArea)
-    })
+  }
+
+  @Builder
+  private ChatListHeaderFilterBar() {
+    if (!this.isMultiSelectMode) {
+      IndexFilterBar({
+        currentFilter: this.currentSessionFilter,
+        countText: this.getFilterCountText(),
+        onFilterChange: (filterType: SessionFilterType): void => {
+          this.currentSessionFilter = filterType
+          this.refreshSessionListProjection()
+        }
+      })
+    }
   }
 
   @Builder
@@ -3170,9 +3235,8 @@ struct Index {
 
   @Builder
   private CompactChatListViewport() {
-    Stack({ alignContent: Alignment.Top }) {
+    Column() {
       this.ChatListViewportContent()
-      this.CompactChatHeaderOverlay()
     }
     .width('100%')
     .height('100%')
