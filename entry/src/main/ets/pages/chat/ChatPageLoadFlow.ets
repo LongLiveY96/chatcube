@@ -5,6 +5,7 @@ import { ChatViewModel } from '../../viewmodels/ChatViewModel'
 import { PreferenceKeys, PreferencesService } from '../../services/PreferencesService'
 import { AssistantService } from '../../services/AssistantService'
 import { ChatPageRouteParams } from './ChatPageRouteTypes'
+import { Assistant, DEFAULT_ASSISTANT_ID } from '../../models/AssistantModels'
 
 export class ChatPageLoadResult {
   webSearchEnabled: boolean = false
@@ -20,6 +21,9 @@ export class ChatPageLoadResult {
   draftAttachments: MessageAttachment[] = []
   isNewChatTransition: boolean = true
   isNewEmptySession: boolean = false
+  assistantId: string = DEFAULT_ASSISTANT_ID
+  assistantAvatarSymbol: string = 'AI'
+  assistantColor: string = '#0A59F7'
 }
 
 export interface ChatPageLoadFlowDependencies {
@@ -71,12 +75,15 @@ export class ChatPageLoadFlow {
         result.messages = [...session.messages]
         result.draftText = session.draftText
         result.draftAttachments = this.cloneDraftAttachments(session.draftAttachments)
+        const assistant = await this.loadAssistantSnapshot(session.assistantId)
+        this.applyAssistantSnapshot(result, assistant)
       }
       result.isNewEmptySession = false
       return result
     }
 
     const assistant = await this.deps.assistantService.getCurrentAssistantForNewChat()
+    this.applyAssistantSnapshot(result, assistant)
     const pendingSession = this.deps.chatViewModel.createPendingSession(
       '',
       assistant.id,
@@ -89,6 +96,25 @@ export class ChatPageLoadFlow {
     result.isNewChatTransition = true
     result.isNewEmptySession = true
     return result
+  }
+
+  private async loadAssistantSnapshot(assistantId: string): Promise<Assistant> {
+    const id = assistantId.trim() !== '' ? assistantId.trim() : DEFAULT_ASSISTANT_ID
+    const assistant = await this.deps.assistantService.getAssistant(id)
+    if (assistant !== null) {
+      return assistant
+    }
+    const fallback = await this.deps.assistantService.getAssistant(DEFAULT_ASSISTANT_ID)
+    if (fallback !== null) {
+      return fallback
+    }
+    return new Assistant(DEFAULT_ASSISTANT_ID, '默认助手')
+  }
+
+  private applyAssistantSnapshot(result: ChatPageLoadResult, assistant: Assistant): void {
+    result.assistantId = assistant.id !== '' ? assistant.id : DEFAULT_ASSISTANT_ID
+    result.assistantAvatarSymbol = assistant.avatarSymbol !== '' ? assistant.avatarSymbol : 'AI'
+    result.assistantColor = assistant.color !== '' ? assistant.color : '#0A59F7'
   }
 
   private cloneDraftAttachments(attachments: MessageAttachment[]): MessageAttachment[] {

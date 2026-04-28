@@ -21,6 +21,7 @@ import {
   ToolConfig,
   ToolSourceType
 } from '../models/ChatModels'
+import { Assistant, DEFAULT_ASSISTANT_ID } from '../models/AssistantModels'
 import { AttachmentPicker } from '../components/AttachmentPicker'
 import { ImagePreview } from '../components/ImagePreview'
 import { ScrollToBottomButton } from '../components/ScrollToBottomButton'
@@ -85,6 +86,7 @@ import { getAppUiState, observeAppUiState, setAppUiStateValue } from '../state/A
 import { applyModelDraft } from '../utils/ModelDraftUtils'
 import { ToolPreviewEntry, buildToolArgumentsPreview } from '../utils/ToolPayloadSummaryUtils'
 import { pickLocalizedText } from '../utils/LocalizedTextUtils'
+import { normalizeAssistantAvatarValue } from '../components/AssistantAvatar'
 
 const DOMAIN = 0x0003
 const TAG = 'ChatPage'
@@ -124,6 +126,10 @@ export struct ChatPage {
   @Local inputText: string = ''
   @Local currentModel: string = ''
   @Local currentModelId: string = ''
+  @Local currentAssistantId: string = DEFAULT_ASSISTANT_ID
+  @Local currentAssistantAvatarSymbol: string = 'AI'
+  @Local currentAssistantColor: string = '#0A59F7'
+  @Local assistantAvatarRenderTick: number = 0
   @Local isModelSelectorVisible: boolean = false
   @Local modelSheetActivePanel: string = 'selector'
   @Local editingModel: ModelInfo | null = null
@@ -319,6 +325,7 @@ export struct ChatPage {
   private appUiStateDisposers: Array<() => void> = []
   private initialBottomAlignmentRetryTimerIds: number[] = []
   private initialBottomAlignmentCompletionTimerId: number = -1
+  private assistantAvatarReloadToken: number = 0
 
   private showChatSnack(message: string | Resource, duration: number = 2000,
     tone: SnackBarTone = SnackBarTone.DEFAULT): void {
@@ -565,6 +572,7 @@ export struct ChatPage {
     this.pendingAttachments = [...loadResult.draftAttachments]
     this.isNewChatTransition = loadResult.isNewChatTransition
     this.isNewEmptySession = loadResult.isNewEmptySession
+    this.applyAssistantSnapshot(loadResult.assistantId, loadResult.assistantAvatarSymbol, loadResult.assistantColor)
 
     if (!this.isNewChatTransition) {
       this.replaceMessages(loadResult.messages)
@@ -574,6 +582,43 @@ export struct ChatPage {
     }
 
     this.clearMessages()
+  }
+
+  private applyAssistantSnapshot(assistantId: string, avatarSymbol: string, color: string): void {
+    this.currentAssistantId = assistantId.trim() !== '' ? assistantId.trim() : DEFAULT_ASSISTANT_ID
+    this.currentAssistantAvatarSymbol = normalizeAssistantAvatarValue(avatarSymbol)
+    this.currentAssistantColor = color.trim() !== '' ? color.trim() : '#0A59F7'
+    this.bumpAssistantAvatarRenderTick()
+  }
+
+  private bumpAssistantAvatarRenderTick(): void {
+    this.assistantAvatarRenderTick += 1
+  }
+
+  private getCurrentSessionAssistantId(): string {
+    const currentSession = this.chatViewModel.getCurrentSession()
+    if (currentSession !== null && currentSession.id === this.sessionId && currentSession.assistantId !== '') {
+      return currentSession.assistantId
+    }
+    return this.currentAssistantId !== '' ? this.currentAssistantId : DEFAULT_ASSISTANT_ID
+  }
+
+  private async reloadCurrentAssistantAvatarSnapshot(): Promise<void> {
+    const token = this.assistantAvatarReloadToken + 1
+    this.assistantAvatarReloadToken = token
+    const assistantId = this.getCurrentSessionAssistantId()
+    let assistant: Assistant | null = await ServiceRegistry.assistant().getAssistant(assistantId)
+    if (assistant === null && assistantId !== DEFAULT_ASSISTANT_ID) {
+      assistant = await ServiceRegistry.assistant().getAssistant(DEFAULT_ASSISTANT_ID)
+    }
+    if (token !== this.assistantAvatarReloadToken) {
+      return
+    }
+    if (assistant === null) {
+      this.applyAssistantSnapshot(DEFAULT_ASSISTANT_ID, 'AI', '#0A59F7')
+      return
+    }
+    this.applyAssistantSnapshot(assistant.id, assistant.avatarSymbol, assistant.color)
   }
 
   private triggerPostLoadActions(): void {
@@ -617,8 +662,15 @@ export struct ChatPage {
       observeAppUiState(AppStorageKeys.IN_APP_TASK_ALERT_PAYLOAD, (): void => this.onInAppTaskAlertPayloadChanged()),
       observeAppUiState(AppStorageKeys.OPEN_SESSION_PAYLOAD, (): void => this.onOpenSessionPayloadChanged()),
       observeAppUiState(AppStorageKeys.TASK_EVENT_TICK, (): void => this.onTaskEventTickChanged()),
+      observeAppUiState(AppStorageKeys.ASSISTANT_AVATAR_REFRESH_AT, (): void => this.onAssistantAvatarRefreshChanged()),
       observeAppUiState(AppStorageKeys.APP_IN_BACKGROUND, (): void => this.onAppBackgroundChanged())
     ]
+  }
+
+  private onAssistantAvatarRefreshChanged(): void {
+    this.reloadCurrentAssistantAvatarSnapshot().catch((error: Error): void => {
+      console.error('ChatPage', `Failed to reload assistant avatar snapshot: ${JSON.stringify(error)}`)
+    })
   }
 
   private unregisterAppUiStateObservers(): void {
@@ -2018,6 +2070,9 @@ export struct ChatPage {
           bottomPadding: this.getListBottomPadding(),
           topInsetHeight: this.getMessageListTopSpacerHeight(),
           currentModelId: this.currentModelId,
+          assistantAvatarSymbol: this.currentAssistantAvatarSymbol,
+          assistantAvatarColor: this.currentAssistantColor,
+          assistantAvatarCacheKey: this.assistantAvatarRenderTick,
           chatFontSize: this.chatFontSize,
           themeRenderKey: this.messageThemeRenderKey,
           contentMaxWidth: this.getChatContentMaxWidth(),
@@ -3255,6 +3310,7 @@ export struct ChatPage {
     // 更新会话ID和标题
     this.sessionId = session.id
     this.sessionTitle = session.title
+    this.applyAssistantSnapshot(assistant.id, assistant.avatarSymbol, assistant.color)
     // 重置标题状态
     this.isTitleGenerating = false
     this.titleGenerateFailed = false

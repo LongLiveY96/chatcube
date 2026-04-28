@@ -107,7 +107,10 @@ export function buildChatMessageRowRenderSignature(
   chatFontSize: number,
   themeRenderKey: string,
   previewContent: string = '',
-  previewAttachments: MessageAttachment[] = []
+  previewAttachments: MessageAttachment[] = [],
+  assistantAvatarSymbol: string = '',
+  assistantAvatarColor: string = '',
+  assistantAvatarCacheKey: number = 0
 ): string {
   const contentRenderSignature = buildChatMessageContentRenderSignature(
     message,
@@ -125,6 +128,9 @@ export function buildChatMessageRowRenderSignature(
     encodeBoolean(isMultiSelectMode),
     encodeBoolean(isSelected),
     encodeBoolean(isDimmed),
+    encodeValue(assistantAvatarSymbol),
+    encodeValue(assistantAvatarColor),
+    encodeNumber(assistantAvatarCacheKey),
     contentRenderSignature
   ].join('')
 }
@@ -175,6 +181,9 @@ export class ChatMessageRowData {
   @Trace isDimmed: boolean
   @Trace renderSignature: string
   @Trace contentRenderSignature: string
+  @Trace assistantAvatarSymbol: string
+  @Trace assistantAvatarColor: string
+  @Trace assistantAvatarCacheKey: number
 
   constructor(
     message: ChatMessage,
@@ -184,7 +193,10 @@ export class ChatMessageRowData {
     isEditing: boolean,
     isDimmed: boolean,
     renderSignature: string,
-    contentRenderSignature: string
+    contentRenderSignature: string = '',
+    assistantAvatarSymbol: string = 'AI',
+    assistantAvatarColor: string = '#0A59F7',
+    assistantAvatarCacheKey: number = 0
   ) {
     this.message = message
     this.showDateDivider = showDateDivider
@@ -194,6 +206,9 @@ export class ChatMessageRowData {
     this.isDimmed = isDimmed
     this.renderSignature = renderSignature
     this.contentRenderSignature = contentRenderSignature
+    this.assistantAvatarSymbol = assistantAvatarSymbol
+    this.assistantAvatarColor = assistantAvatarColor
+    this.assistantAvatarCacheKey = assistantAvatarCacheKey
   }
 
   get key(): string {

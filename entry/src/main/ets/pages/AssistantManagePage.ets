@@ -14,7 +14,8 @@ import {
 import { AssistantAvatarEditorSheet } from '../components/AssistantAvatarEditorSheet'
 import { getSettingsPageContentMaxWidth, getSettingsPageCompactTabsTotalInset } from '../utils/SettingsPageLayoutHelper'
 import { showSnackBar, SnackBarDisplayOptions, SnackBarTone } from '../utils/ToastUtil'
-import { getAppUiState } from '../state/AppUiState'
+import { AppStorageKeys } from '../config/AppStorageKeys'
+import { getAppUiState, observeAppUiState } from '../state/AppUiState'
 
 let assistantManagePathStack: NavPathStack | null = null
 
@@ -68,7 +69,8 @@ struct AssistantManagePage {
 
   @Monitor('assistantAvatarRefreshAt')
   onAssistantAvatarRefreshMonitor(): void {
-    if (this.assistantAvatarRefreshAt > 0) {
+    if (this.assistantAvatarRefreshAt > 0 && this.assistantAvatarRefreshAt !== this.handledAssistantAvatarRefreshAt) {
+      this.handledAssistantAvatarRefreshAt = this.assistantAvatarRefreshAt
       this.bumpAssistantAvatarRenderTick()
     }
   }
@@ -96,9 +98,27 @@ struct AssistantManagePage {
 
   private assistantService: AssistantService = ServiceRegistry.assistant()
   private providerViewModel: ProviderViewModel = ServiceRegistry.provider()
+  private assistantAvatarObserverDisposer: (() => void) | null = null
+  private handledAssistantAvatarRefreshAt: number = 0
 
   aboutToAppear(): void {
+    this.registerAssistantAvatarObserver()
     this.loadData()
+  }
+
+  aboutToDisappear(): void {
+    if (this.assistantAvatarObserverDisposer !== null) {
+      this.assistantAvatarObserverDisposer()
+      this.assistantAvatarObserverDisposer = null
+    }
+  }
+
+  private registerAssistantAvatarObserver(): void {
+    if (this.assistantAvatarObserverDisposer === null) {
+      this.assistantAvatarObserverDisposer = observeAppUiState(AppStorageKeys.ASSISTANT_AVATAR_REFRESH_AT, (): void => {
+        this.onAssistantAvatarRefreshMonitor()
+      })
+    }
   }
 
   private px2vp(px: number): number {
@@ -133,12 +153,9 @@ struct AssistantManagePage {
   }
 
   private async loadData(): Promise<void> {
-    const previousAvatarState = this.buildAssistantAvatarStateKey(this.assistants)
     this.providers = await this.providerViewModel.loadProviders()
     this.assistants = await this.assistantService.getAllAssistants()
-    if (previousAvatarState !== this.buildAssistantAvatarStateKey(this.assistants)) {
-      this.bumpAssistantAvatarRenderTick()
-    }
+    this.bumpAssistantAvatarRenderTick()
     if (!this.consumedInitialAction && this.initialAction === 'new') {
       this.consumedInitialAction = true
       this.startNewAssistant()
@@ -209,8 +226,7 @@ struct AssistantManagePage {
   }
 
   private bumpAssistantAvatarRenderTick(): void {
-    const now = Date.now()
-    this.assistantAvatarRenderTick = now > this.assistantAvatarRenderTick ? now : this.assistantAvatarRenderTick + 1
+    this.assistantAvatarRenderTick += 1
   }
 
   private getDefaultModelText(): ResourceStr {
@@ -434,7 +450,8 @@ struct AssistantManagePage {
     Column({ space: 10 }) {
       ForEach(this.assistants, (assistant: Assistant) => {
         this.AssistantRow(assistant)
-      }, (assistant: Assistant) => assistant.id)
+      }, (assistant: Assistant) =>
+        `${assistant.id}:${assistant.avatarSymbol}:${assistant.color}:${this.assistantAvatarRenderTick}`)
     }
     .width('100%')
   }
@@ -623,7 +640,14 @@ struct AssistantManagePage {
   private AssistantEditorPreview() {
     Column({ space: 12 }) {
       Row({ space: 12 }) {
-        this.AssistantAvatarBadge(this.formAvatarSymbol, this.getCurrentFormAccentColor(), 52, 18, 28)
+        AssistantAvatarView({
+          value: this.formAvatarSymbol,
+          color: this.getCurrentFormAccentColor(),
+          avatarSize: 52,
+          radius: 18,
+          fontSize: 28,
+          cacheKey: this.assistantAvatarRenderTick
+        })
 
         Column({ space: 5 }) {
           Row({ space: 6 }) {
@@ -754,7 +778,14 @@ struct AssistantManagePage {
           })
 
         Button() {
-          this.AssistantAvatarBadge(this.formAvatarSymbol, this.getCurrentFormAccentColor(), 60, 20, 34)
+          AssistantAvatarView({
+            value: this.formAvatarSymbol,
+            color: this.getCurrentFormAccentColor(),
+            avatarSize: 60,
+            radius: 20,
+            fontSize: 34,
+            cacheKey: this.assistantAvatarRenderTick
+          })
         }
         .width(60)
         .height(60)

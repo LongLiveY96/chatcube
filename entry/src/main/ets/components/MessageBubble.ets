@@ -9,6 +9,7 @@ import { ToolCallCard } from './ToolCallCard'
 import { HtmlPreviewCard } from './HtmlPreviewCard'
 import { TypingDots } from './TypingDots'
 import { SelectableMarkdownContent, getSelectableMarkdownPlainText } from './SelectableMarkdownContent'
+import { AssistantAvatarView } from './AssistantAvatar'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { getAppUiState } from '../state/AppUiState'
@@ -49,6 +50,9 @@ export struct MessageBubble {
   @Param contentRenderSignature: string = ''
   @Param showHeader: boolean = true  // 是否显示消息头部（模型信息）
   @Param currentModelId: string = ''  // 当前会话的模型 ID（用于图标匹配回退）
+  @Param assistantAvatarSymbol: string = 'AI'
+  @Param assistantAvatarColor: string = '#0A59F7'
+  @Param assistantAvatarCacheKey: number = 0
   @Param themeRenderKey: string = ''
   @Param isMultiSelectMode: boolean = false  // 是否处于多选模式
   @Param isSelected: boolean = false  // 是否被选中
@@ -1298,18 +1302,16 @@ export struct MessageBubble {
         // 只在 showHeader 为 true 时显示
         if (this.showHeader) {
           Row() {
-            // 模型图标 + 淡色圆形背景
+            // 助手头像
             Column() {
-              if (this.getCurrentMessageModelIconResourcePath() !== '') {
-                Image(this.getCurrentMessageModelIconResourcePath())
-                  .width(18)
-                  .height(18)
-                  .objectFit(ImageFit.Contain)
-              } else {
-                SymbolGlyph($r('sys.symbol.ai_edit'))
-                  .fontSize(16)
-                  .fontColor([this.themePrimary])
-              }
+              AssistantAvatarView({
+                value: this.assistantAvatarSymbol,
+                color: this.assistantAvatarColor,
+                avatarSize: 30,
+                radius: 8,
+                fontSize: 14,
+                cacheKey: this.assistantAvatarCacheKey
+              })
             }
             .width(30)
             .height(30)

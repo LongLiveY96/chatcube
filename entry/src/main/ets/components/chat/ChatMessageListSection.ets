@@ -27,6 +27,9 @@ export struct ChatMessageListSection {
   @Param bottomPadding: number = 0
   @Param topInsetHeight: number = 0
   @Param currentModelId: string = ''
+  @Param assistantAvatarSymbol: string = 'AI'
+  @Param assistantAvatarColor: string = '#0A59F7'
+  @Param assistantAvatarCacheKey: number = 0
   @Param chatFontSize: number = 15
   @Param themeRenderKey: string = ''
   @Param contentMaxWidth: number = 99999
@@ -107,6 +110,21 @@ export struct ChatMessageListSection {
     this.syncMessageRows()
   }
 
+  @Monitor('assistantAvatarSymbol')
+  onAssistantAvatarSymbolChange(): void {
+    this.syncMessageRows()
+  }
+
+  @Monitor('assistantAvatarColor')
+  onAssistantAvatarColorChange(): void {
+    this.syncMessageRows()
+  }
+
+  @Monitor('assistantAvatarCacheKey')
+  onAssistantAvatarCacheKeyChange(): void {
+    this.syncMessageRows()
+  }
+
   @Monitor('chatFontSize')
   onChatFontSizeChange(): void {
     this.syncMessageRows()
@@ -180,7 +198,10 @@ export struct ChatMessageListSection {
     isEditing: boolean,
     isDimmed: boolean,
     renderSignature: string,
-    contentRenderSignature: string
+    contentRenderSignature: string,
+    assistantAvatarSymbol: string,
+    assistantAvatarColor: string,
+    assistantAvatarCacheKey: number
   ): void {
     row.message = message
     row.showDateDivider = showDateDivider
@@ -190,6 +211,9 @@ export struct ChatMessageListSection {
     row.isDimmed = isDimmed
     row.renderSignature = renderSignature
     row.contentRenderSignature = contentRenderSignature
+    row.assistantAvatarSymbol = assistantAvatarSymbol
+    row.assistantAvatarColor = assistantAvatarColor
+    row.assistantAvatarCacheKey = assistantAvatarCacheKey
   }
 
   private syncMessageRows(forceReload: boolean = false): void {
@@ -227,7 +251,10 @@ export struct ChatMessageListSection {
         this.chatFontSize,
         this.themeRenderKey,
         this.inputText,
-        this.pendingAttachments
+        this.pendingAttachments,
+        this.assistantAvatarSymbol,
+        this.assistantAvatarColor,
+        this.assistantAvatarCacheKey
       )
       const existingRow = existingRowMap.get(message.id)
       if (existingRow !== undefined) {
@@ -240,7 +267,10 @@ export struct ChatMessageListSection {
           isEditing,
           isDimmed,
           renderSignature,
-          contentRenderSignature
+          contentRenderSignature,
+          this.assistantAvatarSymbol,
+          this.assistantAvatarColor,
+          this.assistantAvatarCacheKey
         )
         nextRows.push(existingRow)
         continue
@@ -253,7 +283,10 @@ export struct ChatMessageListSection {
         isEditing,
         isDimmed,
         renderSignature,
-        contentRenderSignature
+        contentRenderSignature,
+        this.assistantAvatarSymbol,
+        this.assistantAvatarColor,
+        this.assistantAvatarCacheKey
       ))
     }
     this.messageRows = nextRows
@@ -293,6 +326,9 @@ export struct ChatMessageListSection {
                 renderSignature: item.renderSignature,
                 contentRenderSignature: item.contentRenderSignature,
                 currentModelId: this.currentModelId,
+                assistantAvatarSymbol: item.assistantAvatarSymbol,
+                assistantAvatarColor: item.assistantAvatarColor,
+                assistantAvatarCacheKey: item.assistantAvatarCacheKey,
                 chatFontSize: this.chatFontSize,
                 themeRenderKey: this.themeRenderKey,
                 contentMaxWidth: this.getEffectiveContentMaxWidth(),

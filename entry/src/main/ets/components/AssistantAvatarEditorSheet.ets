@@ -1,4 +1,4 @@
-import { fileIo } from '@kit.CoreFileKit'
+import { fileIo, fileUri } from '@kit.CoreFileKit'
 import { photoAccessHelper } from '@kit.MediaLibraryKit'
 import {
   ASSISTANT_AVATAR_MODE_IMAGE,
@@ -111,7 +111,7 @@ export struct AssistantAvatarEditorSheet {
       return ''
     }
     const dir = this.ensureAvatarDirectory(context.filesDir)
-    const targetPath = `${dir}/avatar_${Date.now()}${this.getFileExtension(uri)}`
+    const targetPath = `${dir}/avatar_${Date.now()}_${Math.random().toString(36).substring(2, 8)}${this.getFileExtension(uri)}`
     try {
       const srcFile = fileIo.openSync(uri, fileIo.OpenMode.READ_ONLY)
       try {
@@ -124,7 +124,7 @@ export struct AssistantAvatarEditorSheet {
       } finally {
         fileIo.closeSync(srcFile)
       }
-      return `file://${targetPath}`
+      return fileUri.getUriFromPath(targetPath)
     } catch (error) {
       console.error('AssistantAvatarEditorSheet', `Failed to copy picked image: ${JSON.stringify(error)}`)
       return ''

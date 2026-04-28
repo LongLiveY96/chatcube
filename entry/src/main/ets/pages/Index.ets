@@ -118,6 +118,9 @@ struct Index {
   @Local isSearchExpanded: boolean = false
   @Local currentSessionFilter: SessionFilterType = SessionFilterType.ALL
   @Local assistants: Assistant[] = []
+  @Local currentAssistantName: string = '默认助手'
+  @Local currentAssistantAvatarSymbol: string = 'AI'
+  @Local currentAssistantColor: string = '#0A59F7'
   @Local assistantProviders: ModelProvider[] = []
   @Local currentAssistantId: string = DEFAULT_ASSISTANT_ID
   @Local showAssistantSwitchSheet: boolean = false
@@ -224,8 +227,10 @@ struct Index {
 
   @Monitor('assistantAvatarRefreshAt')
   onAssistantAvatarRefreshMonitor(): void {
-    if (this.assistantAvatarRefreshAt > 0) {
+    if (this.assistantAvatarRefreshAt > 0 && this.assistantAvatarRefreshAt !== this.handledAssistantAvatarRefreshAt) {
+      this.handledAssistantAvatarRefreshAt = this.assistantAvatarRefreshAt
       this.bumpAssistantAvatarRenderTick()
+      this.loadAssistants()
     }
   }
   @Monitor('isMultiSelectMode')
@@ -261,6 +266,7 @@ struct Index {
   private handAdaptiveLoadSeq: number = 0
   private sessionLoadSeq: number = 0
   private appUiStateDisposers: Array<() => void> = []
+  private handledAssistantAvatarRefreshAt: number = 0
   private searchInputFocusId: string = 'index_session_search_input'
   private holdingHandCallback: (status: motion.HoldingHandStatus) => void = (status: motion.HoldingHandStatus): void => {
     this.currentHoldingHand = status
@@ -511,6 +517,8 @@ struct Index {
       observeAppUiState(AppStorageKeys.OPEN_NEW_CHAT, (): void => this.onOpenNewChat()),
       observeAppUiState(AppStorageKeys.OPEN_SESSION_PAYLOAD, (): void => this.onOpenSessionPayloadChanged()),
       observeAppUiState(AppStorageKeys.ACTIVE_CHAT_SESSION_ID, (): void => this.onActiveChatSessionIdChanged()),
+      observeAppUiState(AppStorageKeys.ASSISTANT_AVATAR_REFRESH_AT,
+        (): void => this.onAssistantAvatarRefreshMonitor()),
       observeAppUiState(AppStorageKeys.TASK_EVENT_TICK, (): void => this.onTaskEventTickChanged()),
       observeAppUiState(AppStorageKeys.SETTINGS_HAND_ADAPTIVE_CHANGED_AT,
         (): void => this.onHandAdaptiveSettingsTickChanged())
@@ -734,33 +742,6 @@ struct Index {
     this.syncSettingsSummaryToStorage()
   }
 
-  private copyAssistantFields(target: Assistant, source: Assistant): void {
-    target.id = source.id
-    target.name = source.name
-    target.avatarSymbol = source.avatarSymbol
-    target.color = source.color
-    target.systemPrompt = source.systemPrompt
-    target.defaultProviderId = source.defaultProviderId
-    target.defaultModelId = source.defaultModelId
-    target.defaultModelName = source.defaultModelName
-    target.temperatureEnabled = source.temperatureEnabled
-    target.temperature = source.temperature
-    target.isDefault = source.isDefault
-    target.createdAt = source.createdAt
-    target.updatedAt = source.updatedAt
-    target.sortOrder = source.sortOrder
-  }
-
-  private getLoadedAssistantInstance(loadedAssistant: Assistant): Assistant {
-    for (let i = 0; i < this.assistants.length; i++) {
-      if (this.assistants[i].id === loadedAssistant.id) {
-        this.copyAssistantFields(this.assistants[i], loadedAssistant)
-        return this.assistants[i]
-      }
-    }
-    return loadedAssistant
-  }
-
   private patchAssistantInMemory(assistant: Assistant): void {
     const nextAssistants: Assistant[] = []
     let replaced = false
@@ -774,16 +755,27 @@ struct Index {
     }
     if (replaced) {
       this.assistants = nextAssistants
+      if (assistant.id === this.currentAssistantId) {
+        this.applyCurrentAssistantSnapshot(assistant)
+      }
       this.bumpAssistantAvatarRenderTick()
     }
   }
 
   private mergeLoadedAssistants(loadedAssistants: Assistant[]): Assistant[] {
-    const mergedAssistants: Assistant[] = []
-    for (let i = 0; i < loadedAssistants.length; i++) {
-      mergedAssistants.push(this.getLoadedAssistantInstance(loadedAssistants[i]))
+    return loadedAssistants
+  }
+
+  private applyCurrentAssistantSnapshot(assistant: Assistant | null): void {
+    if (assistant === null) {
+      this.currentAssistantName = '默认助手'
+      this.currentAssistantAvatarSymbol = 'AI'
+      this.currentAssistantColor = this.themePrimary
+      return
     }
-    return mergedAssistants
+    this.currentAssistantName = assistant.name
+    this.currentAssistantAvatarSymbol = this.normalizeAssistantAvatarSymbol(assistant.avatarSymbol)
+    this.currentAssistantColor = assistant.color !== '' ? assistant.color : this.themePrimary
   }
 
   private buildAssistantAvatarStateKey(assistants: Assistant[]): string {
@@ -795,24 +787,23 @@ struct Index {
   }
 
   private bumpAssistantAvatarRenderTick(): void {
-    const now = Date.now()
-    this.assistantAvatarRenderTick = now > this.assistantAvatarRenderTick ? now : this.assistantAvatarRenderTick + 1
+    this.assistantAvatarRenderTick += 1
   }
 
   private async loadAssistants(): Promise<void> {
     try {
-      const previousAvatarState = this.buildAssistantAvatarStateKey(this.assistants)
       const assistants = await this.assistantService.getAllAssistants()
       const current = await this.assistantService.getCurrentAssistant()
       this.assistants = this.mergeLoadedAssistants(assistants)
-      if (previousAvatarState !== this.buildAssistantAvatarStateKey(this.assistants)) {
-        this.bumpAssistantAvatarRenderTick()
-      }
+      this.bumpAssistantAvatarRenderTick()
       this.currentAssistantId = current.id !== '' ? current.id : DEFAULT_ASSISTANT_ID
+      const currentAssistant = this.getCurrentAssistant()
+      this.applyCurrentAssistantSnapshot(currentAssistant !== null ? currentAssistant : current)
       this.refreshSessionListProjection()
     } catch (error) {
       console.error('Index', `Failed to load assistants: ${JSON.stringify(error)}`)
       this.currentAssistantId = DEFAULT_ASSISTANT_ID
+      this.applyCurrentAssistantSnapshot(null)
     }
   }
 
@@ -832,6 +823,7 @@ struct Index {
     const previousAssistantId = this.currentAssistantId
     const assistant = await this.assistantService.setCurrentAssistantId(assistantId)
     this.currentAssistantId = assistant.id !== '' ? assistant.id : DEFAULT_ASSISTANT_ID
+    this.applyCurrentAssistantSnapshot(assistant)
     this.selectedSessionIds = []
     this.isMultiSelectMode = false
     if (this.isSearchExpanded) {
@@ -1629,18 +1621,15 @@ struct Index {
   }
 
   private getCurrentAssistantName(): string {
-    const assistant = this.getCurrentAssistant()
-    return assistant !== null ? assistant.name : '默认助手'
+    return this.currentAssistantName
   }
 
   private getCurrentAssistantSymbol(): string {
-    const assistant = this.getCurrentAssistant()
-    return assistant !== null ? this.normalizeAssistantAvatarSymbol(assistant.avatarSymbol) : 'AI'
+    return this.currentAssistantAvatarSymbol
   }
 
   private getCurrentAssistantColor(): string {
-    const assistant = this.getCurrentAssistant()
-    return assistant !== null && assistant.color !== '' ? assistant.color : this.themePrimary
+    return this.currentAssistantColor !== '' ? this.currentAssistantColor : this.themePrimary
   }
 
   private normalizeAssistantAvatarSymbol(value: string): string {
@@ -1648,7 +1637,7 @@ struct Index {
   }
 
   private getAssistantRenderKey(assistant: Assistant): string {
-    return assistant.id
+    return `${assistant.id}:${assistant.avatarSymbol}:${assistant.color}:${this.assistantAvatarRenderTick}`
   }
 
   private getAssistantSwitchMaxWidth(): number {

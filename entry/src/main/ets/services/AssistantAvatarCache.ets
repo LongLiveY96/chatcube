@@ -1,6 +1,6 @@
 import { cacheDownload } from '@kit.BasicServicesKit'
 import { AppStorageKeys } from '../config/AppStorageKeys'
-import { setAppUiStateValue } from '../state/AppUiState'
+import { getAppUiState, setAppUiStateValue } from '../state/AppUiState'
 
 export class AssistantAvatarCache {
   private static instance: AssistantAvatarCache | null = null
@@ -45,7 +45,9 @@ export class AssistantAvatarCache {
       cacheDownload.offDownloadError(url)
     } catch (_error) {
     }
-    setAppUiStateValue(AppStorageKeys.ASSISTANT_AVATAR_REFRESH_AT, Date.now())
+    const current = getAppUiState().assistantAvatarRefreshAt
+    const now = Date.now()
+    setAppUiStateValue(AppStorageKeys.ASSISTANT_AVATAR_REFRESH_AT, now > current ? now : current + 1)
   }
 
   private isNetworkUrl(url: string): boolean {

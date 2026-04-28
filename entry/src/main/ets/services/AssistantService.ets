@@ -2,7 +2,7 @@ import { Assistant, DEFAULT_ASSISTANT_ID } from '../models/AssistantModels'
 import { getDatabaseService, DatabaseService } from './DatabaseService'
 import { getPreferencesService, PreferencesService } from './PreferencesService'
 import { AppStorageKeys } from '../config/AppStorageKeys'
-import { setAppUiStateValue } from '../state/AppUiState'
+import { getAppUiState, setAppUiStateValue } from '../state/AppUiState'
 
 export class AssistantRuntimeConfig {
   assistantId: string = DEFAULT_ASSISTANT_ID
@@ -45,6 +45,12 @@ export class AssistantService {
       assistant.temperature = 2
     }
     return assistant
+  }
+
+  private notifyAssistantAvatarChanged(): void {
+    const current = getAppUiState().assistantAvatarRefreshAt
+    const now = Date.now()
+    setAppUiStateValue(AppStorageKeys.ASSISTANT_AVATAR_REFRESH_AT, now > current ? now : current + 1)
   }
 
   async getAllAssistants(): Promise<Assistant[]> {
@@ -127,6 +133,7 @@ export class AssistantService {
     }
     await this.databaseService.createAssistant(assistant)
     setAppUiStateValue(AppStorageKeys.SESSION_LIST_REFRESH_AT, Date.now())
+    this.notifyAssistantAvatarChanged()
     return assistant
   }
 
@@ -134,6 +141,7 @@ export class AssistantService {
     this.normalizeAssistant(assistant)
     await this.databaseService.saveAssistant(assistant)
     setAppUiStateValue(AppStorageKeys.SESSION_LIST_REFRESH_AT, Date.now())
+    this.notifyAssistantAvatarChanged()
   }
 
   async reorderAssistants(assistants: Assistant[]): Promise<void> {

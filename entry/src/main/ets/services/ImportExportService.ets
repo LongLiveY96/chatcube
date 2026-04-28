@@ -5,7 +5,7 @@
  */
 
 import { zlib } from '@kit.BasicServicesKit'
-import { fileIo } from '@kit.CoreFileKit'
+import { fileIo, fileUri } from '@kit.CoreFileKit'
 import { Context } from '@kit.AbilityKit'
 import { util } from '@kit.ArkTS'
 import {
@@ -1276,8 +1276,24 @@ export class ImportExportService {
   }
 
   private getPathFromFileUri(value: string): string {
-    const trimmed = value.trim()
-    return trimmed.toLowerCase().startsWith('file://') ? trimmed.substring(7) : trimmed
+    let trimmed = value.trim()
+    const fragmentIndex = trimmed.indexOf('#')
+    if (fragmentIndex >= 0) {
+      trimmed = trimmed.substring(0, fragmentIndex)
+    }
+    const queryIndex = trimmed.indexOf('?')
+    if (queryIndex >= 0) {
+      trimmed = trimmed.substring(0, queryIndex)
+    }
+    if (!trimmed.toLowerCase().startsWith('file://')) {
+      return trimmed
+    }
+    try {
+      return new fileUri.FileUri(trimmed).path
+    } catch (error) {
+      console.warn('ImportExportService', `Failed to resolve file uri path: ${JSON.stringify(error)}`)
+      return trimmed.substring(7)
+    }
   }
 
   private sanitizeFileName(value: string): string {
@@ -1359,10 +1375,11 @@ export class ImportExportService {
     this.ensureDirectory(avatarDir)
     const ext = this.getExtension(avatarFileName)
     const assistantId = this.sanitizeFileName(assistantData.id !== '' ? assistantData.id : DEFAULT_ASSISTANT_ID)
-    const targetPath = `${avatarDir}/avatar_${assistantId}_${Date.now()}${ext !== '' ? ext : '.jpg'}`
+    const targetPath =
+      `${avatarDir}/avatar_${assistantId}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext !== '' ? ext : '.jpg'}`
     try {
       await fileIo.copyFile(sourcePath, targetPath)
-      return `file://${targetPath}`
+      return fileUri.getUriFromPath(targetPath)
     } catch (error) {
       console.warn('ImportExportService', `Failed to import assistant avatar: ${JSON.stringify(error)}`)
       return fallbackAvatar
