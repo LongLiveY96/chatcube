@@ -28,6 +28,10 @@ export default class EntryAbility extends UIAbility {
   // 启动时的关键初始化任务（偏好/数据库/主题等）。
   // 必须在 loadContent 之前完成，否则会出现“先默认主题后切换”的闪屏与设置项状态不同步。
   private servicesInitPromise: Promise<void> | null = null;
+  // 记录系统真实色彩模式（不含应用层覆盖）。
+  // 用于在切换到“跟随系统”瞬间正确判断深浅模式：此时 colorMode 参数为 NOT_SET，
+  // 而 this.context.config.colorMode 在 setColorMode 异步生效前可能仍为旧的应用覆盖值。
+  private systemColorMode: ConfigurationConstant.ColorMode = ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET;
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
@@ -120,17 +124,17 @@ export default class EntryAbility extends UIAbility {
       hilog.info(DOMAIN, 'testTag', 'AssistantService initialized successfully');
 
       // 应用保存的主题设置
-      void this.persistSystemDarkMode(this.context.config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
+      // 在调用 setAppColorMode 之前先记录系统色彩模式：
+      // 此时 context.config.colorMode 反映的是系统真实值（应用尚未注入覆盖），
+      // 后续切换到“跟随系统”时即使 context.config 还未刷新，也能依赖该缓存正确判断。
+      this.systemColorMode = this.context.config.colorMode ?? ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET;
+      void this.persistSystemDarkMode(this.systemColorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
       const themeMode = ServiceRegistry.settings().getThemeMode();
       const targetColorMode = ServiceRegistry.settings().getColorModeFromTheme(themeMode);
       this.setAppColorMode(targetColorMode);
 
       // 初始化主题配色服务（需要在主题设置应用后，获取当前深浅模式）
-      const isDarkMode = targetColorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK
-        ? true
-        : targetColorMode === ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT
-          ? false
-          : this.context.config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+      const isDarkMode = this.resolveIsDarkMode(targetColorMode);
       await ServiceRegistry.theme().initialize(isDarkMode);
       hilog.info(DOMAIN, 'testTag', 'ThemeService initialized successfully');
 
@@ -182,12 +186,11 @@ export default class EntryAbility extends UIAbility {
     this.settingsCallback = {
       onThemeModeChanged: (mode: ThemeMode, colorMode: ConfigurationConstant.ColorMode): void => {
         this.setAppColorMode(colorMode);
-        // 立即同步深浅模式与主题服务，避免等待系统配置回调导致的短暂闪动/状态不同步
-        const isDarkMode = mode === ThemeMode.DARK
-          ? true
-          : mode === ThemeMode.LIGHT
-            ? false
-            : this.context.config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+        // 立即同步深浅模式与主题服务，避免等待系统配置回调导致的短暂闪动/状态不同步。
+        // 注意：此时 SettingsManager 已写入新的 mode，resolveIsDarkMode 内部读取
+        // settings.getThemeMode() 即为新模式；当 mode=SYSTEM 时 colorMode=NOT_SET，
+        // resolveIsDarkMode 会回退到记录的 systemColorMode 而非未及时刷新的 context.config。
+        const isDarkMode = this.resolveIsDarkMode(colorMode);
         this.updateColorModeStorage(colorMode);
         ServiceRegistry.theme().updateDarkMode(isDarkMode);
         this.updateWindowAppearance(colorMode);
@@ -370,17 +373,22 @@ export default class EntryAbility extends UIAbility {
     // 使用 newConfig.colorMode 获取最新系统深浅色，this.context.config 在回调时可能尚未更新
     const latestColorMode = newConfig.colorMode ?? this.context.config.colorMode;
     void this.persistSystemDarkMode(latestColorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
+
+    // 仅在“跟随系统”模式下，latestColorMode 反映系统真实色彩模式（不含覆盖），可同步缓存。
+    // 在其他模式下 latestColorMode 反映的是应用层覆盖值，不能用来更新 systemColorMode。
+    const themeMode = ServiceRegistry.settings().getThemeMode();
+    if (themeMode === ThemeMode.SYSTEM
+      && latestColorMode !== undefined
+      && latestColorMode !== ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET) {
+      this.systemColorMode = latestColorMode;
+    }
+
     this.updateColorModeStorage(latestColorMode);
 
     void ServiceRegistry.language().handleSystemConfigurationUpdate(this.context);
 
     // 更新主题服务的深浅模式
-    const themeMode = ServiceRegistry.settings().getThemeMode();
-    const isDarkMode = themeMode === ThemeMode.DARK
-      ? true
-      : themeMode === ThemeMode.LIGHT
-        ? false
-        : latestColorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+    const isDarkMode = this.resolveIsDarkMode(latestColorMode);
     ServiceRegistry.theme().updateDarkMode(isDarkMode);
     this.updateWindowAppearance(latestColorMode);
   }
@@ -394,12 +402,22 @@ export default class EntryAbility extends UIAbility {
 
   private resolveIsDarkMode(colorMode?: ConfigurationConstant.ColorMode): boolean {
     const themeMode = ServiceRegistry.settings().getThemeMode();
-    const effectiveColorMode = colorMode ?? this.context.config.colorMode;
-    return themeMode === ThemeMode.DARK
-      ? true
-      : themeMode === ThemeMode.LIGHT
-        ? false
-        : effectiveColorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+    if (themeMode === ThemeMode.DARK) {
+      return true;
+    }
+    if (themeMode === ThemeMode.LIGHT) {
+      return false;
+    }
+    // 跟随系统：当传入的 colorMode 是明确值（DARK/LIGHT）时直接使用；
+    // 当 colorMode 为 NOT_SET 或未传入时（典型场景：用户刚切换到“跟随系统”），
+    // 优先使用记录的系统色彩模式 systemColorMode，避免读取尚未刷新的 context.config。
+    if (colorMode !== undefined && colorMode !== ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET) {
+      return colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+    }
+    if (this.systemColorMode !== ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET) {
+      return this.systemColorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
+    }
+    return this.context.config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
   }
 
   // 根据当前主题更新窗口背景色与系统栏样式

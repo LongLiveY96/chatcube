@@ -306,41 +306,38 @@ struct ModelManagePage {
   }
 
   // 静默刷新数据（从 ViewModel 缓存同步，不访问数据库）
-  // 就地更新现有对象属性，保持 @ObjectLink 绑定不断裂
+  // 复用现有对象引用以保持子组件 @Param 绑定稳定，但始终重新赋值数组以触发 @Local 响应式刷新——
+  // 注意：providerViewModel.getCachedProviders() 返回的是内部缓存数组的同一引用，
+  // 而 loadAllProviders/loadProviders 也会把该引用赋给 this.allProviders；
+  // 当 saveProvider 通过 unshift 原地新增时，两个变量指向同一被修改的数组，
+  // 单纯的 length / 顺序比较都会得出“无需重建”的错误结论，导致新建服务商后列表不刷新。
   private refreshFromCache(): void {
     const cachedProviders = this.providerViewModel.getCachedProviders()
     if (cachedProviders.length === 0) {
       return
     }
 
-    // 构建缓存数据的 ID 查找表
-    const cacheMap = new Map<string, ModelProvider>()
-    for (let i = 0; i < cachedProviders.length; i++) {
-      cacheMap.set(cachedProviders[i].id, cachedProviders[i])
-    }
-
-    // 就地更新现有对象的所有属性（@Observed 会自动通知 @ObjectLink 子组件）
+    // 构建当前列表的实例查找表，便于复用同 id 的现有实例
+    const existingMap = new Map<string, ModelProvider>()
     for (let i = 0; i < this.allProviders.length; i++) {
-      const existing = this.allProviders[i]
-      const updated = cacheMap.get(existing.id)
-      if (updated !== undefined && updated !== existing) {
-        this.providerViewModel.syncProviderProperties(existing, updated)
+      existingMap.set(this.allProviders[i].id, this.allProviders[i])
+    }
+
+    // 按缓存顺序构建新数组：能复用的就地同步属性（保持子组件绑定），新增项直接采用缓存实例
+    const next: ModelProvider[] = []
+    for (let i = 0; i < cachedProviders.length; i++) {
+      const cached = cachedProviders[i]
+      const existing = existingMap.get(cached.id)
+      if (existing !== undefined && existing !== cached) {
+        this.providerViewModel.syncProviderProperties(existing, cached)
+        next.push(existing)
+      } else {
+        next.push(cached)
       }
     }
 
-    // 如果服务商数量或顺序变化（如新增、删除），需要重建数组
-    let needsRebuild = cachedProviders.length !== this.allProviders.length
-    if (!needsRebuild) {
-      for (let i = 0; i < cachedProviders.length; i++) {
-        if (cachedProviders[i].id !== this.allProviders[i].id) {
-          needsRebuild = true
-          break
-        }
-      }
-    }
-    if (needsRebuild) {
-      this.allProviders = cachedProviders
-    }
+    // 始终重新赋值新数组，确保 @Local 检测到引用变化并触发列表刷新
+    this.allProviders = next
     this.ensureVisibleProviderTab()
   }
 
@@ -351,31 +348,24 @@ struct ModelManagePage {
       return
     }
 
-    const newMap = new Map<string, ModelProvider>()
-    for (let i = 0; i < savedProviders.length; i++) {
-      newMap.set(savedProviders[i].id, savedProviders[i])
-    }
-
+    const existingMap = new Map<string, ModelProvider>()
     for (let i = 0; i < this.allProviders.length; i++) {
-      const existing = this.allProviders[i]
-      const updated = newMap.get(existing.id)
-      if (updated !== undefined) {
-        this.providerViewModel.syncProviderProperties(existing, updated)
+      existingMap.set(this.allProviders[i].id, this.allProviders[i])
+    }
+
+    const next: ModelProvider[] = []
+    for (let i = 0; i < savedProviders.length; i++) {
+      const saved = savedProviders[i]
+      const existing = existingMap.get(saved.id)
+      if (existing !== undefined && existing !== saved) {
+        this.providerViewModel.syncProviderProperties(existing, saved)
+        next.push(existing)
+      } else {
+        next.push(saved)
       }
     }
 
-    let needsRebuild = savedProviders.length !== this.allProviders.length
-    if (!needsRebuild) {
-      for (let i = 0; i < savedProviders.length; i++) {
-        if (savedProviders[i].id !== this.allProviders[i].id) {
-          needsRebuild = true
-          break
-        }
-      }
-    }
-    if (needsRebuild) {
-      this.allProviders = savedProviders
-    }
+    this.allProviders = next
     this.ensureVisibleProviderTab()
     this.ensureExpandedDetailSelection()
   }
