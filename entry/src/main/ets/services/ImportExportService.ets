@@ -179,7 +179,10 @@ const SENSITIVE_PREFERENCE_KEYS: string[] = [
   PreferenceKeys.SEARCH_BRAVE_API_KEY,
   PreferenceKeys.SEARCH_TAVILY_API_KEY,
   PreferenceKeys.SEARCH_EXA_API_KEY,
-  PreferenceKeys.MCP_SERVER_CONFIGS_JSON
+  PreferenceKeys.MCP_SERVER_CONFIGS_JSON,
+  PreferenceKeys.WEBDAV_SERVER_URL,
+  PreferenceKeys.WEBDAV_USERNAME,
+  PreferenceKeys.WEBDAV_PASSWORD
 ]
 
 // 会话数据

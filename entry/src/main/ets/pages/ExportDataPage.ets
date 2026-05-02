@@ -16,6 +16,7 @@ import {
   buildHdsTopNavigationTitleBarOptionsForPage,
   getHdsTopNavigationContentTopPadding
 } from '../utils/HdsVisualEffectUtil'
+import { ExportOptionsPanel } from '../components/sync/ExportOptionsPanel'
 
 let exportDataPathStack: NavPathStack | null = null
 
@@ -317,19 +318,14 @@ struct ExportDataPage {
 
               this.SectionTitle($r('app.string.export_options'))
 
-              Column() {
-                this.OptionRow($r('app.string.export_include_attachments'), '', this.includeAttachments,
-                  (value: boolean) => { this.includeAttachments = value })
-                Divider().color($r('app.color.divider'))
-                this.OptionRow($r('app.string.export_include_providers'), '', this.includeProviders,
-                  (value: boolean) => { this.includeProviders = value })
-                Divider().color($r('app.color.divider'))
-                this.OptionRow($r('app.string.export_include_preferences'), '', this.includePreferences,
-                  (value: boolean) => { this.includePreferences = value })
-              }
-              .width('100%')
-              .backgroundColor(getAppUiState().themeSurface)
-              .borderRadius(16)
+              ExportOptionsPanel({
+                includeAttachments: this.includeAttachments,
+                includeProviders: this.includeProviders,
+                includePreferences: this.includePreferences,
+                onIncludeAttachmentsChange: (value: boolean) => { this.includeAttachments = value },
+                onIncludeProvidersChange: (value: boolean) => { this.includeProviders = value },
+                onIncludePreferencesChange: (value: boolean) => { this.includePreferences = value }
+              })
 
               this.ExportSecurityNotice()
             }
@@ -451,36 +447,6 @@ struct ExportDataPage {
       .fontColor($r('app.color.text_secondary'))
       .lineHeight(19)
       .margin({ top: 10, left: 4, right: 4 })
-  }
-
-  @Builder
-  OptionRow(
-    title: Resource,
-    warning: Resource | string,
-    checked: boolean,
-    onChange: (value: boolean) => void
-  ) {
-    Row() {
-      Column() {
-        Text(title)
-          .fontSize(16)
-          .fontColor($r('app.color.text_primary'))
-
-        if (warning !== '') {
-          Text(warning)
-            .fontSize(14)
-            .fontColor($r('app.color.status_error'))
-            .margin({ top: 4 })
-        }
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-
-      Toggle({ type: ToggleType.Switch, isOn: checked })
-        .onChange(onChange)
-    }
-    .width('100%')
-    .padding(16)
   }
 }
 

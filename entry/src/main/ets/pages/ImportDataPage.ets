@@ -13,6 +13,7 @@ import {
   buildHdsTopNavigationTitleBarOptionsForPage,
   getHdsTopNavigationContentTopPadding
 } from '../utils/HdsVisualEffectUtil'
+import { ImportOptionsPanel, ImportConflictStrategy } from '../components/sync/ImportOptionsPanel'
 
 let importDataPathStack: NavPathStack | null = null
 
@@ -50,7 +51,7 @@ struct ImportDataPage {
 
   @Local selectedFilePath: string = ''
   @Local preview: ImportPreview | null = null
-  @Local conflictStrategy: 'skip' | 'overwrite' | 'ask' = 'skip'
+  @Local conflictStrategy: ImportConflictStrategy = 'skip'
   @Local importProviders: boolean = true
   @Local importPreferences: boolean = true
   @Local isImporting: boolean = false
@@ -353,43 +354,16 @@ struct ImportDataPage {
               .borderRadius(16)
               .margin({ bottom: 24 })
 
-              if (this.preview && this.preview.conflicts.length > 0) {
-                this.SectionTitle($r('app.string.import_conflict_strategy'))
-
-                Column() {
-                  this.RadioRow($r('app.string.import_strategy_skip'), 'skip', this.conflictStrategy === 'skip', () => {
-                    this.conflictStrategy = 'skip'
-                  })
-                  Divider().color($r('app.color.divider'))
-                  this.RadioRow($r('app.string.import_strategy_overwrite'), 'overwrite',
-                    this.conflictStrategy === 'overwrite', () => {
-                      this.conflictStrategy = 'overwrite'
-                    })
-                  Divider().color($r('app.color.divider'))
-                  this.RadioRow($r('app.string.import_strategy_ask'), 'ask', this.conflictStrategy === 'ask', () => {
-                    this.conflictStrategy = 'ask'
-                  })
-                }
-                .width('100%')
-                .backgroundColor(getAppUiState().themeSurface)
-                .borderRadius(16)
-                .margin({ bottom: 24 })
-              }
-
-              this.SectionTitle($r('app.string.import_options'))
-
-              Column() {
-                this.OptionRow($r('app.string.import_providers'), this.importProviders, (value: boolean) => {
-                  this.importProviders = value
-                })
-                Divider().color($r('app.color.divider'))
-                this.OptionRow($r('app.string.import_preferences'), this.importPreferences, (value: boolean) => {
-                  this.importPreferences = value
-                })
-              }
-              .width('100%')
-              .backgroundColor(getAppUiState().themeSurface)
-              .borderRadius(16)
+              ImportOptionsPanel({
+                importProviders: this.importProviders,
+                importPreferences: this.importPreferences,
+                conflictStrategy: this.conflictStrategy,
+                hasConflicts: this.preview !== null && this.preview.conflicts.length > 0,
+                radioGroup: 'importPageConflictStrategy',
+                onImportProvidersChange: (value: boolean) => { this.importProviders = value },
+                onImportPreferencesChange: (value: boolean) => { this.importPreferences = value },
+                onConflictStrategyChange: (value: ImportConflictStrategy) => { this.conflictStrategy = value }
+              })
             }
             .width('100%')
             .constraintSize({ maxWidth: this.getContentMaxWidth() })
@@ -514,47 +488,6 @@ struct ImportDataPage {
         .fontSize(16)
         .fontColor($r('app.color.text_secondary'))
         .fontWeight(FontWeight.Medium)
-    }
-    .width('100%')
-    .padding(16)
-  }
-
-  @Builder
-  RadioRow(
-    title: Resource,
-    value: string,
-    checked: boolean,
-    onChange: () => void
-  ) {
-    Row() {
-      Text(title)
-        .fontSize(16)
-        .fontColor($r('app.color.text_primary'))
-        .layoutWeight(1)
-
-      Radio({ value: value, group: 'conflictStrategy' })
-        .checked(checked)
-        .onChange(onChange)
-    }
-    .width('100%')
-    .padding(16)
-    .onClick(onChange)
-  }
-
-  @Builder
-  OptionRow(
-    title: Resource,
-    checked: boolean,
-    onChange: (value: boolean) => void
-  ) {
-    Row() {
-      Text(title)
-        .fontSize(16)
-        .fontColor($r('app.color.text_primary'))
-        .layoutWeight(1)
-
-      Toggle({ type: ToggleType.Switch, isOn: checked })
-        .onChange(onChange)
     }
     .width('100%')
     .padding(16)

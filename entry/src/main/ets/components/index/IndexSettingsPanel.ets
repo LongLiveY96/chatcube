@@ -47,6 +47,7 @@ export struct IndexSettingsPanel {
   @Event onOpenNotification: () => void = () => {}
   @Event onOpenExportData: () => void = () => {}
   @Event onOpenImportData: () => void = () => {}
+  @Event onOpenWebDAVSync: () => void = () => {}
   @Event onOpenAbout: () => void = () => {}
   @Event onOpenSupportDevelopment: () => void = () => {}
   @Event onOpenPrivacy: () => void = () => {}
@@ -159,6 +160,13 @@ export struct IndexSettingsPanel {
             title: $r('app.string.settings_import_data'),
             subtitle: $r('app.string.settings_import_data_desc'),
             action: (): void => { this.onOpenImportData() }
+          } as SettingsListItemModel,
+          {
+            key: SettingsRouteName.WEBDAV_SYNC,
+            icon: $r('sys.symbol.icloud'),
+            title: $r('app.string.settings_webdav_sync'),
+            subtitle: $r('app.string.settings_webdav_sync_desc'),
+            action: (): void => { this.onOpenWebDAVSync() }
           } as SettingsListItemModel
         ]
       } as SettingsGroupModel,

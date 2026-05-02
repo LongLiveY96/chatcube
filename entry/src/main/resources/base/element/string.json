@@ -1947,6 +1947,174 @@
     {
       "name": "assistant_delete_failed",
       "value": "Failed to delete assistant"
+    },
+    {
+      "name": "settings_webdav_sync",
+      "value": "WebDAV Sync"
+    },
+    {
+      "name": "settings_webdav_sync_desc",
+      "value": "Upload / download backup via WebDAV"
+    },
+    {
+      "name": "webdav_section_config",
+      "value": "WebDAV Configuration"
+    },
+    {
+      "name": "webdav_section_remote_status",
+      "value": "Remote Status"
+    },
+    {
+      "name": "webdav_section_upload",
+      "value": "Upload Backup"
+    },
+    {
+      "name": "webdav_section_download",
+      "value": "Download & Import"
+    },
+    {
+      "name": "webdav_server_url",
+      "value": "Server URL"
+    },
+    {
+      "name": "webdav_server_url_placeholder",
+      "value": "https://example.com/dav"
+    },
+    {
+      "name": "webdav_username",
+      "value": "Username"
+    },
+    {
+      "name": "webdav_password",
+      "value": "Password"
+    },
+    {
+      "name": "webdav_remote_dir",
+      "value": "Remote Directory"
+    },
+    {
+      "name": "webdav_remote_dir_placeholder",
+      "value": "chatcube"
+    },
+    {
+      "name": "webdav_remote_file_name",
+      "value": "Backup File Name"
+    },
+    {
+      "name": "webdav_test_connection",
+      "value": "Test Connection"
+    },
+    {
+      "name": "webdav_test_success",
+      "value": "Connection successful"
+    },
+    {
+      "name": "webdav_test_failed",
+      "value": "Connection failed"
+    },
+    {
+      "name": "webdav_save_config",
+      "value": "Save Configuration"
+    },
+    {
+      "name": "webdav_config_saved",
+      "value": "Configuration saved"
+    },
+    {
+      "name": "webdav_upload_backup",
+      "value": "Upload to WebDAV"
+    },
+    {
+      "name": "webdav_download_backup",
+      "value": "Download & Import"
+    },
+    {
+      "name": "webdav_refresh_remote_status",
+      "value": "Refresh Remote Status"
+    },
+    {
+      "name": "webdav_stage_exporting",
+      "value": "Exporting local data…"
+    },
+    {
+      "name": "webdav_stage_uploading",
+      "value": "Uploading to WebDAV…"
+    },
+    {
+      "name": "webdav_stage_downloading",
+      "value": "Downloading from WebDAV…"
+    },
+    {
+      "name": "webdav_stage_importing",
+      "value": "Importing into local store…"
+    },
+    {
+      "name": "webdav_sync_success",
+      "value": "Sync completed"
+    },
+    {
+      "name": "webdav_sync_failed",
+      "value": "Sync failed"
+    },
+    {
+      "name": "webdav_invalid_credentials",
+      "value": "Invalid credentials, please check username and password"
+    },
+    {
+      "name": "webdav_remote_file_not_found",
+      "value": "Remote backup file not found"
+    },
+    {
+      "name": "webdav_method_not_allowed",
+      "value": "The server does not support this operation"
+    },
+    {
+      "name": "webdav_storage_full",
+      "value": "Remote storage is full"
+    },
+    {
+      "name": "webdav_directory_must_exist_note",
+      "value": "Please create the directory through your WebDAV server's web UI first; this app does not auto-create it."
+    },
+    {
+      "name": "webdav_security_note",
+      "value": "Credentials are stored in plain text in local preferences. Avoid using on public devices and prefer an app-specific password."
+    },
+    {
+      "name": "webdav_last_sync_time",
+      "value": "Last Sync"
+    },
+    {
+      "name": "webdav_last_sync_never",
+      "value": "Never synced"
+    },
+    {
+      "name": "webdav_remote_file_size",
+      "value": "Remote File Size"
+    },
+    {
+      "name": "webdav_no_remote_backup",
+      "value": "No remote backup"
+    },
+    {
+      "name": "webdav_remote_backup_present",
+      "value": "Remote backup available"
+    },
+    {
+      "name": "webdav_config_incomplete",
+      "value": "Please complete the WebDAV configuration first"
+    },
+    {
+      "name": "webdav_preview_title",
+      "value": "Remote Backup Preview"
+    },
+    {
+      "name": "webdav_preview_confirm",
+      "value": "Confirm Import"
+    },
+    {
+      "name": "webdav_preview_cancel",
+      "value": "Cancel"
     }
   ]
 }

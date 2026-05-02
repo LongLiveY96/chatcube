@@ -16,6 +16,8 @@ import { getBackgroundRunGuardService, BackgroundRunGuardService } from './Backg
 import { getChatNotificationService, ChatNotificationService } from './ChatNotificationService'
 import { getInAppAlertService, InAppAlertService } from './InAppAlertService'
 import { getAssistantService, AssistantService } from './AssistantService'
+import { getWebDAVService, WebDAVService } from './WebDAVService'
+import { getWebDAVSyncService, WebDAVSyncService } from './WebDAVSyncService'
 import { getSettingsManager, SettingsManager } from '../viewmodels/SettingsManager'
 import { getAppStateManager, AppStateManager } from '../viewmodels/AppStateManager'
 import { getProviderViewModel, ProviderViewModel } from '../viewmodels/ProviderViewModel'
@@ -105,6 +107,14 @@ export class ServiceRegistry {
 
   static assistant(): AssistantService {
     return getAssistantService()
+  }
+
+  static webdav(): WebDAVService {
+    return getWebDAVService()
+  }
+
+  static webdavSync(): WebDAVSyncService {
+    return getWebDAVSyncService()
   }
 
   static chat(): ChatViewModel {

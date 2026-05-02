@@ -86,6 +86,11 @@
       "buildFunction": "ImportDataPageBuilder"
     },
     {
+      "name": "WebDAVSyncPage",
+      "pageSourceFile": "src/main/ets/pages/WebDAVSyncPage.ets",
+      "buildFunction": "WebDAVSyncPageBuilder"
+    },
+    {
       "name": "PrivacyPolicyPage",
       "pageSourceFile": "src/main/ets/pages/PrivacyPolicyPage.ets",
       "buildFunction": "PrivacyPolicyPageBuilder"

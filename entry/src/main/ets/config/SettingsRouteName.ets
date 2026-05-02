@@ -13,6 +13,7 @@ export enum SettingsRouteName {
   FONT_SIZE = 'FontSizeSettingsPage',
   EXPORT_DATA = 'ExportDataPage',
   IMPORT_DATA = 'ImportDataPage',
+  WEBDAV_SYNC = 'WebDAVSyncPage',
   ABOUT = 'AboutPage',
   PRIVACY_POLICY = 'PrivacyPolicyPage',
   SUPPORT_DEVELOPMENT = 'SupportDevelopmentPage'

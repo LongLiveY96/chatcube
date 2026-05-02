@@ -1947,6 +1947,174 @@
     {
       "name": "assistant_delete_failed",
       "value": "删除助手失败"
+    },
+    {
+      "name": "settings_webdav_sync",
+      "value": "WebDAV 同步"
+    },
+    {
+      "name": "settings_webdav_sync_desc",
+      "value": "通过 WebDAV 上传/下载备份"
+    },
+    {
+      "name": "webdav_section_config",
+      "value": "WebDAV 配置"
+    },
+    {
+      "name": "webdav_section_remote_status",
+      "value": "远端状态"
+    },
+    {
+      "name": "webdav_section_upload",
+      "value": "上传备份"
+    },
+    {
+      "name": "webdav_section_download",
+      "value": "下载并导入"
+    },
+    {
+      "name": "webdav_server_url",
+      "value": "服务器地址"
+    },
+    {
+      "name": "webdav_server_url_placeholder",
+      "value": "https://example.com/dav"
+    },
+    {
+      "name": "webdav_username",
+      "value": "用户名"
+    },
+    {
+      "name": "webdav_password",
+      "value": "密码"
+    },
+    {
+      "name": "webdav_remote_dir",
+      "value": "远端目录"
+    },
+    {
+      "name": "webdav_remote_dir_placeholder",
+      "value": "chatcube"
+    },
+    {
+      "name": "webdav_remote_file_name",
+      "value": "备份文件名"
+    },
+    {
+      "name": "webdav_test_connection",
+      "value": "测试连接"
+    },
+    {
+      "name": "webdav_test_success",
+      "value": "连接成功"
+    },
+    {
+      "name": "webdav_test_failed",
+      "value": "连接失败"
+    },
+    {
+      "name": "webdav_save_config",
+      "value": "保存配置"
+    },
+    {
+      "name": "webdav_config_saved",
+      "value": "配置已保存"
+    },
+    {
+      "name": "webdav_upload_backup",
+      "value": "上传备份到 WebDAV"
+    },
+    {
+      "name": "webdav_download_backup",
+      "value": "下载并导入"
+    },
+    {
+      "name": "webdav_refresh_remote_status",
+      "value": "刷新远端状态"
+    },
+    {
+      "name": "webdav_stage_exporting",
+      "value": "正在导出本地数据…"
+    },
+    {
+      "name": "webdav_stage_uploading",
+      "value": "正在上传到 WebDAV…"
+    },
+    {
+      "name": "webdav_stage_downloading",
+      "value": "正在从 WebDAV 下载…"
+    },
+    {
+      "name": "webdav_stage_importing",
+      "value": "正在导入到本地…"
+    },
+    {
+      "name": "webdav_sync_success",
+      "value": "同步完成"
+    },
+    {
+      "name": "webdav_sync_failed",
+      "value": "同步失败"
+    },
+    {
+      "name": "webdav_invalid_credentials",
+      "value": "凭据无效，请检查用户名或密码"
+    },
+    {
+      "name": "webdav_remote_file_not_found",
+      "value": "远端备份文件不存在"
+    },
+    {
+      "name": "webdav_method_not_allowed",
+      "value": "服务端不支持该操作"
+    },
+    {
+      "name": "webdav_storage_full",
+      "value": "远端存储空间已满"
+    },
+    {
+      "name": "webdav_directory_must_exist_note",
+      "value": "请先在 WebDAV 服务端的 Web 界面创建该目录，应用不会自动创建。"
+    },
+    {
+      "name": "webdav_security_note",
+      "value": "凭据以明文形式保存在本地偏好设置中，请勿在公共设备使用，并优先使用「应用专用密码」。"
+    },
+    {
+      "name": "webdav_last_sync_time",
+      "value": "上次同步时间"
+    },
+    {
+      "name": "webdav_last_sync_never",
+      "value": "尚未同步"
+    },
+    {
+      "name": "webdav_remote_file_size",
+      "value": "远端文件大小"
+    },
+    {
+      "name": "webdav_no_remote_backup",
+      "value": "远端暂无备份"
+    },
+    {
+      "name": "webdav_remote_backup_present",
+      "value": "远端已有备份"
+    },
+    {
+      "name": "webdav_config_incomplete",
+      "value": "请先完整填写 WebDAV 配置"
+    },
+    {
+      "name": "webdav_preview_title",
+      "value": "远端备份预览"
+    },
+    {
+      "name": "webdav_preview_confirm",
+      "value": "确认导入"
+    },
+    {
+      "name": "webdav_preview_cancel",
+      "value": "取消"
     }
   ]
 }

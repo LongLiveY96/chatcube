@@ -6,7 +6,9 @@ export enum HttpMethod {
   GET = 'GET',
   POST = 'POST',
   PUT = 'PUT',
-  DELETE = 'DELETE'
+  DELETE = 'DELETE',
+  HEAD = 'HEAD',
+  OPTIONS = 'OPTIONS'
 }
 
 // HTTP 请求配置
@@ -14,8 +16,17 @@ export interface HttpRequestConfig {
   url: string
   method: HttpMethod
   headers: Record<string, string>
-  body: string
+  body: string | ArrayBuffer
   timeout: number
+}
+
+// 二进制传输进度回调（0-1）
+export type BinaryProgressCallback = (progress: number) => void
+
+// 数据发送进度信息
+interface DataSendProgressInfo {
+  sendSize: number
+  totalSize: number
 }
 
 // HTTP 响应结果
@@ -132,6 +143,28 @@ export class HttpService {
       return `请求失败 (错误码: ${code})`
     }
     return `请求失败: ${JSON.stringify(error)}`
+  }
+
+  // 将 HTTP 状态码格式化为用户友好的中文提示，未识别的状态码返回 null
+  static formatHttpStatusError(statusCode: number): string | null {
+    if (statusCode === 401) {
+      return '凭据无效，请检查用户名或密码'
+    } else if (statusCode === 403) {
+      return '权限不足，请检查账户对该资源的访问权限'
+    } else if (statusCode === 404) {
+      return '资源不存在，请检查地址或目录是否已创建'
+    } else if (statusCode === 405) {
+      return '服务端不支持该 HTTP 方法'
+    } else if (statusCode === 409) {
+      return '资源冲突，可能是父目录不存在'
+    } else if (statusCode === 423) {
+      return '资源被锁定，请稍后重试'
+    } else if (statusCode === 507) {
+      return '远端存储空间已满'
+    } else if (statusCode >= 500 && statusCode < 600) {
+      return `服务器内部错误 (${statusCode})`
+    }
+    return null
   }
 
   private buildCancelledResponse(): HttpResponse {
@@ -291,6 +324,187 @@ export class HttpService {
     return await this.requestWithController(config, options?.controller)
   }
 
+  // HEAD 请求
+  async head(
+    url: string,
+    headers: Record<string, string> = {},
+    options?: HttpRequestRuntimeOptions
+  ): Promise<HttpResponse> {
+    const config: HttpRequestConfig = {
+      url: url,
+      method: HttpMethod.HEAD,
+      headers: headers,
+      body: '',
+      timeout: options?.timeout !== undefined && options.timeout > 0 ? options.timeout : 30000
+    }
+    return await this.requestWithController(config, options?.controller)
+  }
+
+  // OPTIONS 请求
+  async options(
+    url: string,
+    headers: Record<string, string> = {},
+    runtime?: HttpRequestRuntimeOptions
+  ): Promise<HttpResponse> {
+    const config: HttpRequestConfig = {
+      url: url,
+      method: HttpMethod.OPTIONS,
+      headers: headers,
+      body: '',
+      timeout: runtime?.timeout !== undefined && runtime.timeout > 0 ? runtime.timeout : 30000
+    }
+    return await this.requestWithController(config, runtime?.controller)
+  }
+
+  // 二进制 PUT 请求（用于上传文件，带发送进度回调）
+  async putBinary(
+    url: string,
+    body: ArrayBuffer,
+    headers: Record<string, string>,
+    onProgress?: BinaryProgressCallback,
+    runtime?: HttpRequestRuntimeOptions
+  ): Promise<HttpResponse> {
+    const httpRequest = http.createHttp()
+    let requestId = ''
+    const controller = runtime?.controller
+
+    if (controller !== undefined) {
+      if (controller.isCancelled()) {
+        this.destroyRequestSafely(httpRequest)
+        return this.buildCancelledResponse()
+      }
+      requestId = controller.registerRequest(httpRequest)
+      if (requestId === '') {
+        this.destroyRequestSafely(httpRequest)
+        return this.buildCancelledResponse()
+      }
+    }
+
+    if (onProgress !== undefined) {
+      httpRequest.on('dataSendProgress', (info: DataSendProgressInfo) => {
+        if (info.totalSize > 0) {
+          const ratio = info.sendSize / info.totalSize
+          onProgress(ratio < 0 ? 0 : (ratio > 1 ? 1 : ratio))
+        }
+      })
+    }
+
+    try {
+      const timeout = runtime?.timeout !== undefined && runtime.timeout > 0 ? runtime.timeout : 300000
+      const options: http.HttpRequestOptions = {
+        method: http.RequestMethod.PUT,
+        header: headers,
+        extraData: body,
+        connectTimeout: 15000,
+        readTimeout: timeout,
+        expectDataType: http.HttpDataType.STRING
+      }
+
+      const response = await httpRequest.request(url, options)
+
+      if (controller !== undefined && controller.isCancelled()) {
+        return this.buildCancelledResponse()
+      }
+
+      const success = response.responseCode >= 200 && response.responseCode < 300
+      const result: HttpResponse = {
+        success: success,
+        statusCode: response.responseCode,
+        data: typeof response.result === 'string' ? response.result as string : '',
+        errorMessage: ''
+      }
+      if (!success) {
+        const mapped = HttpService.formatHttpStatusError(response.responseCode)
+        result.errorMessage = mapped !== null ? mapped : `HTTP Error: ${response.responseCode}`
+      }
+      return result
+    } catch (error) {
+      if (controller !== undefined && controller.isCancelled()) {
+        return this.buildCancelledResponse()
+      }
+      return {
+        success: false,
+        statusCode: 0,
+        data: '',
+        errorMessage: HttpService.formatHttpError(error)
+      } as HttpResponse
+    } finally {
+      if (controller !== undefined) {
+        controller.unregisterRequest(requestId)
+      }
+      this.destroyRequestSafely(httpRequest)
+    }
+  }
+
+  // 二进制 GET 请求（用于下载文件，带接收进度回调）
+  async getBinary(
+    url: string,
+    headers: Record<string, string>,
+    onProgress?: BinaryProgressCallback,
+    runtime?: HttpRequestRuntimeOptions
+  ): Promise<ArrayBuffer> {
+    const httpRequest = http.createHttp()
+    let requestId = ''
+    const controller = runtime?.controller
+
+    if (controller !== undefined) {
+      if (controller.isCancelled()) {
+        this.destroyRequestSafely(httpRequest)
+        throw new Error('Request cancelled')
+      }
+      requestId = controller.registerRequest(httpRequest)
+      if (requestId === '') {
+        this.destroyRequestSafely(httpRequest)
+        throw new Error('Request cancelled')
+      }
+    }
+
+    try {
+      const timeout = runtime?.timeout !== undefined && runtime.timeout > 0 ? runtime.timeout : 300000
+      const options: http.HttpRequestOptions = {
+        method: http.RequestMethod.GET,
+        header: headers,
+        extraData: '',
+        connectTimeout: 15000,
+        readTimeout: timeout,
+        expectDataType: http.HttpDataType.ARRAY_BUFFER
+      }
+
+      const response = await httpRequest.request(url, options)
+
+      if (controller !== undefined && controller.isCancelled()) {
+        throw new Error('Request cancelled')
+      }
+
+      if (response.responseCode < 200 || response.responseCode >= 300) {
+        const mapped = HttpService.formatHttpStatusError(response.responseCode)
+        const message = mapped !== null ? mapped : `HTTP Error: ${response.responseCode}`
+        throw new Error(message)
+      }
+
+      // 下载完成时回调进度 100%
+      if (onProgress !== undefined) {
+        onProgress(1)
+      }
+
+      const result = response.result
+      if (result instanceof ArrayBuffer) {
+        return result
+      }
+      // 兜底：把字符串结果转为 ArrayBuffer
+      if (typeof result === 'string') {
+        const bytes = new util.TextEncoder().encodeInto(result as string)
+        return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+      }
+      throw new Error('Unexpected response payload type')
+    } finally {
+      if (controller !== undefined) {
+        controller.unregisterRequest(requestId)
+      }
+      this.destroyRequestSafely(httpRequest)
+    }
+  }
+
   // 流式 POST 请求
   streamPost(
     url: string,
@@ -403,6 +617,10 @@ export class HttpService {
       return http.RequestMethod.PUT
     } else if (method === HttpMethod.DELETE) {
       return http.RequestMethod.DELETE
+    } else if (method === HttpMethod.HEAD) {
+      return http.RequestMethod.HEAD
+    } else if (method === HttpMethod.OPTIONS) {
+      return http.RequestMethod.OPTIONS
     }
     return http.RequestMethod.GET
   }

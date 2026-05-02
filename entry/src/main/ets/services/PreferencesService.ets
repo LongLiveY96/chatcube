@@ -83,6 +83,15 @@ export class PreferenceKeys {
   static readonly MATERIAL_TYPE: string = 'material_type'
   static readonly MATERIAL_LEVEL: string = 'material_level'
   static readonly LIGHT_COLOR_MODE: string = 'light_color_mode'
+
+  // WebDAV 同步配置
+  static readonly WEBDAV_SERVER_URL: string = 'webdav_server_url'
+  static readonly WEBDAV_USERNAME: string = 'webdav_username'
+  static readonly WEBDAV_PASSWORD: string = 'webdav_password'
+  static readonly WEBDAV_REMOTE_DIR: string = 'webdav_remote_dir'
+  static readonly WEBDAV_REMOTE_FILE_NAME: string = 'webdav_remote_file_name'
+  static readonly WEBDAV_LAST_SYNC_TIME: string = 'webdav_last_sync_time'
+  static readonly WEBDAV_LAST_BACKUP_SIZE: string = 'webdav_last_backup_size'
 }
 
 // models.dev 默认基址，PreferenceKeys.MODELS_DEV_BASE_URL 未配置时使用

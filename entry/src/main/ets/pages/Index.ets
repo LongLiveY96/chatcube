@@ -3756,6 +3756,9 @@ struct Index {
       onOpenImportData: (): void => {
         this.openSettingsDestination(SettingsRouteName.IMPORT_DATA)
       },
+      onOpenWebDAVSync: (): void => {
+        this.openSettingsDestination(SettingsRouteName.WEBDAV_SYNC)
+      },
       onOpenAbout: (): void => {
         this.openSettingsDestination(SettingsRouteName.ABOUT)
       },
