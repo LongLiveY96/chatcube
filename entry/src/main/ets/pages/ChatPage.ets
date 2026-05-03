@@ -2383,9 +2383,10 @@ export struct ChatPage {
             }
           })
 
-        // 底部边缘柔和阴影叠层(与设置页/聊天列表页保持一致)
+        // 底部边缘柔和阴影叠层:聊天页没有 Tabs 锚定底边,渐变需要拉长到输入框
+        // 中部以下,才能在视觉上把输入区"沉"在页面底部,32vp 在这里太短看不出。
         Stack({ alignContent: Alignment.Bottom }) {
-          BottomEdgeShadow({ shadowHeight: 32 })
+          BottomEdgeShadow({ shadowHeight: 140 })
         }
         .width('100%')
         .height('100%')
