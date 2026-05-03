@@ -64,6 +64,21 @@
 
 ---
 
+## hvigorw 构建脚本(备用路径)
+
+工程根目录 `hvigorw.cmd` 是 hvigor 6.23.4 的本机包装。`build_project` 用不上时(MCP 未加载、要 hvigor 原生参数 `--watch`/`--analyze`/`--hot-compile`、或想看 raw stderr)可以直接调:
+
+```
+cmd.exe /c hvigorw.cmd assembleApp --no-daemon   # 全工程构建,产物 build/outputs/default/*.app
+cmd.exe /c hvigorw.cmd assembleHap --no-daemon   # 仅构建 entry HAP
+cmd.exe /c hvigorw.cmd tasks --no-daemon         # 列出所有可用 task,顺便确认工程被识别
+cmd.exe /c hvigorw.cmd clean                     # 清 hvigor 缓存
+```
+
+依赖本机 DevEco Studio,脚本自动查 `C:\Program Files\HuaWei\DevEco Studio` / `D:\develop\Huawei\DevEco Studio`,或读 `DEVECO_STUDIO_HOME` 环境变量。WSL 下务必带 `cmd.exe /c` 前缀,否则 bash 会把 `.cmd` 当成 shell 脚本解析失败。
+
+---
+
 ## 工具选择原则
 
 - HarmonyOS API 解释、代码示例、复杂问题：优先用 `ask-huawei-qa`

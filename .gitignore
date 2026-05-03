@@ -21,3 +21,6 @@
 build-profile.json5
 /AGENTS.md
 docs/appgallery
+
+# MCP 配置含本机绝对路径(D:\..., C:\Program Files\...)
+.mcp.json
