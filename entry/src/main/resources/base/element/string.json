@@ -357,6 +357,70 @@
       "value": "Restore data from backup file"
     },
     {
+      "name": "settings_usage_stats_group",
+      "value": "Usage Stats"
+    },
+    {
+      "name": "settings_usage_stats",
+      "value": "Usage Stats"
+    },
+    {
+      "name": "settings_usage_stats_desc",
+      "value": "View sessions and model usage"
+    },
+    {
+      "name": "usage_stats_range_all",
+      "value": "All"
+    },
+    {
+      "name": "usage_stats_range_30d",
+      "value": "Last 30 days"
+    },
+    {
+      "name": "usage_stats_overview_title",
+      "value": "Overview"
+    },
+    {
+      "name": "usage_stats_metric_sessions",
+      "value": "Sessions"
+    },
+    {
+      "name": "usage_stats_metric_messages",
+      "value": "Messages"
+    },
+    {
+      "name": "usage_stats_metric_models",
+      "value": "Models used"
+    },
+    {
+      "name": "usage_stats_metric_active_days",
+      "value": "Active days"
+    },
+    {
+      "name": "usage_stats_ranking_title",
+      "value": "Model Usage Ranking"
+    },
+    {
+      "name": "usage_stats_ranking_subtitle",
+      "value": "Top 10 · counted by AI replies"
+    },
+    {
+      "name": "usage_stats_unit_count",
+      "value": ""
+    },
+    {
+      "name": "usage_stats_unit_day",
+      "value": ""
+    },
+    {
+      "name": "usage_stats_empty_title",
+      "value": "No data yet"
+    },
+    {
+      "name": "usage_stats_empty_desc",
+      "value": "Start chatting with AI and your usage will show up here"
+    },
+    {
       "name": "export_title",
       "value": "Export Data"
     },

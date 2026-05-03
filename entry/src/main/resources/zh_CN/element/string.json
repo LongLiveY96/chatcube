@@ -357,6 +357,70 @@
       "value": "从备份文件恢复数据"
     },
     {
+      "name": "settings_usage_stats_group",
+      "value": "使用统计"
+    },
+    {
+      "name": "settings_usage_stats",
+      "value": "使用统计"
+    },
+    {
+      "name": "settings_usage_stats_desc",
+      "value": "查看会话与模型调用情况"
+    },
+    {
+      "name": "usage_stats_range_all",
+      "value": "全部"
+    },
+    {
+      "name": "usage_stats_range_30d",
+      "value": "近 30 天"
+    },
+    {
+      "name": "usage_stats_overview_title",
+      "value": "总览"
+    },
+    {
+      "name": "usage_stats_metric_sessions",
+      "value": "会话数"
+    },
+    {
+      "name": "usage_stats_metric_messages",
+      "value": "消息总数"
+    },
+    {
+      "name": "usage_stats_metric_models",
+      "value": "使用过的模型"
+    },
+    {
+      "name": "usage_stats_metric_active_days",
+      "value": "活跃天数"
+    },
+    {
+      "name": "usage_stats_ranking_title",
+      "value": "模型调用排行"
+    },
+    {
+      "name": "usage_stats_ranking_subtitle",
+      "value": "Top 10 · 按 AI 回复条数统计"
+    },
+    {
+      "name": "usage_stats_unit_count",
+      "value": "次"
+    },
+    {
+      "name": "usage_stats_unit_day",
+      "value": "天"
+    },
+    {
+      "name": "usage_stats_empty_title",
+      "value": "暂无数据"
+    },
+    {
+      "name": "usage_stats_empty_desc",
+      "value": "开始与 AI 对话后,这里会展示你的使用情况"
+    },
+    {
       "name": "export_title",
       "value": "导出数据"
     },

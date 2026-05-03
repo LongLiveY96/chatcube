@@ -48,6 +48,7 @@ export struct IndexSettingsPanel {
   @Event onOpenExportData: () => void = () => {}
   @Event onOpenImportData: () => void = () => {}
   @Event onOpenWebDAVSync: () => void = () => {}
+  @Event onOpenUsageStats: () => void = () => {}
   @Event onOpenAbout: () => void = () => {}
   @Event onOpenSupportDevelopment: () => void = () => {}
   @Event onOpenPrivacy: () => void = () => {}
@@ -167,6 +168,19 @@ export struct IndexSettingsPanel {
             title: $r('app.string.settings_webdav_sync'),
             subtitle: $r('app.string.settings_webdav_sync_desc'),
             action: (): void => { this.onOpenWebDAVSync() }
+          } as SettingsListItemModel
+        ]
+      } as SettingsGroupModel,
+      {
+        key: 'usage',
+        title: $r('app.string.settings_usage_stats_group'),
+        items: [
+          {
+            key: SettingsRouteName.USAGE_STATS,
+            icon: $r('sys.symbol.line_3_horizontal'),
+            title: $r('app.string.settings_usage_stats'),
+            subtitle: $r('app.string.settings_usage_stats_desc'),
+            action: (): void => { this.onOpenUsageStats() }
           } as SettingsListItemModel
         ]
       } as SettingsGroupModel,

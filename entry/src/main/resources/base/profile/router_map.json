@@ -91,6 +91,11 @@
       "buildFunction": "WebDAVSyncPageBuilder"
     },
     {
+      "name": "UsageStatsPage",
+      "pageSourceFile": "src/main/ets/pages/UsageStatsPage.ets",
+      "buildFunction": "UsageStatsPageBuilder"
+    },
+    {
       "name": "PrivacyPolicyPage",
       "pageSourceFile": "src/main/ets/pages/PrivacyPolicyPage.ets",
       "buildFunction": "PrivacyPolicyPageBuilder"

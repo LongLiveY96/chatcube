@@ -2428,6 +2428,152 @@ export class DatabaseService {
       return defaultValue
     }
   }
+
+  // ==================== 使用统计聚合查询 ====================
+
+  // 获取总览统计数据(总会话/总消息/独立模型数/活跃天数)
+  // rangeStartMs: 0 表示全部时间;>0 表示从该时间戳开始统计
+  async getUsageOverview(rangeStartMs: number = 0): Promise<UsageOverviewStats> {
+    await this.waitForInitialization()
+    const result: UsageOverviewStats = {
+      sessionCount: 0,
+      messageCount: 0,
+      distinctModelCount: 0,
+      activeDayCount: 0
+    }
+    if (this.rdbStore === null) {
+      return result
+    }
+    const useRange = rangeStartMs > 0
+    try {
+      // 总会话数:基于会话最后更新时间筛选,避免时间范围内只用旧会话发消息时漏算
+      const sessionSql = useRange
+        ? `SELECT COUNT(*) AS cnt FROM ${TableNames.SESSIONS} WHERE updated_at >= ?`
+        : `SELECT COUNT(*) AS cnt FROM ${TableNames.SESSIONS}`
+      const sessionArgs: Array<relationalStore.ValueType> = useRange ? [rangeStartMs] : []
+      const sessionResult = await this.rdbStore.querySql(sessionSql, sessionArgs)
+      try {
+        if (sessionResult.goToFirstRow()) {
+          result.sessionCount = sessionResult.getLong(sessionResult.getColumnIndex('cnt'))
+        }
+      } finally {
+        sessionResult.close()
+      }
+
+      // 总消息数(全部角色,体现工作量)
+      const msgSql = useRange
+        ? `SELECT COUNT(*) AS cnt FROM ${TableNames.MESSAGES} WHERE timestamp >= ?`
+        : `SELECT COUNT(*) AS cnt FROM ${TableNames.MESSAGES}`
+      const msgArgs: Array<relationalStore.ValueType> = useRange ? [rangeStartMs] : []
+      const msgResult = await this.rdbStore.querySql(msgSql, msgArgs)
+      try {
+        if (msgResult.goToFirstRow()) {
+          result.messageCount = msgResult.getLong(msgResult.getColumnIndex('cnt'))
+        }
+      } finally {
+        msgResult.close()
+      }
+
+      // 独立模型数:仅 assistant 角色 + 有效 model_name(空串/'未知模型'排除)
+      const modelSql = useRange
+        ? `SELECT COUNT(DISTINCT model_name) AS cnt FROM ${TableNames.MESSAGES}
+           WHERE role = 'assistant' AND model_name IS NOT NULL AND model_name != '' AND timestamp >= ?`
+        : `SELECT COUNT(DISTINCT model_name) AS cnt FROM ${TableNames.MESSAGES}
+           WHERE role = 'assistant' AND model_name IS NOT NULL AND model_name != ''`
+      const modelArgs: Array<relationalStore.ValueType> = useRange ? [rangeStartMs] : []
+      const modelResult = await this.rdbStore.querySql(modelSql, modelArgs)
+      try {
+        if (modelResult.goToFirstRow()) {
+          result.distinctModelCount = modelResult.getLong(modelResult.getColumnIndex('cnt'))
+        }
+      } finally {
+        modelResult.close()
+      }
+
+      // 活跃天数:按本地零点取整,使用 SQLite 的 unixepoch + date 转换
+      // timestamp 单位是 ms,先除以 1000 再用 date(...,'unixepoch','localtime')
+      const dayExpr = `date(timestamp / 1000, 'unixepoch', 'localtime')`
+      const daySql = useRange
+        ? `SELECT COUNT(DISTINCT ${dayExpr}) AS cnt FROM ${TableNames.MESSAGES} WHERE timestamp >= ?`
+        : `SELECT COUNT(DISTINCT ${dayExpr}) AS cnt FROM ${TableNames.MESSAGES}`
+      const dayArgs: Array<relationalStore.ValueType> = useRange ? [rangeStartMs] : []
+      const dayResult = await this.rdbStore.querySql(daySql, dayArgs)
+      try {
+        if (dayResult.goToFirstRow()) {
+          result.activeDayCount = dayResult.getLong(dayResult.getColumnIndex('cnt'))
+        }
+      } finally {
+        dayResult.close()
+      }
+    } catch (error) {
+      console.error('DatabaseService', `Failed to get usage overview: ${JSON.stringify(error)}`)
+    }
+    return result
+  }
+
+  // 获取模型调用排行
+  // 仅统计 role='assistant' 且 model_name 有效的消息;按 model_name 分组(同名模型在不同 provider 视为同一项)
+  async getModelUsageRanking(rangeStartMs: number = 0, limit: number = 10): Promise<ModelUsageRankingItem[]> {
+    await this.waitForInitialization()
+    const items: ModelUsageRankingItem[] = []
+    if (this.rdbStore === null) {
+      return items
+    }
+    const useRange = rangeStartMs > 0
+    const safeLimit = limit > 0 ? limit : 10
+    try {
+      const sql = useRange
+        ? `SELECT model_name, MAX(model_id) AS model_id, COUNT(*) AS cnt
+           FROM ${TableNames.MESSAGES}
+           WHERE role = 'assistant'
+             AND model_name IS NOT NULL
+             AND model_name != ''
+             AND timestamp >= ?
+           GROUP BY model_name
+           ORDER BY cnt DESC
+           LIMIT ?`
+        : `SELECT model_name, MAX(model_id) AS model_id, COUNT(*) AS cnt
+           FROM ${TableNames.MESSAGES}
+           WHERE role = 'assistant'
+             AND model_name IS NOT NULL
+             AND model_name != ''
+           GROUP BY model_name
+           ORDER BY cnt DESC
+           LIMIT ?`
+      const args: Array<relationalStore.ValueType> = useRange ? [rangeStartMs, safeLimit] : [safeLimit]
+      const resultSet = await this.rdbStore.querySql(sql, args)
+      try {
+        while (resultSet.goToNextRow()) {
+          const item: ModelUsageRankingItem = {
+            modelName: this.safeGetString(resultSet, 'model_name'),
+            modelId: this.safeGetString(resultSet, 'model_id'),
+            count: resultSet.getLong(resultSet.getColumnIndex('cnt'))
+          }
+          items.push(item)
+        }
+      } finally {
+        resultSet.close()
+      }
+    } catch (error) {
+      console.error('DatabaseService', `Failed to get model usage ranking: ${JSON.stringify(error)}`)
+    }
+    return items
+  }
+}
+
+// 使用统计 - 总览数据
+export interface UsageOverviewStats {
+  sessionCount: number
+  messageCount: number
+  distinctModelCount: number
+  activeDayCount: number
+}
+
+// 使用统计 - 模型排行单项
+export interface ModelUsageRankingItem {
+  modelName: string
+  modelId: string
+  count: number
 }
 
 // 工具事件数据接口
