@@ -24,7 +24,6 @@ import { ImagePreview } from '../components/ImagePreview'
 import { ScrollToBottomButton } from '../components/ScrollToBottomButton'
 import { ScrollToBottomLoadingButton } from '../components/ScrollToBottomLoadingButton'
 import { SharePreviewSheet } from '../components/SharePreviewSheet'
-import { BottomEdgeShadow } from '../components/common/BottomEdgeShadow'
 import { ChatViewModel, TitleGenerationCallbacks } from '../viewmodels/ChatViewModel'
 import { ProviderViewModel } from '../viewmodels/ProviderViewModel'
 import { AppStateManager } from '../viewmodels/AppStateManager'
@@ -2382,15 +2381,6 @@ export struct ChatPage {
               this.handleToolExecutionApprovalSheetDisappear()
             }
           })
-
-        // 底部边缘柔和阴影叠层:聊天页没有 Tabs 锚定底边,渐变需要拉长到输入框
-        // 中部以下,才能在视觉上把输入区"沉"在页面底部,32vp 在这里太短看不出。
-        Stack({ alignContent: Alignment.Bottom }) {
-          BottomEdgeShadow({ shadowHeight: 140 })
-        }
-        .width('100%')
-        .height('100%')
-        .hitTestBehavior(HitTestMode.None)
 
         // 多选工具栏（多选模式时显示）
         if (this.isMultiSelectMode) {
