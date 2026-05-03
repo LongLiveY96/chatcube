@@ -24,6 +24,7 @@ import { ImagePreview } from '../components/ImagePreview'
 import { ScrollToBottomButton } from '../components/ScrollToBottomButton'
 import { ScrollToBottomLoadingButton } from '../components/ScrollToBottomLoadingButton'
 import { SharePreviewSheet } from '../components/SharePreviewSheet'
+import { BottomEdgeShadow } from '../components/common/BottomEdgeShadow'
 import { ChatViewModel, TitleGenerationCallbacks } from '../viewmodels/ChatViewModel'
 import { ProviderViewModel } from '../viewmodels/ProviderViewModel'
 import { AppStateManager } from '../viewmodels/AppStateManager'
@@ -2381,6 +2382,14 @@ export struct ChatPage {
               this.handleToolExecutionApprovalSheetDisappear()
             }
           })
+
+        // 底部边缘柔和阴影叠层(与设置页/聊天列表页保持一致)
+        Stack({ alignContent: Alignment.Bottom }) {
+          BottomEdgeShadow({ height: 32 })
+        }
+        .width('100%')
+        .height('100%')
+        .hitTestBehavior(HitTestMode.None)
 
         // 多选工具栏（多选模式时显示）
         if (this.isMultiSelectMode) {

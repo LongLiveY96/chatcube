@@ -43,6 +43,7 @@ import {
 import { IndexBottomTabItem } from '../components/index/IndexBottomTabItem'
 import { IndexEmptyStateCard } from '../components/index/IndexEmptyStateCard'
 import { IndexSettingsPanel } from '../components/index/IndexSettingsPanel'
+import { BottomEdgeShadow } from '../components/common/BottomEdgeShadow'
 import { IndexSettingsSheetContent } from '../components/index/IndexSettingsSheetContent'
 import { IndexSessionListSection } from '../components/index/IndexSessionListSection'
 import { ChatMultiSelectToolbar } from '../components/chat/ChatMultiSelectToolbar'
@@ -1378,6 +1379,14 @@ struct Index {
       } else {
         this.CompactRoot()
       }
+
+      // 底部边缘柔和阴影叠层(自动跟随深浅色),覆盖 Tabs 与底部安全区交界
+      Stack({ alignContent: Alignment.Bottom }) {
+        BottomEdgeShadow({ height: 32 })
+      }
+      .width('100%')
+      .height('100%')
+      .hitTestBehavior(HitTestMode.None)
 
       // bindSheet 宿主：每个 bindSheet 必须挂在独立组件上，避免多 bindSheet 冲突
       Column()
