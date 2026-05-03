@@ -2130,6 +2130,12 @@ export struct ChatPage {
           .width('100%')
           .height('100%')
           .backgroundColor(this.themeBackground)
+          // 底部渐进高斯模糊:与顶部 HDS GRADIENT_BLUR 视觉同源
+          // 让滚动到底部约 15% 高度的内容呈像素级渐变模糊,过渡到输入框
+          .linearGradientBlur(22, {
+            fractionStops: [[0, 0], [0, 0.85], [1, 1.0]],
+            direction: GradientDirection.Bottom
+          })
 
         // 编辑模式点击层 - 点击空白处取消编辑
         if (this.isEditingMessage) {
