@@ -1,6 +1,10 @@
-import { AppStorageKeys } from '../config/AppStorageKeys'
-import { HdsNavigation, HdsNavigationTitleBarOptions, HdsNavigationTitleMode } from '@kit.UIDesignKit'
-import { LayoutSizeClass } from '../config/LayoutProfile'
+import {
+  HdsNavigation,
+  HdsNavigationTitleBarOptions,
+  HdsNavigationTitleMode,
+  HdsTabs,
+  HdsTabsFloatingStyle
+} from '@kit.UIDesignKit'
 import { ALL_THEMES, ColorTheme, getThemeColors, ThemeColorConfig, ThemeInfo } from '../models/ThemeColors'
 import { ThemeMode } from '../services/PreferencesService'
 import { ServiceRegistry } from '../services/ServiceRegistry'
@@ -14,8 +18,21 @@ import {
   getHdsTopNavigationMaskExtraHeight,
   HdsTopNavigationBlurOptions
 } from '../utils/HdsVisualEffectUtil'
+import {
+  buildCompactTabsFloatingStyle,
+  CompactTabsFloatingStyleOptions
+} from '../utils/HdsTabsFloatingStyleHelper'
+import { IndexBottomTabItem } from '../components/index/IndexBottomTabItem'
 
 let themeModeSettingsPathStack: NavPathStack | null = null
+
+const TAB_INDEX_THEME = 0
+const TAB_INDEX_FONT = 1
+const TAB_INDEX_MATERIAL = 2
+
+const PREVIEW_TAB_INDEX_ASSISTANTS = 0
+const PREVIEW_TAB_INDEX_CHAT = 1
+const PREVIEW_TAB_INDEX_SETTINGS = 2
 
 @ComponentV2
 export struct ThemeAppearanceSettingsView {
@@ -49,6 +66,21 @@ export struct ThemeAppearanceSettingsView {
   private get themeSurface(): string {
     return getAppUiState().themeSurface
   }
+  private get themeDivider(): string {
+    return getAppUiState().themeDivider
+  }
+  private get themeAiBubble(): string {
+    return getAppUiState().themeAiBubble
+  }
+  private get themeUserBubble(): string {
+    return getAppUiState().themeUserBubble
+  }
+  private get themeUserBubbleText(): string {
+    return getAppUiState().themeUserBubbleText
+  }
+  private get themeTextPrimary(): string {
+    return getAppUiState().themeTextPrimary
+  }
   private get isDarkMode(): boolean {
     return getAppUiState().isDarkMode
   }
@@ -63,8 +95,13 @@ export struct ThemeAppearanceSettingsView {
   @Local materialLevel: number = 10
   @Local lightColorMode: string = 'default'
 
+  @Local currentTabIndex: number = TAB_INDEX_THEME
+  @Local previewTabIndex: number = PREVIEW_TAB_INDEX_CHAT
+
   private settingsManager = ServiceRegistry.settings()
-  private compactScroller: Scroller = new Scroller()
+  private themeScroller: Scroller = new Scroller()
+  private fontScroller: Scroller = new Scroller()
+  private materialScroller: Scroller = new Scroller()
 
   private px2vp(px: number): number {
     return px / (this.getUIContext().getHostContext()?.resourceManager.getDeviceCapabilitySync().screenDensity ?? 3) * 160
@@ -250,6 +287,18 @@ export struct ThemeAppearanceSettingsView {
       console.error('ThemeAppearanceSettingsView', `Failed to set light color mode: ${JSON.stringify(error)}`)
       this.lightColorMode = previous
     }
+  }
+
+  private buildPreviewFloatingStyle(): HdsTabsFloatingStyle {
+    const opts = new CompactTabsFloatingStyleOptions()
+    opts.materialType = this.materialType
+    opts.materialLevel = this.materialLevel
+    opts.lightColorMode = this.lightColorMode
+    opts.themePrimary = this.themePrimary
+    opts.barSideMargin = 10
+    opts.barBottomMargin = 8
+    opts.barWidth = { smallWidth: 200, mediumWidth: 220, largeWidth: 240 }
+    return buildCompactTabsFloatingStyle(opts)
   }
 
   @Builder
@@ -547,18 +596,88 @@ export struct ThemeAppearanceSettingsView {
   }
 
   @Builder
-  private FontPreviewCard() {
-    Column({ space: 14 }) {
+  private MiniTabBarAssistants() {
+    IndexBottomTabItem({
+      active: this.previewTabIndex === PREVIEW_TAB_INDEX_ASSISTANTS,
+      activeIcon: $r('sys.symbol.person_fill'),
+      inactiveIcon: $r('sys.symbol.person'),
+      label: $r('app.string.tab_assistants')
+    })
+  }
+
+  @Builder
+  private MiniTabBarChat() {
+    IndexBottomTabItem({
+      active: this.previewTabIndex === PREVIEW_TAB_INDEX_CHAT,
+      activeIcon: $r('sys.symbol.ellipsis_message_fill'),
+      inactiveIcon: $r('sys.symbol.ellipsis_message'),
+      label: $r('app.string.tab_chat')
+    })
+  }
+
+  @Builder
+  private MiniTabBarSettings() {
+    IndexBottomTabItem({
+      active: this.previewTabIndex === PREVIEW_TAB_INDEX_SETTINGS,
+      activeIcon: $r('sys.symbol.gearshape_fill'),
+      inactiveIcon: $r('sys.symbol.gearshape'),
+      label: $r('app.string.tab_settings')
+    })
+  }
+
+  @Builder
+  private MiniHdsTabs() {
+    Column() {
+      HdsTabs({ barPosition: BarPosition.End, index: this.previewTabIndex }) {
+        TabContent() {
+          Column().width('100%').height('100%').backgroundColor(this.themeBackground)
+        }
+        .tabBar(this.MiniTabBarAssistants())
+
+        TabContent() {
+          Column().width('100%').height('100%').backgroundColor(this.themeBackground)
+        }
+        .tabBar(this.MiniTabBarChat())
+
+        TabContent() {
+          Column().width('100%').height('100%').backgroundColor(this.themeBackground)
+        }
+        .tabBar(this.MiniTabBarSettings())
+      }
+      .barOverlap(true)
+      .barBackgroundBlurStyle(BlurStyle.COMPONENT_THIN)
+      .barBackgroundColor(Color.Transparent)
+      .barMode(BarMode.Fixed)
+      .barFloatingStyle(this.buildPreviewFloatingStyle())
+      .scrollable(false)
+      .onChange((idx: number) => {
+        if (this.previewTabIndex !== idx) {
+          this.previewTabIndex = idx
+        }
+      })
+    }
+    .width('100%')
+    .height(105)
+    .borderRadius(18)
+    .clip(true)
+    .backgroundColor(this.themeBackground)
+    .border({ width: 1, color: this.themeDivider })
+  }
+
+  @Builder
+  private DualBubblePreview() {
+    Column({ space: 12 }) {
       Row() {
         Column() {
           Text($r('app.string.font_preview_ai_message'))
             .fontSize(this.getAiPreviewFontSize())
             .lineHeight(this.getAiPreviewFontSize() + 7)
-            .fontColor(this.getPreviewColors().textPrimary)
+            .fontColor(this.themeTextPrimary)
         }
         .padding({ left: 14, right: 14, top: 10, bottom: 10 })
-        .backgroundColor(this.getPreviewColors().aiBubble)
+        .backgroundColor(this.themeAiBubble)
         .borderRadius({ topLeft: 18, topRight: 18, bottomLeft: 6, bottomRight: 18 })
+        .border({ width: 1, color: this.themeDivider })
         .constraintSize({ maxWidth: '76%' })
 
         Blank()
@@ -572,52 +691,62 @@ export struct ThemeAppearanceSettingsView {
           Text($r('app.string.font_preview_user_message'))
             .fontSize(this.chatFontSize)
             .lineHeight(this.chatFontSize + 7)
-            .fontColor(this.getPreviewColors().userBubbleText)
+            .fontColor(this.themeUserBubbleText)
         }
         .padding({ left: 14, right: 14, top: 10, bottom: 10 })
-        .backgroundColor(this.getPreviewColors().userBubble)
+        .backgroundColor(this.themeUserBubble)
         .borderRadius({ topLeft: 18, topRight: 18, bottomLeft: 18, bottomRight: 6 })
         .constraintSize({ maxWidth: '76%' })
       }
       .width('100%')
     }
     .width('100%')
-    .padding(16)
-    .backgroundColor(this.getPreviewColors().background)
-    .borderRadius(20)
-    .border({ width: 1, color: this.getPreviewColors().divider })
   }
 
   @Builder
   private LivePreviewSection() {
-    Column({ space: 16 }) {
+    Column({ space: 14 }) {
       this.SectionHeader($r('app.string.appearance_live_preview_title'),
         $r('app.string.appearance_live_preview_desc'))
 
-      Column() {
-        this.FontPreviewCard()
+      Column({ space: 10 }) {
+        this.DualBubblePreview()
+        this.MiniHdsTabs()
       }
       .width('100%')
-      .padding(18)
+      .padding(12)
       .backgroundColor(this.themeSurface)
       .borderRadius(24)
+      .border({ width: 1, color: $r('app.color.divider') })
     }
     .width('100%')
   }
 
   @Builder
-  private PageContent() {
-    Scroll(this.compactScroller) {
+  private TopTabBarBuilder(label: Resource, index: number) {
+    Column() {
+      Text(label)
+        .fontSize(15)
+        .fontWeight(this.currentTabIndex === index ? FontWeight.Bold : FontWeight.Medium)
+        .fontColor(this.currentTabIndex === index ? this.themePrimary : $r('app.color.text_secondary'))
+
+      Column()
+        .width(20)
+        .height(2)
+        .margin({ top: 6 })
+        .borderRadius(1)
+        .backgroundColor(this.currentTabIndex === index ? this.themePrimary : Color.Transparent)
+    }
+    .height(44)
+    .padding({ left: 14, right: 14 })
+    .justifyContent(FlexAlign.Center)
+  }
+
+  @Builder
+  private ThemeTabContent() {
+    Scroll(this.themeScroller) {
       Row() {
         Column({ space: 22 }) {
-          if (!this.isDetailPaneMode()) {
-            Blank()
-              .width('100%')
-              .height(this.getCompactContentTopPadding())
-          }
-
-          this.LivePreviewSection()
-
           this.SectionHeader($r('app.string.appearance_display_mode_title'),
             $r('app.string.appearance_display_mode_desc'))
 
@@ -637,7 +766,24 @@ export struct ThemeAppearanceSettingsView {
           .columnsGap(12)
           .rowsGap(12)
           .width('100%')
+        }
+        .width('100%')
+        .constraintSize({ maxWidth: this.getContentMaxWidth() })
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
+      .padding({ left: 16, right: 16, top: 16, bottom: this.getScrollBottomPadding() })
+    }
+    .width('100%')
+    .height('100%')
+    .scrollBar(BarState.Off)
+  }
 
+  @Builder
+  private FontTabContent() {
+    Scroll(this.fontScroller) {
+      Row() {
+        Column({ space: 22 }) {
           this.SectionHeader($r('app.string.settings_font_size'),
             $r('app.string.settings_font_size_desc'))
 
@@ -697,7 +843,24 @@ export struct ThemeAppearanceSettingsView {
           .padding(18)
           .backgroundColor(this.themeSurface)
           .borderRadius(24)
+        }
+        .width('100%')
+        .constraintSize({ maxWidth: this.getContentMaxWidth() })
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
+      .padding({ left: 16, right: 16, top: 16, bottom: this.getScrollBottomPadding() })
+    }
+    .width('100%')
+    .height('100%')
+    .scrollBar(BarState.Off)
+  }
 
+  @Builder
+  private MaterialTabContent() {
+    Scroll(this.materialScroller) {
+      Row() {
+        Column({ space: 22 }) {
           this.SectionHeader($r('app.string.material_effect_title'),
             $r('app.string.material_effect_desc'))
 
@@ -751,11 +914,71 @@ export struct ThemeAppearanceSettingsView {
       }
       .width('100%')
       .justifyContent(FlexAlign.Center)
-      .padding({ left: 16, right: 16, bottom: this.getScrollBottomPadding() })
+      .padding({ left: 16, right: 16, top: 16, bottom: this.getScrollBottomPadding() })
+    }
+    .width('100%')
+    .height('100%')
+    .scrollBar(BarState.Off)
+  }
+
+  @Builder
+  private PageBody() {
+    Column({ space: 12 }) {
+      Row() {
+        Column() {
+          this.LivePreviewSection()
+        }
+        .width('100%')
+        .constraintSize({ maxWidth: this.getContentMaxWidth() })
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Center)
+      .padding({ left: 16, right: 16, top: 8 })
+
+      HdsTabs({ barPosition: BarPosition.Start, index: this.currentTabIndex }) {
+        TabContent() {
+          this.ThemeTabContent()
+        }
+        .tabBar(this.TopTabBarBuilder($r('app.string.appearance_tab_theme'), TAB_INDEX_THEME))
+
+        TabContent() {
+          this.FontTabContent()
+        }
+        .tabBar(this.TopTabBarBuilder($r('app.string.appearance_tab_font'), TAB_INDEX_FONT))
+
+        TabContent() {
+          this.MaterialTabContent()
+        }
+        .tabBar(this.TopTabBarBuilder($r('app.string.appearance_tab_material'), TAB_INDEX_MATERIAL))
+      }
+      .barMode(BarMode.Fixed)
+      .barHeight(48)
+      .scrollable(true)
+      .layoutWeight(1)
+      .animationDuration(280)
+      .onChange((idx: number) => {
+        if (this.currentTabIndex !== idx) {
+          animateTo({ duration: 220, curve: Curve.EaseInOut }, () => {
+            this.currentTabIndex = idx
+          })
+        }
+      })
     }
     .width('100%')
     .layoutWeight(1)
-    .scrollBar(BarState.Off)
+  }
+
+  @Builder
+  private CompactBody() {
+    Column() {
+      Blank()
+        .width('100%')
+        .height(this.getCompactContentTopPadding())
+
+      this.PageBody()
+    }
+    .width('100%')
+    .height('100%')
   }
 
   @Builder
@@ -791,19 +1014,18 @@ export struct ThemeAppearanceSettingsView {
       if (this.isDetailPaneMode()) {
         Column() {
           this.DetailPaneHeader()
-          this.PageContent()
+          this.PageBody()
         }
         .width('100%')
         .layoutWeight(1)
       } else {
         HdsNavigation() {
-          this.PageContent()
+          this.CompactBody()
         }
         .width('100%')
         .height('100%')
         .backgroundColor(this.themeBackground)
         .titleBar(this.getCompactTitleBarOptions())
-        .bindToScrollable([this.compactScroller])
         .titleMode(HdsNavigationTitleMode.MINI)
         .hideBackButton(true)
         .hideToolBar(true)

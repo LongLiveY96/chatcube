@@ -197,6 +197,18 @@
       "value": "Changes to display mode, color theme, and font size appear here immediately"
     },
     {
+      "name": "appearance_tab_theme",
+      "value": "Theme"
+    },
+    {
+      "name": "appearance_tab_font",
+      "value": "Font"
+    },
+    {
+      "name": "appearance_tab_material",
+      "value": "Material"
+    },
+    {
       "name": "settings_language",
       "value": "Language"
     },

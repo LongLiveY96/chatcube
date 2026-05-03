@@ -8,9 +8,12 @@ import {
   HdsNavigationTitleBarOptions,
   HdsNavigationTitleMode,
   HdsTabs,
-  HdsTabsFloatingStyle,
-  hdsMaterial
+  HdsTabsFloatingStyle
 } from '@kit.UIDesignKit'
+import {
+  buildCompactTabsFloatingStyle,
+  CompactTabsFloatingStyleOptions
+} from '../utils/HdsTabsFloatingStyleHelper'
 import { ChatSession, ChatMessage, ModelProvider } from '../models/ChatModels'
 import { Assistant, DEFAULT_ASSISTANT_ID } from '../models/AssistantModels'
 import { ChatViewModel } from '../viewmodels/ChatViewModel'
@@ -1541,7 +1544,7 @@ struct Index {
         .barOverlap(true)
         .barBackgroundColor(Color.Transparent)
         .barBackgroundBlurStyle(BlurStyle.COMPONENT_THIN)
-        .barFloatingStyle(this.getCompactTabsFloatingStyle())
+        .barFloatingStyle(this.buildBottomTabsFloatingStyle())
         .scrollable(false)
         .cachedMaxCount(3, TabsCacheMode.CACHE_LATEST_SWITCHED)
         .onChange((index: number) => {
@@ -1817,21 +1820,15 @@ struct Index {
     return this.px2vp(this.bottomAvoidHeight) > 0 ? 24 : 12
   }
 
-  private getCompactTabsFloatingStyle(): HdsTabsFloatingStyle {
-    return {
-      barWidth: {
-        smallWidth: 248,
-        mediumWidth: 278,
-        largeWidth: 312
-      },
-      barSideMargin: Index.COMPACT_TABS_FLOATING_SIDE_MARGIN,
-      barBottomMargin: this.getCompactTabsFloatingBottomMargin(),
-      systemMaterialEffect: {
-        materialType: this.materialType as hdsMaterial.MaterialType,
-        materialLevel: this.materialLevel as hdsMaterial.MaterialLevel
-      },
-      lightColor: this.lightColorMode === 'theme' ? this.themePrimary : undefined
-    }
+  private buildBottomTabsFloatingStyle(): HdsTabsFloatingStyle {
+    const opts = new CompactTabsFloatingStyleOptions()
+    opts.materialType = this.materialType
+    opts.materialLevel = this.materialLevel
+    opts.lightColorMode = this.lightColorMode
+    opts.themePrimary = this.themePrimary
+    opts.barSideMargin = Index.COMPACT_TABS_FLOATING_SIDE_MARGIN
+    opts.barBottomMargin = this.getCompactTabsFloatingBottomMargin()
+    return buildCompactTabsFloatingStyle(opts)
   }
 
   @Builder

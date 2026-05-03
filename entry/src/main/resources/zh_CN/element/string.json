@@ -197,6 +197,18 @@
       "value": "修改显示模式、主题配色或字体大小时，这里会立即反映效果"
     },
     {
+      "name": "appearance_tab_theme",
+      "value": "主题"
+    },
+    {
+      "name": "appearance_tab_font",
+      "value": "字体"
+    },
+    {
+      "name": "appearance_tab_material",
+      "value": "材质"
+    },
+    {
       "name": "settings_language",
       "value": "语言"
     },
