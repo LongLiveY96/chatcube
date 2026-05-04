@@ -363,6 +363,17 @@ export interface ModelData {
   owned_by: string
 }
 
+// Google ListModels 响应:GET /v1beta/models 返回 { models: [{ name, supportedGenerationMethods, ... }] }
+// 字段名与 OpenAI 完全不同,不能复用 ModelsListResponse
+interface GoogleModelDescriptor {
+  name: string
+  supportedGenerationMethods?: string[]
+}
+
+interface GoogleModelsListResponse {
+  models?: GoogleModelDescriptor[]
+}
+
 // AI API 服务配置
 export interface AIApiConfig {
   providerId: string
@@ -1000,6 +1011,36 @@ export class AIApiService {
     }
 
     try {
+      if (config.apiStyle === ApiStyle.GOOGLE) {
+        // Google 返回 { models: [{ name: "models/gemini-2.5-flash", supportedGenerationMethods: [...] }] }
+        // 需要:1) 取 name 字段 2) 去掉 "models/" 前缀(否则后续拼 chat URL 会变成 models/models/xxx) 3) 过滤掉
+        // 不支持 generateContent 的模型(embedding / tts 之类),避免用户选完打 chat 时再 404
+        const googleResponse = JSON.parse(response.data) as GoogleModelsListResponse
+        const googleModelIds: string[] = []
+        if (googleResponse.models !== undefined && googleResponse.models !== null) {
+          for (let i = 0; i < googleResponse.models.length; i++) {
+            const descriptor = googleResponse.models[i]
+            const methods = descriptor.supportedGenerationMethods
+            if (methods !== undefined && methods.indexOf('generateContent') === -1) {
+              continue
+            }
+            let modelId = descriptor.name
+            if (modelId.startsWith('models/')) {
+              modelId = modelId.substring(7)
+            }
+            if (modelId !== '') {
+              googleModelIds.push(modelId)
+            }
+          }
+        }
+        const googleResult: ModelsListResult = {
+          success: true,
+          models: googleModelIds,
+          errorMessage: ''
+        }
+        return googleResult
+      }
+
       const modelsResponse = JSON.parse(response.data) as ModelsListResponse
       const modelIds: string[] = []
       if (modelsResponse.data !== undefined && modelsResponse.data !== null) {
@@ -1074,6 +1115,15 @@ export class AIApiService {
     let baseUrl = config.baseUrl
     if (baseUrl.endsWith('/')) {
       baseUrl = baseUrl.slice(0, -1)
+    }
+
+    // Google Gemini: 通过 URL 参数携带 API key,且默认拼 /v1beta
+    if (config.apiStyle === ApiStyle.GOOGLE) {
+      const versionPrefix = /\/v\d+\w*/.test(baseUrl) ? '' : '/v1beta'
+      if (baseUrl.includes('googleapis.com')) {
+        return `${baseUrl}${versionPrefix}/models?key=${config.apiKey}`
+      }
+      return `${baseUrl}${versionPrefix}/models`
     }
 
     // 检查 baseUrl 是否已包含版本路径（如 /v1、/v2、/v3 等）
@@ -2264,6 +2314,9 @@ export class AIApiService {
     }
     if (config.apiStyle === ApiStyle.GOOGLE) {
       url = url.replace('generateContent', 'streamGenerateContent')
+      // Gemini streamGenerateContent 默认返回 JSON 数组流,无法被现有 stream-line 解析器消费;
+      // 显式指定 alt=sse 让服务端走 SSE,与 OpenAI/Anthropic 同口径。
+      url += url.includes('?') ? '&alt=sse' : '?alt=sse'
     }
 
     console.info('AIApiService', `Streaming request to: ${url}`)
@@ -2345,6 +2398,8 @@ export class AIApiService {
     }
     if (config.apiStyle === ApiStyle.GOOGLE) {
       url = url.replace('generateContent', 'streamGenerateContent')
+      // 同 streamChatRequest:Gemini 默认是 JSON 数组流,需要 alt=sse 走 SSE。
+      url += url.includes('?') ? '&alt=sse' : '?alt=sse'
     }
 
     console.info('AIApiService', `Streaming request with tools to: ${url}`)
