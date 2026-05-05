@@ -140,6 +140,8 @@ interface ImageUrl {
 interface MultimodalMessageContent {
   role: string
   content: string | MultimodalContentPart[]
+  // DeepSeek-V4 thinking 模式下,assistant 历史消息必须原样回传 reasoning_content（即使为空串）。
+  reasoning_content?: string
 }
 
 // 消息内容接口
@@ -1564,8 +1566,9 @@ export class AIApiService {
           content: msg.content !== '' ? msg.content : null,
           tool_calls: toolCallsForApi
         }
-        if (this.shouldPreserveReasoningContentForToolMessages(reasoningRequestStrategy) &&
-          msg.reasoningContent.trim() !== '') {
+        if (this.shouldPreserveReasoningContentForToolMessages(reasoningRequestStrategy)) {
+          // DeepSeek-V4 等 provider 的 thinking 模式下,reasoning_content 字段必须原样回传:
+          // 即使内容为空串也要保留字段,丢字段会触发 HTTP 400 invalid_request_error。
           assistantWithTools.reasoning_content = msg.reasoningContent
         }
         openaiMessages.push(assistantWithTools)
@@ -1617,6 +1620,10 @@ export class AIApiService {
           role: msg.role,
           content: contentParts
         }
+        if (msg.role === 'assistant' &&
+          this.shouldPreserveReasoningContentForToolMessages(reasoningRequestStrategy)) {
+          multimodalMsg.reasoning_content = msg.reasoningContent
+        }
         openaiMessages.push(multimodalMsg)
       } else {
         // 纯文本消息
@@ -1624,13 +1631,20 @@ export class AIApiService {
           role: msg.role,
           content: msg.content
         }
-        if (msg.role === 'assistant' && msg.reasoningContent.trim() !== '' &&
-          this.getCompatibilityProfile(config).preserveAssistantReasoningDetails) {
-          const reasoningDetail: MiniMaxReasoningDetail = {
-            text: msg.reasoningContent,
-            type: 'text'
+        if (msg.role === 'assistant') {
+          if (this.shouldPreserveReasoningContentForToolMessages(reasoningRequestStrategy)) {
+            // DeepSeek-V4 等 provider 的 thinking 模式下,assistant 历史的 reasoning_content
+            // 必须原样回传(空串也要保留字段),否则会触发 HTTP 400。
+            msgContent.reasoning_content = msg.reasoningContent
           }
-          msgContent.reasoning_details = [reasoningDetail]
+          if (msg.reasoningContent.trim() !== '' &&
+            this.getCompatibilityProfile(config).preserveAssistantReasoningDetails) {
+            const reasoningDetail: MiniMaxReasoningDetail = {
+              text: msg.reasoningContent,
+              type: 'text'
+            }
+            msgContent.reasoning_details = [reasoningDetail]
+          }
         }
         openaiMessages.push(msgContent)
       }
@@ -1976,6 +1990,10 @@ export class AIApiService {
       modelLower.includes('claude-mythos')
   }
 
+  // 判断 assistant 历史消息是否需要原样回传 reasoning_content 字段。
+  // 名字保留为 ForToolMessages 是历史原因,实际覆盖所有 assistant 消息(tool_call / 纯文本 / multimodal)。
+  // 命中的 strategy 即使 reasoning_content 为空串也必须保留字段:
+  // DeepSeek-V4 thinking 模式下,丢字段会触发 HTTP 400 invalid_request_error。
   private shouldPreserveReasoningContentForToolMessages(strategy: ReasoningRequestStrategy): boolean {
     return strategy === ReasoningRequestStrategy.OPENAI_COMPAT_REASONING_EFFORT ||
       strategy === ReasoningRequestStrategy.DEEPSEEK_THINKING ||
