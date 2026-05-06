@@ -1257,10 +1257,6 @@
       "value": "Copy"
     },
     {
-      "name": "menu_select_text",
-      "value": "Select text"
-    },
-    {
       "name": "provider_deleted",
       "value": "Provider deleted"
     },

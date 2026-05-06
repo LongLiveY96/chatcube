@@ -19,7 +19,6 @@ export struct ChatMessageListSection {
   @Param editingMessageId: string = ''
   @Param selectedMessageIds: Array<string> = []
   @Param isMultiSelectMode: boolean = false
-  @Param selectableTextMessageId: string = ''
   @Param inputText: string = ''
   @Param pendingAttachments: MessageAttachment[] = []
   @Param showDraftPreview: boolean = false
@@ -48,7 +47,6 @@ export struct ChatMessageListSection {
   @Event onTTSStop: () => void = (): void => {}
   @Event onSelect: (messageId: string) => void = (_messageId: string): void => {}
   @Event onEnterMultiSelect: (messageId: string) => void = (_messageId: string): void => {}
-  @Event onSetSelectableTextMessageId: (messageId: string) => void = (_messageId: string): void => {}
   @Event onListAppear: () => void = (): void => {}
   @Event onReachStart: () => void = (): void => {}
   @Event onReachEnd: () => void = (): void => {}
@@ -163,12 +161,6 @@ export struct ChatMessageListSection {
 
   private getEffectiveContentMaxWidth(): number {
     return this.contentMaxWidth > 0 ? this.contentMaxWidth : 99999
-  }
-
-  private clearSelectableTextMode(): void {
-    if (this.selectableTextMessageId !== '') {
-      this.onSetSelectableTextMessageId('')
-    }
   }
 
   private getListCachedCount(): number {
@@ -321,7 +313,6 @@ export struct ChatMessageListSection {
                 showHeader: item.showHeader,
                 isSelected: item.isSelected,
                 isEditing: item.isEditing,
-                selectableTextMessageId: this.selectableTextMessageId,
                 isDimmed: item.isDimmed,
                 renderSignature: item.renderSignature,
                 contentRenderSignature: item.contentRenderSignature,
@@ -371,9 +362,6 @@ export struct ChatMessageListSection {
                 },
                 onEnterMultiSelect: (messageId: string): void => {
                   this.onEnterMultiSelect(messageId)
-                },
-                onSetSelectableTextMessageId: (messageId: string): void => {
-                  this.onSetSelectableTextMessageId(messageId)
                 }
               })
                 .width('100%')
@@ -415,9 +403,6 @@ export struct ChatMessageListSection {
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
         .cachedCount(this.getListCachedCount())
-        .onClick(() => {
-          this.clearSelectableTextMode()
-        })
         .backdropBlur(this.isEditingMessage ? 8 : 0)
         .onAppear(() => {
           this.onListAppear()

@@ -8,7 +8,6 @@ import { SearchReferenceCard } from './SearchReferenceCard'
 import { ToolCallCard } from './ToolCallCard'
 import { HtmlPreviewCard } from './HtmlPreviewCard'
 import { TypingDots } from './TypingDots'
-import { SelectableMarkdownContent, getSelectableMarkdownPlainText } from './SelectableMarkdownContent'
 import { AssistantAvatarView } from './AssistantAvatar'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -57,7 +56,6 @@ export struct MessageBubble {
   @Param isMultiSelectMode: boolean = false  // 是否处于多选模式
   @Param isSelected: boolean = false  // 是否被选中
   @Param isEditing: boolean = false  // 是否处于编辑状态（被编辑的消息高亮显示）
-  @Param selectableTextMessageId: string = ''
   @Param previewContent: string = ''  // 编辑时的实时预览内容
   @Param previewAttachments: MessageAttachment[] = []  // 编辑时的实时预览附件
   @Local isReasoningExpanded: boolean = false  // 推理内容是否展开
@@ -107,9 +105,6 @@ export struct MessageBubble {
   private get speakingMessageId(): string {
     return getAppUiState().speakingMessageId
   }
-  private get isSelectableTextMode(): boolean {
-    return this.selectableTextMessageId === this.message.id
-  }
   // 聊天图片紧凑展示参数
   private compactImageMaxHeight: number = 100
   private compactImageContainerWidth: number = 180
@@ -148,7 +143,6 @@ export struct MessageBubble {
   // 多选模式回调
   @Event onSelect: (messageId: string) => void = () => {}
   @Event onEnterMultiSelect: (messageId: string) => void = () => {}
-  @Event onSetSelectableTextMessageId: (messageId: string) => void = (_messageId: string): void => {}
 
   // 支持的翻译语言列表
   private translateLanguages: TranslateLanguage[] = [
@@ -283,13 +277,6 @@ export struct MessageBubble {
   @Monitor('isEditing')
   onIsEditingChange(): void {
     this.syncDerivedRenderCaches()
-  }
-
-  @Monitor('isMultiSelectMode')
-  onIsMultiSelectModeChange(): void {
-    if (this.isMultiSelectMode) {
-      this.exitSelectableTextMode()
-    }
   }
 
   @Monitor('currentModelId')
@@ -455,8 +442,11 @@ export struct MessageBubble {
       .setCodeCopyListener((code: string) => {
         this.copyToClipboard(code)
       })
+      .setTextSelectionEnable(true)
+      .setTextSelectionCopyListener((text: string) => {
+        this.copyToClipboard(text)
+      })
     markdownController.setBlockSpacing(mainBlockSpacing)
-    markdownController.setCopyOption(CopyOptions.LocalDevice)
 
     // 配置推理内容 Markdown（更紧凑）
     reasoningMarkdownController
@@ -491,7 +481,6 @@ export struct MessageBubble {
         this.copyToClipboard(code)
       })
     reasoningMarkdownController.setBlockSpacing(compactBlockSpacing)
-    reasoningMarkdownController.setCopyOption(CopyOptions.LocalDevice)
 
     // 配置翻译内容 Markdown
     translationMarkdownController
@@ -526,7 +515,6 @@ export struct MessageBubble {
         this.copyToClipboard(code)
       })
     translationMarkdownController.setBlockSpacing(compactBlockSpacing)
-    translationMarkdownController.setCopyOption(CopyOptions.LocalDevice)
   }
 
   @Monitor('themeRenderKey')
@@ -1201,33 +1189,6 @@ export struct MessageBubble {
     }
   }
 
-  private enterSelectableTextMode(): void {
-    if (!this.canCopyMessageContent() || this.isMultiSelectMode) {
-      return
-    }
-    this.onSetSelectableTextMessageId(this.message.id)
-  }
-
-  private exitSelectableTextMode(): void {
-    if (this.selectableTextMessageId === this.message.id) {
-      this.onSetSelectableTextMessageId('')
-    }
-  }
-
-  @Builder
-  InlineSelectableTextContent() {
-    Column() {
-      SelectableMarkdownContent({
-        content: this.message.content,
-        fontSize: this.chatFontSize - 1,
-        textColor: $r('app.color.text_primary')
-      })
-        .width('100%')
-    }
-    .width('100%')
-    .transition(TransitionEffect.OPACITY.animation({ duration: 150 }))
-  }
-
   // 翻译子菜单
   @Builder
   TranslateSubMenu() {
@@ -1243,12 +1204,6 @@ export struct MessageBubble {
   @Builder
   AssistantMoreMenu() {
     Menu() {
-      if (this.canCopyMessageContent()) {
-        MenuItem({ symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.textformat')).fontSize(16), content: $r('app.string.menu_select_text') })
-          .contentFont({ size: 14 })
-          .onClick(() => { this.enterSelectableTextMode() })
-      }
-
       MenuItem({ symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.share')).fontSize(16), content: $r('app.string.menu_share') })
         .contentFont({ size: 14 })
         .onClick(() => { this.onShareMessage() })
@@ -1335,47 +1290,43 @@ export struct MessageBubble {
         // 内容区域 - 无气泡，全宽显示
         Column() {
           Column() {
-            if (!this.isSelectableTextMode) {
-              // ========== 工具调用区域 ==========
-              if (this.message.hasToolCalls()) {
-                ForEach(this.message.toolCalls, (toolCall: ToolCall, index: number) => {
-                  if (!this.shouldHideToolCallCard(toolCall)) {
-                    ToolCallCard({
-                      toolCall: toolCall,
-                      toolResult: index < this.message.toolResults.length ? this.message.toolResults[index] : null,
-                      isExecuting: this.message.isGenerating && index >= this.message.toolResults.length
-                    })
-                      .margin({ bottom: 6 })
-                  }
-                }, (toolCall: ToolCall, index: number) => toolCall.id + '_' + index.toString())
-              }
+            // ========== 工具调用区域 ==========
+            if (this.message.hasToolCalls()) {
+              ForEach(this.message.toolCalls, (toolCall: ToolCall, index: number) => {
+                if (!this.shouldHideToolCallCard(toolCall)) {
+                  ToolCallCard({
+                    toolCall: toolCall,
+                    toolResult: index < this.message.toolResults.length ? this.message.toolResults[index] : null,
+                    isExecuting: this.message.isGenerating && index >= this.message.toolResults.length
+                  })
+                    .margin({ bottom: 6 })
+                }
+              }, (toolCall: ToolCall, index: number) => toolCall.id + '_' + index.toString())
+            }
 
-              // ========== 搜索引用区域 ==========
-              if (this.message.hasSearchReferences()) {
-                SearchReferenceCard({
-                  query: this.extractSearchQuery(),
-                  searchEngine: this.message.searchEngine || 'Web',
-                  references: this.message.searchReferences,
-                  sourceLabel: this.getSearchSourceLabel()
-                })
-                  .margin({ bottom: 6 })
-              }
+            // ========== 搜索引用区域 ==========
+            if (this.message.hasSearchReferences()) {
+              SearchReferenceCard({
+                query: this.extractSearchQuery(),
+                searchEngine: this.message.searchEngine || 'Web',
+                references: this.message.searchReferences,
+                sourceLabel: this.getSearchSourceLabel()
+              })
+                .margin({ bottom: 6 })
+            }
 
-              // ========== 附件区域（AI 生成的图片） ==========
-              if (this.message.hasAttachments()) {
-                this.AssistantAttachments()
-              }
+            // ========== 附件区域（AI 生成的图片） ==========
+            if (this.message.hasAttachments()) {
+              this.AssistantAttachments()
+            }
 
-              // ========== 推理内容区域（可折叠） ==========
-              if (this.message.hasReasoningContent()) {
-                this.ReasoningSection()
-              }
+            // ========== 推理内容区域（可折叠） ==========
+            if (this.message.hasReasoningContent()) {
+              this.ReasoningSection()
             }
 
             // ========== 加载状态或主要内容区域 ==========
-            if (this.isSelectableTextMode) {
-              this.InlineSelectableTextContent()
-            } else if (this.message.content.length === 0 && this.message.reasoningContent.length === 0 &&
+            if (this.message.content.length === 0 && this.message.reasoningContent.length === 0 &&
                 (this.message.isGenerating || this.message.isSearching)) {
               if (this.message.isSearching) {
                 this.SearchingIndicatorInline()
@@ -1401,12 +1352,6 @@ export struct MessageBubble {
                       })
                         .width('100%')
                         .backgroundColor(Color.Transparent)
-                        .gesture(
-                          LongPressGesture()
-                            .onAction(() => {
-                              this.enterSelectableTextMode()
-                            })
-                        )
                     }
                   },
                   (segment: ContentSegment, index: number) => {
@@ -1420,18 +1365,12 @@ export struct MessageBubble {
                 })
                   .width('100%')
                   .backgroundColor(Color.Transparent)
-                  .gesture(
-                    LongPressGesture()
-                      .onAction(() => {
-                        this.enterSelectableTextMode()
-                      })
-                  )
                   .transition(TransitionEffect.OPACITY.animation({ duration: 200 }))
               }
             }
 
             // ========== 翻译结果区域（嵌入式可折叠卡片） ==========
-            if (!this.isSelectableTextMode && this.showTranslation) {
+            if (this.showTranslation) {
               this.TranslationCard()
             }
           }
@@ -1442,7 +1381,7 @@ export struct MessageBubble {
             }
           })
           // ========== 工具栏 ==========
-          if (!this.isSelectableTextMode && this.shouldShowAssistantToolbar()) {
+          if (this.shouldShowAssistantToolbar()) {
             Row() {
               // 复制
               if (this.canCopyMessageContent()) {
@@ -1500,8 +1439,8 @@ export struct MessageBubble {
             : this.themeAiBubble)
           .borderRadius(16)
           .border({
-            width: this.isSelectableTextMode ? 1.5 : (this.isMultiSelectMode && this.isSelected ? 1.2 : 0.5),
-            color: this.isSelectableTextMode ? this.themeUserBubble : (this.isMultiSelectMode && this.isSelected ? this.themePrimary : $r('app.color.bubble_border'))
+            width: this.isMultiSelectMode && this.isSelected ? 1.2 : 0.5,
+            color: this.isMultiSelectMode && this.isSelected ? this.themePrimary : $r('app.color.bubble_border')
           })
           .clip(true)
       }
@@ -1870,7 +1809,7 @@ export struct MessageBubble {
 
   private handleCopy() {
     try {
-      const copyContent = this.isSelectableTextMode ? getSelectableMarkdownPlainText(this.message.content) : this.message.content
+      const copyContent = this.message.content
       const pasteboardData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, copyContent)
       const systemPasteboard = pasteboard.getSystemPasteboard()
       systemPasteboard.setData(pasteboardData)

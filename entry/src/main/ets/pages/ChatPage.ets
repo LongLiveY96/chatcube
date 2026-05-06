@@ -268,7 +268,6 @@ export struct ChatPage {
   // 多选模式状态
   @Local isMultiSelectMode: boolean = false
   @Local selectedMessageIds: Array<string> = []
-  @Local selectableTextMessageId: string = ''
   // 分享预览弹窗状态
   @Local showSharePreview: boolean = false
   @Local shareMessages: ChatMessage[] = []
@@ -687,7 +686,6 @@ export struct ChatPage {
 
   private onAppBackgroundChanged(): void {
     if (this.appInBackground) {
-      this.selectableTextMessageId = ''
       if (this.isMultiSelectMode) {
         this.handleExitMultiSelectMode()
       }
@@ -2053,7 +2051,6 @@ export struct ChatPage {
           editingMessageId: this.editingMessageId,
           selectedMessageIds: this.selectedMessageIds,
           isMultiSelectMode: this.isMultiSelectMode,
-          selectableTextMessageId: this.selectableTextMessageId,
           inputText: this.inputText,
           pendingAttachments: this.pendingAttachments,
           showDraftPreview: this.hasDraftContent(),
@@ -2103,9 +2100,6 @@ export struct ChatPage {
           },
           onEnterMultiSelect: (messageId: string): void => {
             this.handleEnterMultiSelectMode(messageId)
-          },
-          onSetSelectableTextMessageId: (messageId: string): void => {
-            this.selectableTextMessageId = messageId
           },
           onListAppear: (): void => {
             this.handleListAppear()
@@ -2461,7 +2455,6 @@ export struct ChatPage {
     })
     .onHidden(() => {
       this.isPageVisible = false
-      this.selectableTextMessageId = ''
       if (this.isMultiSelectMode) {
         this.handleExitMultiSelectMode()
       }
@@ -2734,10 +2727,6 @@ export struct ChatPage {
 
   // 处理返回按钮点击
   private handleBack(): void {
-    if (this.selectableTextMessageId !== '') {
-      this.selectableTextMessageId = ''
-      return
-    }
     if (this.isMultiSelectMode) {
       this.handleExitMultiSelectMode()
       return
@@ -3427,14 +3416,12 @@ export struct ChatPage {
 
   // 分享单条消息：进入多选模式并触发分享
   private handleShareSingleMessage(message: ChatMessage): void {
-    this.selectableTextMessageId = ''
     this.getSelectionFlow().enterModeWithMessage(message.id)
     this.handleShareSelectedMessages()
   }
 
   // 进入多选模式
   private handleEnterMultiSelectMode(messageId: string): void {
-    this.selectableTextMessageId = ''
     this.getSelectionFlow().enterModeWithMessage(messageId)
   }
 
