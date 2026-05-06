@@ -326,17 +326,20 @@ struct Index {
   }
 
   private isExpandedLayout(): boolean {
-    return this.layoutSizeClass === LayoutSizeClass.EXPANDED
+    return this.layoutSizeClass === LayoutSizeClass.EXPANDED && this.isLandscapeWindow()
   }
 
   onWindowMetricsChanged(): void {
-    if (this.currentTabIndex !== Index.TAB_SETTINGS) {
-      return
+    if (this.currentTabIndex === Index.TAB_SETTINGS) {
+      this.syncSettingsDetailPresentationMode()
+      if (this.isSettingsSplitMode()) {
+        this.dismissSettingsSheetForNavigation()
+        this.ensureSettingsSplitLandingRoute()
+      }
     }
-    this.syncSettingsDetailPresentationMode()
-    if (this.isSettingsSplitMode()) {
-      this.dismissSettingsSheetForNavigation()
-      this.ensureSettingsSplitLandingRoute()
+    if (this.currentTabIndex === Index.TAB_CHAT) {
+      this.syncChatDetailPlaceholder()
+      this.refreshSessionListProjection()
     }
   }
 
@@ -453,7 +456,11 @@ struct Index {
   }
 
   private isChatSplitLayout(): boolean {
-    return this.layoutSizeClass !== LayoutSizeClass.COMPACT
+    return this.layoutSizeClass !== LayoutSizeClass.COMPACT && this.isLandscapeWindow()
+  }
+
+  private getChatNavigationMode(): NavigationMode {
+    return this.isChatSplitLayout() ? NavigationMode.Split : NavigationMode.Stack
   }
 
   private syncChatDetailPlaceholder(): void {
@@ -1993,8 +2000,8 @@ struct Index {
     )
     .hideBackButton(true)
     .hideToolBar(true)
-    .mode(NavigationMode.Auto)
-    .navBarWidth(this.getExpandedChatListWidth())
+    .mode(this.getChatNavigationMode())
+    .navBarWidth(this.isChatSplitLayout() ? this.getExpandedChatListWidth() : this.windowWidthVp)
     .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
   }
 
