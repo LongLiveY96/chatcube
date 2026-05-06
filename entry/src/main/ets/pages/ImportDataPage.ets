@@ -11,7 +11,8 @@ import { getAppUiState } from '../state/AppUiState'
 import { SettingsCompactTitleBarContent } from '../components/settings/SettingsCompactPageHeader'
 import {
   buildHdsTopNavigationTitleBarOptionsForPage,
-  getHdsTopNavigationContentTopPadding
+  getHdsTopNavigationContentTopPadding,
+  getHdsStatusBarContentColor
 } from '../utils/HdsVisualEffectUtil'
 import { ImportOptionsPanel, ImportConflictStrategy } from '../components/sync/ImportOptionsPanel'
 
@@ -456,6 +457,10 @@ struct ImportDataPage {
         .titleBar(this.getCompactTitleBarOptions())
         .bindToScrollable([this.compactScroller])
         .titleMode(HdsNavigationTitleMode.MINI)
+        .systemBarStyle(
+          { statusBarContentColor: getHdsStatusBarContentColor() },
+          { statusBarContentColor: getHdsStatusBarContentColor() }
+        )
         .hideBackButton(true)
         .hideToolBar(true)
         .mode(NavigationMode.Stack)

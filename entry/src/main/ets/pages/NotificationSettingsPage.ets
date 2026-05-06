@@ -14,7 +14,8 @@ import { SettingsPagePresentationMode } from '../config/SettingsDetailPresentati
 import { getAppUiState } from '../state/AppUiState'
 import {
   buildHdsTopNavigationTitleBarOptionsForPage,
-  getHdsTopNavigationContentTopPadding
+  getHdsTopNavigationContentTopPadding,
+  getHdsStatusBarContentColor
 } from '../utils/HdsVisualEffectUtil'
 
 let notificationSettingsPathStack: NavPathStack | null = null
@@ -227,6 +228,10 @@ struct NotificationSettingsPage {
         .titleBar(this.getCompactTitleBarOptions())
         .bindToScrollable([this.compactScroller])
         .titleMode(HdsNavigationTitleMode.MINI)
+        .systemBarStyle(
+          { statusBarContentColor: getHdsStatusBarContentColor() },
+          { statusBarContentColor: getHdsStatusBarContentColor() }
+        )
         .hideBackButton(true)
         .hideToolBar(true)
         .mode(NavigationMode.Stack)

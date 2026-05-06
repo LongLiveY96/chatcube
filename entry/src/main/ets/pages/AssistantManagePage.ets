@@ -23,7 +23,8 @@ import { TRANSPARENT_BG_COLOR } from '../utils/IconGeneratorUtils'
 import { DEFAULT_PRIMARY_COLOR } from '../config/ThemeDefaults'
 import {
   buildHdsTopNavigationTitleBarOptionsForPage,
-  getHdsTopNavigationContentTopPadding
+  getHdsTopNavigationContentTopPadding,
+  getHdsStatusBarContentColor
 } from '../utils/HdsVisualEffectUtil'
 
 let assistantManagePathStack: NavPathStack | null = null
@@ -1060,6 +1061,10 @@ struct AssistantManagePage {
         .titleBar(this.getCompactTitleBarOptions())
         .bindToScrollable([this.compactScroller])
         .titleMode(HdsNavigationTitleMode.MINI)
+        .systemBarStyle(
+          { statusBarContentColor: getHdsStatusBarContentColor() },
+          { statusBarContentColor: getHdsStatusBarContentColor() }
+        )
         .hideBackButton(true)
         .hideToolBar(true)
         .mode(NavigationMode.Stack)

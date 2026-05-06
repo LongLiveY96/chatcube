@@ -14,7 +14,8 @@ import { getSettingsPageContentMaxWidth, isSettingsPageExpandedLayout } from '..
 import { getAppUiState } from '../state/AppUiState'
 import {
   buildHdsTopNavigationTitleBarOptionsForPage,
-  getHdsTopNavigationContentTopPadding
+  getHdsTopNavigationContentTopPadding,
+  getHdsStatusBarContentColor
 } from '../utils/HdsVisualEffectUtil'
 
 let defaultModelPagePathStack: NavPathStack | null = null
@@ -198,6 +199,10 @@ struct DefaultModelPage {
         .titleBar(this.getCompactTitleBarOptions())
         .bindToScrollable([this.compactScroller])
         .titleMode(HdsNavigationTitleMode.MINI)
+        .systemBarStyle(
+          { statusBarContentColor: getHdsStatusBarContentColor() },
+          { statusBarContentColor: getHdsStatusBarContentColor() }
+        )
         .hideBackButton(true)
         .hideToolBar(true)
         .mode(NavigationMode.Stack)

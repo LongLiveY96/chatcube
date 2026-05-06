@@ -6,23 +6,85 @@ import { getAppUiState } from '../state/AppUiState'
 import {
   buildHdsTopNavigationTitleBarOptionsForPage,
   getHdsTopNavigationContentTopPadding,
-  buildPointLightBorderEffect
+  buildPointLightBorderEffect,
+  getHdsStatusBarContentColor
 } from '../utils/HdsVisualEffectUtil'
 import {
   getDatabaseService,
-  ModelUsageRankingItem,
-  UsageOverviewStats
+  ModelUsageRankingItem
 } from '../services/DatabaseService'
 
 const TAG = 'UsageStatsPage'
 const RANGE_30D_MS: number = 30 * 24 * 60 * 60 * 1000
 const RANKING_LIMIT: number = 10
+const RANGE_SWIPE_THRESHOLD: number = 72
+const RANGE_DRAG_MAX_OFFSET: number = 44
+const RANKING_ANIMATION_DELAY_MS: number = 40
+const RANKING_ANIMATION_DURATION_MS: number = 640
 
 let usageStatsPagePathStack: NavPathStack | null = null
 
 enum UsageRangeKey {
   ALL = 'all',
   LAST_30D = 'last_30d'
+}
+
+@ComponentV2
+struct UsageMetricCard {
+  @Param icon: Resource = $r('sys.symbol.circle')
+  @Param title: ResourceStr = ''
+  @Param value: number = 0
+  @Param unit: ResourceStr = ''
+  @Param primaryColor: string = '#4E6F9E'
+  @Param primaryLightColor: string = '#D8E2EE'
+  @Param surfaceColor: string = '#FFFDF8'
+
+  build() {
+    Column() {
+      Row({ space: 8 }) {
+        Column() {
+          SymbolGlyph(this.icon)
+            .fontSize(16)
+            .fontColor([this.primaryColor])
+        }
+        .width(28)
+        .height(28)
+        .borderRadius(9)
+        .backgroundColor(this.primaryLightColor)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+
+        Text(this.title)
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+          .layoutWeight(1)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Row({ space: 4 }) {
+        Text(this.value.toString())
+          .fontSize(26)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+        Text(this.unit)
+          .fontSize(12)
+          .fontColor($r('app.color.text_tertiary'))
+          .margin({ bottom: 4 })
+      }
+      .width('100%')
+      .margin({ top: 10 })
+      .alignItems(VerticalAlign.Bottom)
+    }
+    .width('100%')
+    .padding(14)
+    .backgroundColor(this.surfaceColor)
+    .borderRadius(16)
+    .border({ width: 1, color: $r('app.color.divider') })
+    .visualEffect(buildPointLightBorderEffect())
+  }
 }
 
 @Entry
@@ -63,16 +125,19 @@ struct UsageStatsPage {
   }
 
   @Local currentRange: UsageRangeKey = UsageRangeKey.ALL
-  @Local overview: UsageOverviewStats = {
-    sessionCount: 0,
-    messageCount: 0,
-    distinctModelCount: 0,
-    activeDayCount: 0
-  }
+  @Local sessionCount: number = 0
+  @Local messageCount: number = 0
+  @Local distinctModelCount: number = 0
+  @Local activeDayCount: number = 0
   @Local ranking: ModelUsageRankingItem[] = []
   @Local isLoading: boolean = true
+  @Local rankingAnimationProgress: number = 0
+  @Local rangeSwipeOffsetX: number = 0
 
   private compactScroller: Scroller = new Scroller()
+  private statsLoadToken: number = 0
+  private rankingAnimationTimer: number = -1
+  private rangePanDirection: string = 'none'
 
   private px2vp(px: number): number {
     return px / (this.getUIContext().getHostContext()?.resourceManager.getDeviceCapabilitySync().screenDensity ?? 3) * 160
@@ -80,6 +145,10 @@ struct UsageStatsPage {
 
   aboutToAppear(): void {
     this.loadStats()
+  }
+
+  aboutToDisappear(): void {
+    this.clearRankingAnimationTimer()
   }
 
   private getRangeStartMs(): number {
@@ -90,19 +159,53 @@ struct UsageStatsPage {
   }
 
   private async loadStats(): Promise<void> {
+    const loadToken = this.statsLoadToken + 1
+    this.statsLoadToken = loadToken
     this.isLoading = true
+    this.rankingAnimationProgress = 0
+    this.clearRankingAnimationTimer()
     try {
       const db = getDatabaseService()
       const rangeStart = this.getRangeStartMs()
       const overview = await db.getUsageOverview(rangeStart)
       const ranking = await db.getModelUsageRanking(rangeStart, RANKING_LIMIT)
-      this.overview = overview
+      if (loadToken !== this.statsLoadToken) {
+        return
+      }
+      this.sessionCount = overview.sessionCount
+      this.messageCount = overview.messageCount
+      this.distinctModelCount = overview.distinctModelCount
+      this.activeDayCount = overview.activeDayCount
       this.ranking = ranking
+      this.startRankingAnimation()
     } catch (error) {
       console.error(TAG, `Failed to load usage stats: ${JSON.stringify(error)}`)
     } finally {
-      this.isLoading = false
+      if (loadToken === this.statsLoadToken) {
+        this.isLoading = false
+      }
     }
+  }
+
+  private clearRankingAnimationTimer(): void {
+    if (this.rankingAnimationTimer !== -1) {
+      clearTimeout(this.rankingAnimationTimer)
+      this.rankingAnimationTimer = -1
+    }
+  }
+
+  private startRankingAnimation(): void {
+    this.clearRankingAnimationTimer()
+    if (this.ranking.length === 0) {
+      this.rankingAnimationProgress = 1
+      return
+    }
+    this.rankingAnimationTimer = setTimeout((): void => {
+      this.rankingAnimationTimer = -1
+      this.getUIContext().animateTo({ duration: RANKING_ANIMATION_DURATION_MS, curve: Curve.EaseOut }, () => {
+        this.rankingAnimationProgress = 1
+      })
+    }, RANKING_ANIMATION_DELAY_MS)
   }
 
   private getContentMaxWidth(): number {
@@ -153,6 +256,17 @@ struct UsageStatsPage {
     return fraction
   }
 
+  private getAnimatedRankingFraction(count: number): number {
+    return this.getRankingFraction(count) * this.rankingAnimationProgress
+  }
+
+  private getAnimatedRankingCount(count: number): number {
+    if (this.rankingAnimationProgress >= 1) {
+      return count
+    }
+    return Math.floor(count * this.rankingAnimationProgress)
+  }
+
   private getRankingDisplayName(item: ModelUsageRankingItem): string {
     if (item.modelName !== '') {
       return item.modelName
@@ -164,7 +278,71 @@ struct UsageStatsPage {
   }
 
   private isEmpty(): boolean {
-    return this.ranking.length === 0 && this.overview.messageCount === 0
+    return this.ranking.length === 0 && this.messageCount === 0
+  }
+
+  private switchRange(rangeKey: UsageRangeKey): void {
+    if (this.currentRange === rangeKey) {
+      return
+    }
+    this.getUIContext().animateTo({ duration: 180, curve: Curve.EaseInOut }, () => {
+      this.currentRange = rangeKey
+      this.rangeSwipeOffsetX = 0
+      this.rankingAnimationProgress = 0
+    })
+    this.loadStats()
+  }
+
+  private getRangeBySwipeOffset(offsetX: number): UsageRangeKey | null {
+    if (offsetX <= -RANGE_SWIPE_THRESHOLD && this.currentRange === UsageRangeKey.ALL) {
+      return UsageRangeKey.LAST_30D
+    }
+    if (offsetX >= RANGE_SWIPE_THRESHOLD && this.currentRange === UsageRangeKey.LAST_30D) {
+      return UsageRangeKey.ALL
+    }
+    return null
+  }
+
+  private getDampedRangeSwipeOffset(offsetX: number): number {
+    let offset = offsetX * 0.18
+    if ((this.currentRange === UsageRangeKey.ALL && offset > 0) ||
+      (this.currentRange === UsageRangeKey.LAST_30D && offset < 0)) {
+      offset = offset * 0.35
+    }
+    if (offset > RANGE_DRAG_MAX_OFFSET) {
+      return RANGE_DRAG_MAX_OFFSET
+    }
+    if (offset < -RANGE_DRAG_MAX_OFFSET) {
+      return -RANGE_DRAG_MAX_OFFSET
+    }
+    return offset
+  }
+
+  private handleRangeSwipeStart(): void {
+    this.rangePanDirection = 'none'
+  }
+
+  private handleRangeSwipeUpdate(event: GestureEvent): void {
+    const absX = Math.abs(event.offsetX)
+    const absY = Math.abs(event.offsetY)
+    if (this.rangePanDirection === 'none' && (absX > 12 || absY > 12)) {
+      this.rangePanDirection = absX > absY * 1.25 ? 'horizontal' : 'vertical'
+    }
+    if (this.rangePanDirection !== 'horizontal') {
+      return
+    }
+    this.rangeSwipeOffsetX = this.getDampedRangeSwipeOffset(event.offsetX)
+  }
+
+  private handleRangeSwipeEnd(event: GestureEvent): void {
+    const nextRange = this.rangePanDirection === 'horizontal' ? this.getRangeBySwipeOffset(event.offsetX) : null
+    this.rangePanDirection = 'none'
+    this.getUIContext().animateTo({ duration: 180, curve: Curve.EaseOut }, () => {
+      this.rangeSwipeOffsetX = 0
+    })
+    if (nextRange !== null) {
+      this.switchRange(nextRange)
+    }
   }
 
   @Builder
@@ -205,12 +383,14 @@ struct UsageStatsPage {
           .fontSize(15)
           .fontWeight(this.currentRange === rangeKey ? FontWeight.Bold : FontWeight.Medium)
           .fontColor(this.currentRange === rangeKey ? $r('app.color.text_primary') : $r('app.color.text_secondary'))
+          .animation({ duration: 180, curve: Curve.EaseOut })
 
         Column()
           .width(this.currentRange === rangeKey ? 24 : 14)
           .height(3)
           .borderRadius(2)
           .backgroundColor(this.currentRange === rangeKey ? this.themePrimary : Color.Transparent)
+          .animation({ duration: 180, curve: Curve.EaseOut })
       }
       .alignItems(HorizontalAlign.Start)
     }
@@ -219,11 +399,7 @@ struct UsageStatsPage {
     .padding({ left: 0, right: 0, top: 4, bottom: 4 })
     .backgroundColor(Color.Transparent)
     .onClick(() => {
-      if (this.currentRange === rangeKey) {
-        return
-      }
-      this.currentRange = rangeKey
-      this.loadStats()
+      this.switchRange(rangeKey)
     })
   }
 
@@ -261,85 +437,57 @@ struct UsageStatsPage {
     Column({ space: 10 }) {
       Row({ space: 10 }) {
         Column() {
-          this.InlineMetricCard($r('sys.symbol.message'),
-            $r('app.string.usage_stats_metric_sessions'),
-            this.overview.sessionCount,
-            $r('app.string.usage_stats_unit_count'))
+          UsageMetricCard({
+            icon: $r('sys.symbol.message'),
+            title: $r('app.string.usage_stats_metric_sessions'),
+            value: this.sessionCount,
+            unit: $r('app.string.usage_stats_unit_count'),
+            primaryColor: this.themePrimary,
+            primaryLightColor: this.themePrimaryLight,
+            surfaceColor: this.themeSurface
+          })
         }.layoutWeight(1)
         Column() {
-          this.InlineMetricCard($r('sys.symbol.ellipsis_message'),
-            $r('app.string.usage_stats_metric_messages'),
-            this.overview.messageCount,
-            $r('app.string.usage_stats_unit_count'))
+          UsageMetricCard({
+            icon: $r('sys.symbol.ellipsis_message'),
+            title: $r('app.string.usage_stats_metric_messages'),
+            value: this.messageCount,
+            unit: $r('app.string.usage_stats_unit_count'),
+            primaryColor: this.themePrimary,
+            primaryLightColor: this.themePrimaryLight,
+            surfaceColor: this.themeSurface
+          })
         }.layoutWeight(1)
       }
       .width('100%')
 
       Row({ space: 10 }) {
         Column() {
-          this.InlineMetricCard($r('sys.symbol.square_stack_3d'),
-            $r('app.string.usage_stats_metric_models'),
-            this.overview.distinctModelCount,
-            $r('app.string.usage_stats_unit_count'))
+          UsageMetricCard({
+            icon: $r('sys.symbol.square_stack_3d'),
+            title: $r('app.string.usage_stats_metric_models'),
+            value: this.distinctModelCount,
+            unit: $r('app.string.usage_stats_unit_count'),
+            primaryColor: this.themePrimary,
+            primaryLightColor: this.themePrimaryLight,
+            surfaceColor: this.themeSurface
+          })
         }.layoutWeight(1)
         Column() {
-          this.InlineMetricCard($r('sys.symbol.calendar'),
-            $r('app.string.usage_stats_metric_active_days'),
-            this.overview.activeDayCount,
-            $r('app.string.usage_stats_unit_day'))
+          UsageMetricCard({
+            icon: $r('sys.symbol.calendar'),
+            title: $r('app.string.usage_stats_metric_active_days'),
+            value: this.activeDayCount,
+            unit: $r('app.string.usage_stats_unit_day'),
+            primaryColor: this.themePrimary,
+            primaryLightColor: this.themePrimaryLight,
+            surfaceColor: this.themeSurface
+          })
         }.layoutWeight(1)
       }
       .width('100%')
     }
     .width('100%')
-  }
-
-  @Builder
-  private InlineMetricCard(icon: Resource, title: ResourceStr, value: number, unit: ResourceStr) {
-    Column() {
-      Row({ space: 8 }) {
-        Column() {
-          SymbolGlyph(icon)
-            .fontSize(16)
-            .fontColor([this.themePrimary])
-        }
-        .width(28)
-        .height(28)
-        .borderRadius(9)
-        .backgroundColor(this.themePrimaryLight)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-
-        Text(title)
-          .fontSize(12)
-          .fontColor($r('app.color.text_secondary'))
-          .layoutWeight(1)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      Row({ space: 4 }) {
-        Text(value.toString())
-          .fontSize(26)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
-        Text(unit)
-          .fontSize(12)
-          .fontColor($r('app.color.text_tertiary'))
-          .margin({ bottom: 4 })
-      }
-      .width('100%')
-      .margin({ top: 10 })
-      .alignItems(VerticalAlign.Bottom)
-    }
-    .width('100%')
-    .padding(14)
-    .backgroundColor(this.themeSurface)
-    .borderRadius(16)
-    .border({ width: 1, color: $r('app.color.divider') })
-    .visualEffect(buildPointLightBorderEffect())
   }
 
   @Builder
@@ -360,7 +508,7 @@ struct UsageStatsPage {
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-        Text(`${item.count}`)
+        Text(`${this.getAnimatedRankingCount(item.count)}`)
           .fontSize(13)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.text_secondary'))
@@ -378,7 +526,7 @@ struct UsageStatsPage {
           .backgroundColor($r('app.color.divider'))
 
         Column()
-          .width(`${this.getRankingFraction(item.count) * 100}%`)
+          .width(`${this.getAnimatedRankingFraction(item.count) * 100}%`)
           .height(6)
           .borderRadius(3)
           .backgroundColor(this.themePrimary)
@@ -482,6 +630,19 @@ struct UsageStatsPage {
     .width('100%')
     .layoutWeight(1)
     .scrollBar(BarState.Off)
+    .translate({ x: this.rangeSwipeOffsetX, y: 0 })
+    .parallelGesture(
+      PanGesture({ fingers: 1, distance: 18 })
+        .onActionStart(() => {
+          this.handleRangeSwipeStart()
+        })
+        .onActionUpdate((event: GestureEvent) => {
+          this.handleRangeSwipeUpdate(event)
+        })
+        .onActionEnd((event: GestureEvent) => {
+          this.handleRangeSwipeEnd(event)
+        })
+    )
   }
 
   build() {
@@ -503,6 +664,10 @@ struct UsageStatsPage {
         .titleBar(this.getCompactTitleBarOptions())
         .bindToScrollable([this.compactScroller])
         .titleMode(HdsNavigationTitleMode.MINI)
+        .systemBarStyle(
+          { statusBarContentColor: getHdsStatusBarContentColor() },
+          { statusBarContentColor: getHdsStatusBarContentColor() }
+        )
         .hideBackButton(true)
         .hideToolBar(true)
         .mode(NavigationMode.Stack)

@@ -59,7 +59,7 @@ export struct IndexSettingsPanel {
       this.versionName = info.versionName
     } catch (err) {
       console.error('IndexSettingsPanel', `Get version failed: ${JSON.stringify(err)}`)
-      this.versionName = '1.1.0'
+      this.versionName = '1.1.1'
     }
   }
 
@@ -355,4 +355,3 @@ export struct IndexSettingsPanel {
     .backgroundColor(this.themeBackground)
   }
 }
-

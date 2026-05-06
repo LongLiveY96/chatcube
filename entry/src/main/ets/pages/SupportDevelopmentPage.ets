@@ -10,7 +10,8 @@ import { getAppUiState } from '../state/AppUiState'
 import { saveRawfileImageToAlbum } from '../utils/RawfileImageSaveUtil'
 import {
   buildHdsTopNavigationTitleBarOptionsForPage,
-  getHdsTopNavigationContentTopPadding
+  getHdsTopNavigationContentTopPadding,
+  getHdsStatusBarContentColor
 } from '../utils/HdsVisualEffectUtil'
 
 const TAG = 'SupportDevelopmentPage'
@@ -186,6 +187,10 @@ struct SupportDevelopmentPage {
         .titleBar(this.getCompactTitleBarOptions())
         .bindToScrollable([this.compactScroller])
         .titleMode(HdsNavigationTitleMode.MINI)
+        .systemBarStyle(
+          { statusBarContentColor: getHdsStatusBarContentColor() },
+          { statusBarContentColor: getHdsStatusBarContentColor() }
+        )
         .hideBackButton(true)
         .hideToolBar(true)
         .mode(NavigationMode.Stack)

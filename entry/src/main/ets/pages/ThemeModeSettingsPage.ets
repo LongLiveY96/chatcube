@@ -16,7 +16,8 @@ import {
   buildHdsTopNavigationTitleBarOptions,
   getHdsTopNavigationBlurEffectiveEndOffset,
   getHdsTopNavigationMaskExtraHeight,
-  HdsTopNavigationBlurOptions
+  HdsTopNavigationBlurOptions,
+  getHdsStatusBarContentColor
 } from '../utils/HdsVisualEffectUtil'
 import {
   buildCompactTabsFloatingStyle,
@@ -1027,6 +1028,10 @@ export struct ThemeAppearanceSettingsView {
         .backgroundColor(this.themeBackground)
         .titleBar(this.getCompactTitleBarOptions())
         .titleMode(HdsNavigationTitleMode.MINI)
+        .systemBarStyle(
+          { statusBarContentColor: getHdsStatusBarContentColor() },
+          { statusBarContentColor: getHdsStatusBarContentColor() }
+        )
         .hideBackButton(true)
         .hideToolBar(true)
         .mode(NavigationMode.Stack)

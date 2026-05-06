@@ -89,7 +89,8 @@ import {
   buildHdsTopNavigationTitleBarOptions,
   getHdsTopNavigationBlurEffectiveEndOffset,
   getHdsTopNavigationMaskExtraHeight,
-  HdsTopNavigationBlurOptions
+  HdsTopNavigationBlurOptions,
+  getHdsStatusBarContentColor
 } from '../utils/HdsVisualEffectUtil'
 import {
   normalizeSystemPromptTemplate,
@@ -1986,6 +1987,10 @@ struct Index {
     .titleBar(this.getCompactChatTitleBarOptions())
     .bindToScrollable([this.sessionListScroller])
     .titleMode(HdsNavigationTitleMode.MINI)
+    .systemBarStyle(
+      { statusBarContentColor: getHdsStatusBarContentColor() },
+      { statusBarContentColor: getHdsStatusBarContentColor() }
+    )
     .hideBackButton(true)
     .hideToolBar(true)
     .mode(NavigationMode.Auto)
@@ -3876,6 +3881,10 @@ struct Index {
       .titleBar(this.getCompactSettingsTitleBarOptions())
       .bindToScrollable([this.settingsRootScroller])
       .titleMode(HdsNavigationTitleMode.MINI)
+      .systemBarStyle(
+        { statusBarContentColor: getHdsStatusBarContentColor() },
+        { statusBarContentColor: getHdsStatusBarContentColor() }
+      )
       .ignoreLayoutSafeArea(
         [LayoutSafeAreaType.SYSTEM],
         this.shouldIgnoreCompactSettingsTopSafeArea() ? [LayoutSafeAreaEdge.TOP] : []

@@ -51,7 +51,8 @@ import {
 } from '../utils/CustomHeaderUtils'
 import {
   buildHdsTopNavigationTitleBarOptionsForPage,
-  getHdsTopNavigationContentTopPadding
+  getHdsTopNavigationContentTopPadding,
+  getHdsStatusBarContentColor
 } from '../utils/HdsVisualEffectUtil'
 
 @ObservedV2
@@ -1037,6 +1038,10 @@ export struct ProviderDetailPanel {
       .titleBar(this.getStandaloneTitleBarOptions())
       .bindToScrollable([this.pageConfigScroller, this.pageModelListScroller])
       .titleMode(HdsNavigationTitleMode.MINI)
+      .systemBarStyle(
+        { statusBarContentColor: getHdsStatusBarContentColor() },
+        { statusBarContentColor: getHdsStatusBarContentColor() }
+      )
       .hideBackButton(true)
       .hideToolBar(true)
       .mode(NavigationMode.Stack)

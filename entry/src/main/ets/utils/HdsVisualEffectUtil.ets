@@ -10,6 +10,9 @@ import {
 import { getAppUiState } from '../state/AppUiState'
 import { withColorAlpha } from './ColorAlphaUtils'
 
+const STATUS_BAR_CONTENT_LIGHT: string = '#1F2329'
+const STATUS_BAR_CONTENT_DARK: string = '#F5F7FA'
+
 export function buildPointLightBorderEffect(sourceBright: boolean = false): uiEffect.VisualEffect {
   return new hdsEffect.HdsEffectBuilder()
     .pointLight({
@@ -50,6 +53,10 @@ export function getHdsTopNavigationScrollEffectType(materialType: number): Scrol
     return ScrollEffectType.GRADIENT_BLUR
   }
   return ScrollEffectType.IMMERSIVE_GRADIENT_BLUR
+}
+
+export function getHdsStatusBarContentColor(): string {
+  return getAppUiState().isDarkMode ? STATUS_BAR_CONTENT_DARK : STATUS_BAR_CONTENT_LIGHT
 }
 
 export function getHdsTopNavigationInitialBlurRadius(materialType: number): number {

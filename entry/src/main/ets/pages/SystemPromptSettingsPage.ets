@@ -9,7 +9,8 @@ import { HdsNavigation, HdsNavigationTitleBarOptions, HdsNavigationTitleMode } f
 import { SettingsCompactTitleBarContent } from '../components/settings/SettingsCompactPageHeader'
 import {
   buildHdsTopNavigationTitleBarOptionsForPage,
-  getHdsTopNavigationContentTopPadding
+  getHdsTopNavigationContentTopPadding,
+  getHdsStatusBarContentColor
 } from '../utils/HdsVisualEffectUtil'
 
 let systemPromptSettingsPathStack: NavPathStack | null = null
@@ -254,6 +255,10 @@ struct SystemPromptSettingsPage {
         .backgroundColor(getAppUiState().themeBackground)
         .titleBar(this.getCompactTitleBarOptions())
         .titleMode(HdsNavigationTitleMode.MINI)
+        .systemBarStyle(
+          { statusBarContentColor: getHdsStatusBarContentColor() },
+          { statusBarContentColor: getHdsStatusBarContentColor() }
+        )
         .hideBackButton(true)
         .hideToolBar(true)
         .mode(NavigationMode.Stack)

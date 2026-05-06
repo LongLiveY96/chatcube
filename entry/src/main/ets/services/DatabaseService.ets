@@ -2431,6 +2431,107 @@ export class DatabaseService {
 
   // ==================== 使用统计聚合查询 ====================
 
+  private applyUsageRange(
+    predicates: relationalStore.RdbPredicates,
+    field: string,
+    rangeStartMs: number
+  ): void {
+    if (rangeStartMs > 0) {
+      predicates.greaterThanOrEqualTo(field, rangeStartMs)
+    }
+  }
+
+  private async countRows(
+    tableName: string,
+    rangeField: string,
+    rangeStartMs: number
+  ): Promise<number> {
+    if (this.rdbStore === null) {
+      return 0
+    }
+    const predicates = new relationalStore.RdbPredicates(tableName)
+    this.applyUsageRange(predicates, rangeField, rangeStartMs)
+    const resultSet = await this.rdbStore.query(predicates, ['id'])
+    try {
+      let count = 0
+      while (resultSet.goToNextRow()) {
+        count += 1
+      }
+      return count
+    } finally {
+      resultSet.close()
+    }
+  }
+
+  private isValidUsageModelName(modelName: string): boolean {
+    const normalized = modelName.trim()
+    return normalized !== '' && normalized !== '未知模型' && normalized !== 'Unknown Model'
+  }
+
+  private buildLocalDayKey(timestamp: number): string {
+    const date = new Date(timestamp)
+    const year = date.getFullYear().toString()
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const day = date.getDate().toString().padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  private async collectMessageUsageRows(rangeStartMs: number): Promise<UsageMessageRow[]> {
+    const rows: UsageMessageRow[] = []
+    if (this.rdbStore === null) {
+      return rows
+    }
+    const predicates = new relationalStore.RdbPredicates(TableNames.MESSAGES)
+    this.applyUsageRange(predicates, 'timestamp', rangeStartMs)
+    const resultSet = await this.rdbStore.query(predicates, ['role', 'model_name', 'model_id', 'timestamp'])
+    try {
+      while (resultSet.goToNextRow()) {
+        rows.push({
+          role: this.safeGetString(resultSet, 'role'),
+          modelName: this.safeGetString(resultSet, 'model_name'),
+          modelId: this.safeGetString(resultSet, 'model_id'),
+          timestamp: resultSet.getLong(resultSet.getColumnIndex('timestamp'))
+        })
+      }
+    } finally {
+      resultSet.close()
+    }
+    return rows
+  }
+
+  private buildModelUsageRankingFromRows(rows: UsageMessageRow[], limit: number): ModelUsageRankingItem[] {
+    const stats = new Map<string, ModelUsageRankingItem>()
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      if (row.role !== MessageRole.ASSISTANT || !this.isValidUsageModelName(row.modelName)) {
+        continue
+      }
+      const modelName = row.modelName.trim()
+      const existing = stats.get(modelName)
+      if (existing !== undefined) {
+        existing.count += 1
+        if (existing.modelId === '' && row.modelId.trim() !== '') {
+          existing.modelId = row.modelId.trim()
+        }
+      } else {
+        stats.set(modelName, {
+          modelName: modelName,
+          modelId: row.modelId.trim(),
+          count: 1
+        })
+      }
+    }
+    const items = Array.from(stats.values())
+    items.sort((a: ModelUsageRankingItem, b: ModelUsageRankingItem): number => {
+      if (b.count !== a.count) {
+        return b.count - a.count
+      }
+      return a.modelName.localeCompare(b.modelName)
+    })
+    const safeLimit = limit > 0 ? limit : 10
+    return items.slice(0, safeLimit)
+  }
+
   // 获取总览统计数据(总会话/总消息/独立模型数/活跃天数)
   // rangeStartMs: 0 表示全部时间;>0 表示从该时间戳开始统计
   async getUsageOverview(rangeStartMs: number = 0): Promise<UsageOverviewStats> {
@@ -2444,69 +2545,29 @@ export class DatabaseService {
     if (this.rdbStore === null) {
       return result
     }
-    const useRange = rangeStartMs > 0
     try {
-      // 总会话数:基于会话最后更新时间筛选,避免时间范围内只用旧会话发消息时漏算
-      const sessionSql = useRange
-        ? `SELECT COUNT(*) AS cnt FROM ${TableNames.SESSIONS} WHERE updated_at >= ?`
-        : `SELECT COUNT(*) AS cnt FROM ${TableNames.SESSIONS}`
-      const sessionArgs: Array<relationalStore.ValueType> = useRange ? [rangeStartMs] : []
-      const sessionResult = await this.rdbStore.querySql(sessionSql, sessionArgs)
-      try {
-        if (sessionResult.goToFirstRow()) {
-          result.sessionCount = sessionResult.getLong(sessionResult.getColumnIndex('cnt'))
+      const rows = await this.collectMessageUsageRows(rangeStartMs)
+      const modelNames = new Map<string, boolean>()
+      const activeDays = new Map<string, boolean>()
+      result.messageCount = rows.length
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i]
+        if (row.role === MessageRole.ASSISTANT && this.isValidUsageModelName(row.modelName)) {
+          modelNames.set(row.modelName.trim(), true)
         }
-      } finally {
-        sessionResult.close()
-      }
-
-      // 总消息数(全部角色,体现工作量)
-      const msgSql = useRange
-        ? `SELECT COUNT(*) AS cnt FROM ${TableNames.MESSAGES} WHERE timestamp >= ?`
-        : `SELECT COUNT(*) AS cnt FROM ${TableNames.MESSAGES}`
-      const msgArgs: Array<relationalStore.ValueType> = useRange ? [rangeStartMs] : []
-      const msgResult = await this.rdbStore.querySql(msgSql, msgArgs)
-      try {
-        if (msgResult.goToFirstRow()) {
-          result.messageCount = msgResult.getLong(msgResult.getColumnIndex('cnt'))
+        if (row.timestamp > 0) {
+          activeDays.set(this.buildLocalDayKey(row.timestamp), true)
         }
-      } finally {
-        msgResult.close()
       }
-
-      // 独立模型数:仅 assistant 角色 + 有效 model_name(空串/'未知模型'排除)
-      const modelSql = useRange
-        ? `SELECT COUNT(DISTINCT model_name) AS cnt FROM ${TableNames.MESSAGES}
-           WHERE role = 'assistant' AND model_name IS NOT NULL AND model_name != '' AND timestamp >= ?`
-        : `SELECT COUNT(DISTINCT model_name) AS cnt FROM ${TableNames.MESSAGES}
-           WHERE role = 'assistant' AND model_name IS NOT NULL AND model_name != ''`
-      const modelArgs: Array<relationalStore.ValueType> = useRange ? [rangeStartMs] : []
-      const modelResult = await this.rdbStore.querySql(modelSql, modelArgs)
-      try {
-        if (modelResult.goToFirstRow()) {
-          result.distinctModelCount = modelResult.getLong(modelResult.getColumnIndex('cnt'))
-        }
-      } finally {
-        modelResult.close()
-      }
-
-      // 活跃天数:按本地零点取整,使用 SQLite 的 unixepoch + date 转换
-      // timestamp 单位是 ms,先除以 1000 再用 date(...,'unixepoch','localtime')
-      const dayExpr = `date(timestamp / 1000, 'unixepoch', 'localtime')`
-      const daySql = useRange
-        ? `SELECT COUNT(DISTINCT ${dayExpr}) AS cnt FROM ${TableNames.MESSAGES} WHERE timestamp >= ?`
-        : `SELECT COUNT(DISTINCT ${dayExpr}) AS cnt FROM ${TableNames.MESSAGES}`
-      const dayArgs: Array<relationalStore.ValueType> = useRange ? [rangeStartMs] : []
-      const dayResult = await this.rdbStore.querySql(daySql, dayArgs)
-      try {
-        if (dayResult.goToFirstRow()) {
-          result.activeDayCount = dayResult.getLong(dayResult.getColumnIndex('cnt'))
-        }
-      } finally {
-        dayResult.close()
-      }
+      result.distinctModelCount = modelNames.size
+      result.activeDayCount = activeDays.size
     } catch (error) {
       console.error('DatabaseService', `Failed to get usage overview: ${JSON.stringify(error)}`)
+    }
+    try {
+      result.sessionCount = await this.countRows(TableNames.SESSIONS, 'updated_at', rangeStartMs)
+    } catch (error) {
+      console.error('DatabaseService', `Failed to count usage sessions: ${JSON.stringify(error)}`)
     }
     return result
   }
@@ -2519,40 +2580,11 @@ export class DatabaseService {
     if (this.rdbStore === null) {
       return items
     }
-    const useRange = rangeStartMs > 0
     const safeLimit = limit > 0 ? limit : 10
     try {
-      const sql = useRange
-        ? `SELECT model_name, MAX(model_id) AS model_id, COUNT(*) AS cnt
-           FROM ${TableNames.MESSAGES}
-           WHERE role = 'assistant'
-             AND model_name IS NOT NULL
-             AND model_name != ''
-             AND timestamp >= ?
-           GROUP BY model_name
-           ORDER BY cnt DESC
-           LIMIT ?`
-        : `SELECT model_name, MAX(model_id) AS model_id, COUNT(*) AS cnt
-           FROM ${TableNames.MESSAGES}
-           WHERE role = 'assistant'
-             AND model_name IS NOT NULL
-             AND model_name != ''
-           GROUP BY model_name
-           ORDER BY cnt DESC
-           LIMIT ?`
-      const args: Array<relationalStore.ValueType> = useRange ? [rangeStartMs, safeLimit] : [safeLimit]
-      const resultSet = await this.rdbStore.querySql(sql, args)
-      try {
-        while (resultSet.goToNextRow()) {
-          const item: ModelUsageRankingItem = {
-            modelName: this.safeGetString(resultSet, 'model_name'),
-            modelId: this.safeGetString(resultSet, 'model_id'),
-            count: resultSet.getLong(resultSet.getColumnIndex('cnt'))
-          }
-          items.push(item)
-        }
-      } finally {
-        resultSet.close()
+      const ranking = this.buildModelUsageRankingFromRows(await this.collectMessageUsageRows(rangeStartMs), safeLimit)
+      for (let i = 0; i < ranking.length; i++) {
+        items.push(ranking[i])
       }
     } catch (error) {
       console.error('DatabaseService', `Failed to get model usage ranking: ${JSON.stringify(error)}`)
@@ -2574,6 +2606,13 @@ export interface ModelUsageRankingItem {
   modelName: string
   modelId: string
   count: number
+}
+
+interface UsageMessageRow {
+  role: string
+  modelName: string
+  modelId: string
+  timestamp: number
 }
 
 // 工具事件数据接口

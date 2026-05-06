@@ -20,7 +20,8 @@ import {
 import {
   buildHdsTopNavigationTitleBarOptionsForPage,
   getHdsTopNavigationContentTopPadding,
-  getHdsTopNavigationMaskExtraHeight
+  getHdsTopNavigationMaskExtraHeight,
+  getHdsStatusBarContentColor
 } from '../utils/HdsVisualEffectUtil'
 import { AppStorageKeys } from '../config/AppStorageKeys'
 import { LayoutSizeClass } from '../config/LayoutProfile'
@@ -440,6 +441,10 @@ struct ModelManagePage {
         .titleBar(this.getCompactTitleBarOptions())
         .bindToScrollable([this.providerListScroller])
         .titleMode(HdsNavigationTitleMode.MINI)
+        .systemBarStyle(
+          { statusBarContentColor: getHdsStatusBarContentColor() },
+          { statusBarContentColor: getHdsStatusBarContentColor() }
+        )
         .hideBackButton(true)
         .hideToolBar(true)
         .mode(NavigationMode.Stack)

@@ -8,7 +8,8 @@ import { getSettingsPageContentMaxWidth, getSettingsPageCompactTabsTotalInset } 
 import { getAppUiState } from '../state/AppUiState'
 import {
   buildHdsTopNavigationTitleBarOptionsForPage,
-  getHdsTopNavigationContentTopPadding
+  getHdsTopNavigationContentTopPadding,
+  getHdsStatusBarContentColor
 } from '../utils/HdsVisualEffectUtil'
 
 let toolsCenterPagePathStack: NavPathStack | null = null
@@ -147,6 +148,10 @@ struct ToolsCenterPage {
         .titleBar(this.getCompactTitleBarOptions())
         .bindToScrollable([this.toolsCenterScroller])
         .titleMode(HdsNavigationTitleMode.MINI)
+        .systemBarStyle(
+          { statusBarContentColor: getHdsStatusBarContentColor() },
+          { statusBarContentColor: getHdsStatusBarContentColor() }
+        )
         .hideBackButton(true)
         .hideToolBar(true)
         .mode(NavigationMode.Stack)

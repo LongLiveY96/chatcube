@@ -12,7 +12,8 @@ import { getAppUiState } from '../state/AppUiState'
 import { saveRawfileImageToAlbum } from '../utils/RawfileImageSaveUtil'
 import {
   buildHdsTopNavigationTitleBarOptionsForPage,
-  getHdsTopNavigationContentTopPadding
+  getHdsTopNavigationContentTopPadding,
+  getHdsStatusBarContentColor
 } from '../utils/HdsVisualEffectUtil'
 
 const TAG = 'AboutPage'
@@ -69,7 +70,7 @@ struct AboutPage {
       this.versionName = info.versionName
     } catch (err) {
       hilog.error(0x0000, TAG, 'Get version failed: %{public}s', JSON.stringify(err))
-      this.versionName = '1.1.0'
+      this.versionName = '1.1.1'
     }
   }
 
@@ -301,6 +302,10 @@ struct AboutPage {
         .titleBar(this.getCompactTitleBarOptions())
         .bindToScrollable([this.compactScroller])
         .titleMode(HdsNavigationTitleMode.MINI)
+        .systemBarStyle(
+          { statusBarContentColor: getHdsStatusBarContentColor() },
+          { statusBarContentColor: getHdsStatusBarContentColor() }
+        )
         .hideBackButton(true)
         .hideToolBar(true)
         .mode(NavigationMode.Stack)
