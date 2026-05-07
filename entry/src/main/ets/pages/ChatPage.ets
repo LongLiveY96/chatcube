@@ -1497,7 +1497,6 @@ export struct ChatPage {
       webSearchService: this.webSearchService,
       defaultModelService: this.defaultModelService,
       preferencesService: this.preferencesService,
-      appStateManager: this.appStateManager,
       messages: this.messages,
       getSessionId: (): string => this.sessionId,
       getSessionTitle: (): string => this.sessionTitle,
@@ -3299,6 +3298,9 @@ export struct ChatPage {
     // 标记为新建的空会话（返回时需要删除）
     this.isNewEmptySession = true
     this.syncActiveSessionBinding()
+    // 切到新会话后，按新会话的活跃请求状态重置 isSending / currentTaskId，
+    // 避免上一会话(可能仍在后台生成中)的状态串台到新会话。
+    this.syncSendingStateFromRuntime()
     await this.validateAndSetCurrentModel()
 
     this.showChatSnack($r('app.string.chat_created'), 2000, SnackBarTone.SUCCESS)

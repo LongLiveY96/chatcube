@@ -20,7 +20,6 @@ import {
 import { ChatTaskOrchestratorService } from '../../services/ChatTaskOrchestratorService'
 import { DefaultModelService } from '../../services/DefaultModelService'
 import { PreferenceKeys, PreferencesService } from '../../services/PreferencesService'
-import { AppStateManager } from '../../viewmodels/AppStateManager'
 import { getEffectiveApiKey } from '../../config/PresetProviders'
 import {
   cleanSearchQuery,
@@ -40,7 +39,6 @@ export interface ChatManualSearchFlowDependencies {
   webSearchService: WebSearchService
   defaultModelService: DefaultModelService
   preferencesService: PreferencesService
-  appStateManager: AppStateManager
   messages: ChatMessage[]
   getSessionId: () => string
   getSessionTitle: () => string
@@ -118,17 +116,21 @@ export class ChatManualSearchFlow {
     return taskId
   }
 
-  private completeTask(taskId: string): void {
+  private isStillActiveSession(senderSessionId: string): boolean {
+    return this.deps.getSessionId() === senderSessionId
+  }
+
+  private completeTask(taskId: string, senderSessionId: string): void {
     this.deps.chatTaskOrchestrator.completeTask(taskId)
-    if (this.deps.getCurrentTaskId() === taskId) {
+    if (this.isStillActiveSession(senderSessionId) && this.deps.getCurrentTaskId() === taskId) {
       this.deps.onSetCurrentTaskId('')
     }
     this.deps.onMarkAutoTaskCompleted()
   }
 
-  private failTask(taskId: string, errorMessage: string): void {
+  private failTask(taskId: string, errorMessage: string, senderSessionId: string): void {
     this.deps.chatTaskOrchestrator.failTask(taskId, errorMessage)
-    if (this.deps.getCurrentTaskId() === taskId) {
+    if (this.isStillActiveSession(senderSessionId) && this.deps.getCurrentTaskId() === taskId) {
       this.deps.onSetCurrentTaskId('')
     }
     this.deps.onMarkAutoTaskFailed(errorMessage)
@@ -142,6 +144,7 @@ export class ChatManualSearchFlow {
     }
     const requestId = this.createManualSearchRequestId()
     this.currentSearchRequestId = requestId
+    const senderSessionId = this.deps.getSessionId()
 
     const extractedUrl = this.deps.webSearchService.extractUrl(messageContent)
     const isPureUrl = extractedUrl !== null && extractedUrl === messageContent.trim()
@@ -152,20 +155,26 @@ export class ChatManualSearchFlow {
     this.deps.onSetSearchCancelled(false)
     this.deps.onBeforeManualSearchStart()
 
-    const userMessage = this.createPendingUserMessage(messageContent, attachmentsToSend)
+    const userMessage = this.createPendingUserMessage(messageContent, attachmentsToSend, senderSessionId)
 
     if (isPureUrl && extractedUrl !== null) {
-      await this.performUrlFetchAsync(extractedUrl, messageContent, userMessage, attachmentsToSend, requestId, taskId)
+      await this.performUrlFetchAsync(
+        extractedUrl, messageContent, userMessage, attachmentsToSend, requestId, taskId, senderSessionId)
       return
     }
-    await this.performBingSearchAsync(messageContent, userMessage, attachmentsToSend, requestId, taskId)
+    await this.performBingSearchAsync(
+      messageContent, userMessage, attachmentsToSend, requestId, taskId, senderSessionId)
   }
 
   private generateId(): string {
     return Date.now().toString() + Math.random().toString(36).substring(2, 9)
   }
 
-  createPendingUserMessage(content: string, attachments: MessageAttachment[] = []): ChatMessage {
+  createPendingUserMessage(
+    content: string,
+    attachments: MessageAttachment[] = [],
+    senderSessionId: string = ''
+  ): ChatMessage {
     const userMessage = new ChatMessage(
       this.generateId(),
       MessageRole.USER,
@@ -176,15 +185,17 @@ export class ChatManualSearchFlow {
     for (let i = 0; i < attachments.length; i++) {
       userMessage.attachments.push(attachments[i])
     }
-    this.deps.messages.push(userMessage)
-    this.deps.onSyncMessages()
-    this.deps.onSetNewEmptySession(false)
-    this.deps.onDraftCommitted()
-    this.deps.onScrollBottom()
+    if (senderSessionId === '' || this.isStillActiveSession(senderSessionId)) {
+      this.deps.messages.push(userMessage)
+      this.deps.onSyncMessages()
+      this.deps.onSetNewEmptySession(false)
+      this.deps.onDraftCommitted()
+      this.deps.onScrollBottom()
+    }
     return userMessage
   }
 
-  private createSearchingAIMessage(): ChatMessage {
+  private createSearchingAIMessage(senderSessionId: string): ChatMessage {
     const aiMessage = new ChatMessage(
       this.generateId(),
       MessageRole.ASSISTANT,
@@ -192,13 +203,18 @@ export class ChatManualSearchFlow {
       this.deps.getCurrentModelName()
     )
     aiMessage.isSearching = true
-    this.deps.messages.push(aiMessage)
-    this.deps.onSyncMessages()
-    this.deps.onScrollBottom()
+    if (this.isStillActiveSession(senderSessionId)) {
+      this.deps.messages.push(aiMessage)
+      this.deps.onSyncMessages()
+      this.deps.onScrollBottom()
+    }
     return aiMessage
   }
 
-  private removeSearchingAIMessage(aiMessage: ChatMessage): void {
+  private removeSearchingAIMessage(aiMessage: ChatMessage, senderSessionId: string): void {
+    if (!this.isStillActiveSession(senderSessionId)) {
+      return
+    }
     const idx = this.deps.messages.findIndex((m: ChatMessage) => m.id === aiMessage.id)
     if (idx >= 0) {
       this.deps.messages.splice(idx, 1)
@@ -206,11 +222,30 @@ export class ChatManualSearchFlow {
     this.deps.onSyncMessages()
   }
 
+  private safeSetSending(value: boolean, senderSessionId: string): void {
+    if (this.isStillActiveSession(senderSessionId)) {
+      this.deps.onSetSending(value)
+    }
+  }
+
+  private safeShowToast(message: string | Resource, senderSessionId: string): void {
+    if (this.isStillActiveSession(senderSessionId)) {
+      this.deps.onShowToast(message)
+    }
+  }
+
+  private safeShowError(message: string | Resource, senderSessionId: string): void {
+    if (this.isStillActiveSession(senderSessionId)) {
+      this.deps.onShowError(message)
+    }
+  }
+
   async performBingSearchAsync(query: string, userMessage: ChatMessage,
     attachmentsToSend: MessageAttachment[] = [],
     requestId: string = '',
-    taskId: string = ''): Promise<void> {
-    const searchingAIMessage = this.createSearchingAIMessage()
+    taskId: string = '',
+    senderSessionId: string = ''): Promise<void> {
+    const searchingAIMessage = this.createSearchingAIMessage(senderSessionId)
 
     try {
       const runtimeConfig = await this.deps.webSearchService.getRuntimeConfigSnapshot()
@@ -219,14 +254,14 @@ export class ChatManualSearchFlow {
       searchingAIMessage.searchEngine = preferredEngineName
 
       if (this.deps.isSearchCancelled()) {
-        this.removeSearchingAIMessage(searchingAIMessage)
+        this.removeSearchingAIMessage(searchingAIMessage, senderSessionId)
         return
       }
 
       const cleanedQuery = cleanSearchQuery(query)
 
       if (this.deps.isSearchCancelled()) {
-        this.removeSearchingAIMessage(searchingAIMessage)
+        this.removeSearchingAIMessage(searchingAIMessage, senderSessionId)
         return
       }
 
@@ -306,7 +341,7 @@ export class ChatManualSearchFlow {
       }
 
       if (this.deps.isSearchCancelled()) {
-        this.removeSearchingAIMessage(searchingAIMessage)
+        this.removeSearchingAIMessage(searchingAIMessage, senderSessionId)
         return
       }
 
@@ -316,16 +351,16 @@ export class ChatManualSearchFlow {
       )
 
       if (this.deps.isSearchCancelled()) {
-        this.removeSearchingAIMessage(searchingAIMessage)
+        this.removeSearchingAIMessage(searchingAIMessage, senderSessionId)
         return
       }
 
-      this.removeSearchingAIMessage(searchingAIMessage)
+      this.removeSearchingAIMessage(searchingAIMessage, senderSessionId)
 
       if (!searchResult.success) {
-        this.deps.onShowToast($r('app.string.web_search_failed'))
-        this.deps.onSetSending(false)
-        this.failTask(taskId, searchResult.errorMessage)
+        this.safeShowToast($r('app.string.web_search_failed'), senderSessionId)
+        this.safeSetSending(false, senderSessionId)
+        this.failTask(taskId, searchResult.errorMessage, senderSessionId)
         return
       }
 
@@ -335,13 +370,13 @@ export class ChatManualSearchFlow {
         userMessage.searchReferences.push(searchResult.references[i])
       }
 
-      await this.sendSearchResultMessage(query, searchResult, attachmentsToSend, taskId)
+      await this.sendSearchResultMessage(query, searchResult, attachmentsToSend, taskId, senderSessionId)
     } catch (error) {
-      this.removeSearchingAIMessage(searchingAIMessage)
+      this.removeSearchingAIMessage(searchingAIMessage, senderSessionId)
       console.error('ChatPage', `[performBingSearchAsync] 搜索异常: ${JSON.stringify(error)}`)
-      this.deps.onShowToast($r('app.string.web_search_failed'))
-      this.deps.onSetSending(false)
-      this.failTask(taskId, '联网搜索失败')
+      this.safeShowToast($r('app.string.web_search_failed'), senderSessionId)
+      this.safeSetSending(false, senderSessionId)
+      this.failTask(taskId, '联网搜索失败', senderSessionId)
     } finally {
       this.finishSearchRequest(requestId)
     }
@@ -350,13 +385,14 @@ export class ChatManualSearchFlow {
   async performUrlFetchAsync(url: string, originalInput: string, userMessage: ChatMessage,
     attachmentsToSend: MessageAttachment[] = [],
     requestId: string = '',
-    taskId: string = ''): Promise<void> {
-    const searchingAIMessage = this.createSearchingAIMessage()
+    taskId: string = '',
+    senderSessionId: string = ''): Promise<void> {
+    const searchingAIMessage = this.createSearchingAIMessage(senderSessionId)
 
     try {
       const runtimeConfig = await this.deps.webSearchService.getRuntimeConfigSnapshot()
       if (this.deps.isSearchCancelled()) {
-        this.removeSearchingAIMessage(searchingAIMessage)
+        this.removeSearchingAIMessage(searchingAIMessage, senderSessionId)
         return
       }
 
@@ -366,11 +402,11 @@ export class ChatManualSearchFlow {
       )
 
       if (this.deps.isSearchCancelled()) {
-        this.removeSearchingAIMessage(searchingAIMessage)
+        this.removeSearchingAIMessage(searchingAIMessage, senderSessionId)
         return
       }
 
-      this.removeSearchingAIMessage(searchingAIMessage)
+      this.removeSearchingAIMessage(searchingAIMessage, senderSessionId)
 
       if (!webResult.success) {
         console.error('ChatPage', `[performUrlFetchAsync] 网页获取失败: ${webResult.errorMessage}`)
@@ -385,7 +421,7 @@ export class ChatManualSearchFlow {
           userMessage.searchReferences.push(failureSearchResult.references[i])
         }
         await this.sendSearchResultMessage(originalInput.trim() !== '' ? originalInput : url, failureSearchResult,
-          attachmentsToSend, taskId)
+          attachmentsToSend, taskId, senderSessionId)
         return
       }
 
@@ -410,13 +446,13 @@ export class ChatManualSearchFlow {
       }
 
       await this.sendSearchResultMessage(originalInput.trim() !== '' ? originalInput : url, searchResult,
-        attachmentsToSend, taskId)
+        attachmentsToSend, taskId, senderSessionId)
     } catch (error) {
-      this.removeSearchingAIMessage(searchingAIMessage)
+      this.removeSearchingAIMessage(searchingAIMessage, senderSessionId)
       console.error('ChatPage', `[performUrlFetchAsync] 网页获取异常: ${JSON.stringify(error)}`)
-      this.deps.onShowToast($r('app.string.url_fetch_failed'))
-      this.deps.onSetSending(false)
-      this.failTask(taskId, '网页抓取失败')
+      this.safeShowToast($r('app.string.url_fetch_failed'), senderSessionId)
+      this.safeSetSending(false, senderSessionId)
+      this.failTask(taskId, '网页抓取失败', senderSessionId)
     } finally {
       this.finishSearchRequest(requestId)
     }
@@ -463,24 +499,25 @@ export class ChatManualSearchFlow {
 
   private async sendSearchResultMessage(userQuery: string, searchResult: SearchResult,
     attachmentsToSend: MessageAttachment[] = [],
-    taskId: string = ''): Promise<void> {
+    taskId: string = '',
+    senderSessionId: string = ''): Promise<void> {
     const currentProvider = this.deps.getCurrentProvider()
     if (currentProvider === null) {
-      this.deps.onShowError($r('app.string.provider_required_before_chat'))
-      this.deps.onSetSending(false)
-      this.failTask(taskId, '未配置可用服务商')
+      this.safeShowError($r('app.string.provider_required_before_chat'), senderSessionId)
+      this.safeSetSending(false, senderSessionId)
+      this.failTask(taskId, '未配置可用服务商', senderSessionId)
       return
     }
 
     const effectiveApiKey = getEffectiveApiKey(currentProvider.id, currentProvider.apiKey)
     if (effectiveApiKey === '' && currentProvider.type !== ProviderType.OLLAMA) {
-      this.deps.onShowError($r('app.string.api_key_required'))
-      this.deps.onSetSending(false)
-      this.failTask(taskId, '缺少 API Key')
+      this.safeShowError($r('app.string.api_key_required'), senderSessionId)
+      this.safeSetSending(false, senderSessionId)
+      this.failTask(taskId, '缺少 API Key', senderSessionId)
       return
     }
 
-    const modelId = this.deps.appStateManager.getCurrentModelId()
+    const modelId = this.deps.getCurrentModelId()
     await this.deps.chatViewModel.sendMessageWithSearchResult(
       userQuery,
       searchResult,
@@ -495,6 +532,9 @@ export class ChatManualSearchFlow {
       attachmentsToSend,
       0,
       (userMessage: ChatMessage): void => {
+        if (!this.isStillActiveSession(senderSessionId)) {
+          return
+        }
         const allMessages = this.deps.messages
         let found = false
         for (let i = allMessages.length - 1; i >= 0; i--) {
@@ -510,11 +550,17 @@ export class ChatManualSearchFlow {
         }
       },
       (aiMessage: ChatMessage): void => {
+        if (!this.isStillActiveSession(senderSessionId)) {
+          return
+        }
         this.deps.messages.push(aiMessage)
         this.deps.onSyncMessages()
         this.deps.onScrollBottom()
       },
       (aiMessage: ChatMessage): void => {
+        if (!this.isStillActiveSession(senderSessionId)) {
+          return
+        }
         const index = this.deps.messages.findIndex((message: ChatMessage) => message.id === aiMessage.id)
         if (index < 0) {
           console.warn('ChatManualSearchFlow', `[sendSearchResultMessage] ai message not found: ${aiMessage.id}`)
@@ -524,13 +570,13 @@ export class ChatManualSearchFlow {
         this.deps.onScrollBottom()
       },
       (): void => {
-        this.deps.onSetSending(false)
-        this.completeTask(taskId)
+        this.safeSetSending(false, senderSessionId)
+        this.completeTask(taskId, senderSessionId)
       },
       (error: string): void => {
-        this.deps.onSetSending(false)
-        this.failTask(taskId, error)
-        this.deps.onShowError(error)
+        this.safeSetSending(false, senderSessionId)
+        this.failTask(taskId, error, senderSessionId)
+        this.safeShowError(error, senderSessionId)
       },
       this.deps.getReasoningLevel(),
       currentProvider.apiPath || undefined,

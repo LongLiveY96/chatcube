@@ -321,7 +321,12 @@ export class ChatSendFlow {
     this.deps.onBeforeSend()
   }
 
-  private handleUserMessageAdded(userMessage: ChatMessage): void {
+  private handleUserMessageAdded(userMessage: ChatMessage, senderSessionId: string): void {
+    if (this.deps.getSessionId() !== senderSessionId) {
+      console.info('ChatSendFlow',
+        `[handleUserMessageAdded] dropped: session changed (sender=${senderSessionId}, current=${this.deps.getSessionId()})`)
+      return
+    }
     this.deps.onClearComposer()
     this.deps.messages.push(userMessage)
     this.deps.onSyncMessages()
@@ -330,13 +335,19 @@ export class ChatSendFlow {
     this.deps.onScrollBottom()
   }
 
-  private handleAIMessageAdded(aiMessage: ChatMessage): void {
+  private handleAIMessageAdded(aiMessage: ChatMessage, senderSessionId: string): void {
+    if (this.deps.getSessionId() !== senderSessionId) {
+      return
+    }
     this.deps.messages.push(aiMessage)
     this.deps.onSyncMessages()
     this.deps.onScrollBottom()
   }
 
-  private handleAIMessageUpdated(aiMessage: ChatMessage): void {
+  private handleAIMessageUpdated(aiMessage: ChatMessage, senderSessionId: string): void {
+    if (this.deps.getSessionId() !== senderSessionId) {
+      return
+    }
     const index = this.deps.messages.findIndex((message: ChatMessage) => message.id === aiMessage.id)
     if (index < 0) {
       console.warn('ChatSendFlow', `[handleAIMessageUpdated] message not found: ${aiMessage.id}`)
@@ -346,23 +357,28 @@ export class ChatSendFlow {
     this.deps.onScrollBottom()
   }
 
-  private handleTaskCompleted(taskId: string): void {
+  private handleTaskCompleted(taskId: string, senderSessionId: string): void {
     this.deps.chatTaskOrchestrator.completeTask(taskId)
-    if (this.deps.getCurrentTaskId() === taskId) {
-      this.deps.onSetCurrentTaskId('')
+    if (this.deps.getSessionId() === senderSessionId) {
+      if (this.deps.getCurrentTaskId() === taskId) {
+        this.deps.onSetCurrentTaskId('')
+      }
+      this.deps.onSetSending(false)
     }
-    this.deps.onSetSending(false)
     this.deps.onMarkAutoTaskCompleted()
   }
 
-  private handleTaskFailed(taskId: string, error: string, showError: boolean): void {
+  private handleTaskFailed(taskId: string, error: string, showError: boolean, senderSessionId: string): void {
     this.deps.chatTaskOrchestrator.failTask(taskId, error)
-    if (this.deps.getCurrentTaskId() === taskId) {
-      this.deps.onSetCurrentTaskId('')
+    const stillActive = this.deps.getSessionId() === senderSessionId
+    if (stillActive) {
+      if (this.deps.getCurrentTaskId() === taskId) {
+        this.deps.onSetCurrentTaskId('')
+      }
+      this.deps.onSetSending(false)
     }
-    this.deps.onSetSending(false)
     this.deps.onMarkAutoTaskFailed(error)
-    if (showError) {
+    if (showError && stillActive) {
       this.deps.onShowError(error)
     }
   }
@@ -379,6 +395,7 @@ export class ChatSendFlow {
     }
 
     this.prepareSendState(taskId)
+    const senderSessionId = this.deps.getSessionId()
     const modelId = this.deps.getCurrentModelId()
 
     try {
@@ -393,19 +410,19 @@ export class ChatSendFlow {
         this.deps.getCurrentModelName(),
         this.deps.getMessages(),
         (userMessage: ChatMessage): void => {
-          this.handleUserMessageAdded(userMessage)
+          this.handleUserMessageAdded(userMessage, senderSessionId)
         },
         (aiMessage: ChatMessage): void => {
-          this.handleAIMessageAdded(aiMessage)
+          this.handleAIMessageAdded(aiMessage, senderSessionId)
         },
         (aiMessage: ChatMessage): void => {
-          this.handleAIMessageUpdated(aiMessage)
+          this.handleAIMessageUpdated(aiMessage, senderSessionId)
         },
         (): void => {
-          this.handleTaskCompleted(taskId)
+          this.handleTaskCompleted(taskId, senderSessionId)
         },
         (error: string): void => {
-          this.handleTaskFailed(taskId, error, true)
+          this.handleTaskFailed(taskId, error, true, senderSessionId)
         },
         attachmentsToSend,
         0,
@@ -415,7 +432,7 @@ export class ChatSendFlow {
       )
     } catch (error) {
       const message = `发送失败: ${JSON.stringify(error)}`
-      this.handleTaskFailed(taskId, message, true)
+      this.handleTaskFailed(taskId, message, true, senderSessionId)
     }
   }
 
@@ -432,6 +449,7 @@ export class ChatSendFlow {
     }
 
     this.prepareSendState(taskId)
+    const senderSessionId = this.deps.getSessionId()
     const modelId = this.deps.getCurrentModelId()
     const tools = this.deps.toolRegistry.getEnabledToolDefinitions(enabledToolIds)
 
@@ -464,19 +482,19 @@ export class ChatSendFlow {
         this.deps.getCurrentModelName(),
         this.deps.getMessages(),
         (userMessage: ChatMessage): void => {
-          this.handleUserMessageAdded(userMessage)
+          this.handleUserMessageAdded(userMessage, senderSessionId)
         },
         (aiMessage: ChatMessage): void => {
-          this.handleAIMessageAdded(aiMessage)
+          this.handleAIMessageAdded(aiMessage, senderSessionId)
         },
         (aiMessage: ChatMessage): void => {
-          this.handleAIMessageUpdated(aiMessage)
+          this.handleAIMessageUpdated(aiMessage, senderSessionId)
         },
         (): void => {
-          this.handleTaskCompleted(taskId)
+          this.handleTaskCompleted(taskId, senderSessionId)
         },
         (error: string): void => {
-          this.handleTaskFailed(taskId, error, true)
+          this.handleTaskFailed(taskId, error, true, senderSessionId)
         },
         attachmentsToSend,
         0,
@@ -488,7 +506,7 @@ export class ChatSendFlow {
       )
     } catch (error) {
       const message = `发送失败: ${JSON.stringify(error)}`
-      this.handleTaskFailed(taskId, message, true)
+      this.handleTaskFailed(taskId, message, true, senderSessionId)
     }
   }
 }

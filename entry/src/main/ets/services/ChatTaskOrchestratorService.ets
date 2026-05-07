@@ -63,7 +63,8 @@ export class ChatTaskOrchestratorService {
     const preview = this.buildPromptPreview(prompt)
     const info = new ChatTaskInfo(taskId, sessionId, title, preview)
     const runtime = new ChatTaskRuntime(info, () => {
-      chatViewModel.stopGeneration()
+      // 仅取消该任务所属会话的请求，避免影响其它并发会话
+      chatViewModel.stopGeneration(info.sessionId)
     })
     this.tasks.set(taskId, runtime)
     this.syncTaskCountAndStorage()

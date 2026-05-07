@@ -77,6 +77,7 @@ interface PendingAIMessageInfo {
 interface ActiveRequestInfo {
   httpRequest: http.HttpRequest
   cancelCallback: () => void
+  sessionId: string
 }
 
 interface ImageDownloadResult {
@@ -387,11 +388,15 @@ export class ChatViewModel {
     this.clearPendingAIMessageIfMatches(messageId)
   }
 
-  private persistPendingAIMessageIfNeeded(): void {
+  private persistPendingAIMessageIfNeeded(sessionIdScope?: string): void {
+    const scoped = sessionIdScope !== undefined && sessionIdScope !== ''
     const entries: PendingAIMessageInfo[] = []
     const discardMessageIds: string[] = []
     this.pendingAIMessages.forEach((info: PendingAIMessageInfo) => {
       if (info.persisted || info.sessionId === '') {
+        return
+      }
+      if (scoped && info.sessionId !== sessionIdScope) {
         return
       }
       if (!this.hasMeaningfulPendingMessageContent(info.message)) {
@@ -434,10 +439,16 @@ export class ChatViewModel {
     }
   }
 
-  private registerActiveRequest(requestId: string, httpRequest: http.HttpRequest, cancelCallback: () => void): void {
+  private registerActiveRequest(
+    requestId: string,
+    httpRequest: http.HttpRequest,
+    cancelCallback: () => void,
+    sessionId: string
+  ): void {
     this.activeRequests.set(requestId, {
       httpRequest: httpRequest,
-      cancelCallback: cancelCallback
+      cancelCallback: cancelCallback,
+      sessionId: sessionId
     } as ActiveRequestInfo)
   }
 
@@ -846,7 +857,7 @@ export class ChatViewModel {
       localFirstChunkThrottle.reset()
       localContentThrottle.reset()
       localReasoningThrottle.reset()
-    })
+    }, snapshotSessionId)
   }
 
   // 带网页上下文发送消息
@@ -1131,7 +1142,7 @@ ${webContext.content}
       localFirstChunkThrottle.reset()
       localContentThrottle.reset()
       localReasoningThrottle.reset()
-    })
+    }, snapshotSessionId)
   }
 
   // 带搜索结果上下文发送消息（新版）
@@ -1449,7 +1460,7 @@ ${limitedSearchContext}
       localFirstChunkThrottle.reset()
       localContentThrottle.reset()
       localReasoningThrottle.reset()
-    })
+    }, snapshotSessionId)
   }
 
   // 发送消息并使用 Function Calling 工具
@@ -1642,7 +1653,7 @@ ${limitedSearchContext}
       localFirstChunkThrottle.reset()
       localContentThrottle.reset()
       localReasoningThrottle.reset()
-    })
+    }, snapshotSessionId)
 
     // 开始工具调用循环
     await this.executeToolCallLoop(
@@ -2171,7 +2182,7 @@ ${limitedSearchContext}
     } else {
       this.registerActiveRequest(requestId, httpRequest, () => {
         // cancel 回调由 sendMessageWithTools 中注册的回调处理
-      })
+      }, snapshotSessionId)
     }
   }
 
@@ -2354,28 +2365,52 @@ ${limitedSearchContext}
   }
 
   // 停止生成
-  stopGeneration(): void {
-    // 取消令牌前移：确保”仍在准备阶段的发送流程”也能被终止
-    this.cancelToken = this.cancelToken + 1
+  // sessionId 为空/undefined 时全局停止；指定 sessionId 时只取消该会话的请求与待持久化消息，
+  // 避免在多会话并发时停止 B 影响 A。
+  stopGeneration(sessionId?: string): void {
+    const scopedToSession = sessionId !== undefined && sessionId !== ''
 
-    // 停止前持久化所有待处理的 AI 消息
-    this.persistPendingAIMessageIfNeeded()
+    // 取消令牌仅在全局停止时推进，否则会让其它会话尚未进入 registerActiveRequest 的请求被误判为已取消
+    if (!scopedToSession) {
+      this.cancelToken = this.cancelToken + 1
+    }
 
-    // 遍历所有活跃请求，调用取消回调并销毁 HTTP 请求
-    this.activeRequests.forEach((info: ActiveRequestInfo) => {
-      info.cancelCallback()
-      try {
-        info.httpRequest.destroy()
-      } catch (e) {
-        // ignore destroy errors
+    // 停止前持久化匹配作用域内的待处理 AI 消息
+    this.persistPendingAIMessageIfNeeded(sessionId)
+
+    // 取消活跃请求：全局停止时清空所有，per-session 时只动匹配项
+    if (!scopedToSession) {
+      this.activeRequests.forEach((info: ActiveRequestInfo) => {
+        info.cancelCallback()
+        try {
+          info.httpRequest.destroy()
+        } catch (e) {
+          // ignore destroy errors
+        }
+      })
+      this.activeRequests.clear()
+      // 重置 AIApiService 的解析状态（MiniMax 缓冲区等）；per-session 不重置避免影响其它会话
+      this.aiApiService.resetThinkingState()
+    } else {
+      const targetRequestIds: string[] = []
+      this.activeRequests.forEach((info: ActiveRequestInfo, requestId: string) => {
+        if (info.sessionId !== sessionId) {
+          return
+        }
+        info.cancelCallback()
+        try {
+          info.httpRequest.destroy()
+        } catch (e) {
+          // ignore destroy errors
+        }
+        targetRequestIds.push(requestId)
+      })
+      for (let i = 0; i < targetRequestIds.length; i++) {
+        this.activeRequests.delete(targetRequestIds[i])
       }
-    })
-    this.activeRequests.clear()
+    }
 
-    // 重置 AIApiService 的解析状态（MiniMax 缓冲区等）
-    this.aiApiService.resetThinkingState()
-
-    console.info('ChatViewModel', 'Generation stopped and all buffers reset')
+    console.info('ChatViewModel', `Generation stopped (scope=${scopedToSession ? sessionId : 'all'})`)
   }
 
   // 检查是否有活跃的请求
