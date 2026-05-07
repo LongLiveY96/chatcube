@@ -1265,7 +1265,9 @@ export struct MessageBubble {
                 avatarSize: 30,
                 radius: 8,
                 fontSize: 14,
-                cacheKey: this.assistantAvatarCacheKey
+                cacheKey: this.assistantAvatarCacheKey,
+                modelId: this.message.modelId !== '' ? this.message.modelId : this.currentModelId,
+                modelName: this.message.modelName
               })
             }
             .width(30)
