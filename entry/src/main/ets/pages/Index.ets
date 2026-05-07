@@ -2135,7 +2135,9 @@ struct Index {
   }
 
   private getAssistantTabBottomSpacerHeight(): number {
-    return this.isExpandedLayout() ? 16 : this.getCompactTabsBottomInset() + 12
+    // 助手 tab 右下角浮着加号 FAB,列表底部要让出 FAB 高度+间距,
+    // 否则最后一张卡片的更多按钮会被遮住、且无法上滑避让。
+    return this.getChatListBottomSpacerHeight()
   }
 
   private getAssistantsListHorizontalPadding(): number {
