@@ -873,7 +873,8 @@ export struct ChatPage {
   }
 
   private supportsReasoningForCurrentModel(): boolean {
-    return this.getReasoningControlModeForCurrentModel() !== ReasoningControlMode.NONE
+    const model = this.getCurrentModelInfo()
+    return model !== null && model.capabilities.supportsReasoning
   }
 
   private supportsReasoningXhighForCurrentModel(): boolean {
