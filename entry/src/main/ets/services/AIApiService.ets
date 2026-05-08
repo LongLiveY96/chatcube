@@ -513,10 +513,16 @@ interface OpenAIResponsesOutputContentItem {
   refusal?: string
 }
 
+interface OpenAIResponsesReasoningSummaryItem {
+  type: string
+  text?: string
+}
+
 interface OpenAIResponsesOutputItem {
   type: string
   role?: string
   content?: OpenAIResponsesOutputContentItem[]
+  summary?: OpenAIResponsesReasoningSummaryItem[]
 }
 
 interface OpenAIResponsesUsageInfo {
@@ -1050,7 +1056,7 @@ export class AIApiService {
       const responsesBody: OpenAIResponsesRequestBody = {
         model: testModel,
         input: 'Hi',
-        max_output_tokens: 10
+        max_output_tokens: 16
       }
       requestBodyStr = JSON.stringify(responsesBody)
     } else {
@@ -1371,6 +1377,27 @@ export class AIApiService {
     return ''
   }
 
+  private extractOpenAIResponsesReasoningContent(response: OpenAIResponsesResponse): string {
+    if (response.output === undefined || response.output === null) {
+      return ''
+    }
+
+    const reasoningParts: string[] = []
+    for (let i = 0; i < response.output.length; i++) {
+      const item = response.output[i]
+      if (item.type !== 'reasoning' || item.summary === undefined || item.summary === null) {
+        continue
+      }
+      for (let j = 0; j < item.summary.length; j++) {
+        const summaryItem = item.summary[j]
+        if (summaryItem.text !== undefined && summaryItem.text !== '') {
+          reasoningParts.push(summaryItem.text)
+        }
+      }
+    }
+    return reasoningParts.join('\n')
+  }
+
   // 构建请求体
   private buildRequestBody(
     config: AIApiConfig,
@@ -1659,6 +1686,9 @@ export class AIApiService {
         )
         if (effort !== undefined) {
           responsesBody.reasoning = { effort: effort }
+          if (normalizedReasoningLevel !== ReasoningLevel.OFF) {
+            responsesBody.reasoning.summary = 'auto'
+          }
         } else if (normalizedReasoningLevel === ReasoningLevel.AUTO) {
           responsesBody.reasoning = { summary: 'auto' }
         }
@@ -1917,12 +1947,13 @@ export class AIApiService {
   private parseOpenAIResponsesResponse(responseData: string): AIApiResult {
     const response = JSON.parse(responseData) as OpenAIResponsesResponse
     const content = this.extractOpenAIResponsesContent(response)
+    const reasoningContent = this.extractOpenAIResponsesReasoningContent(response)
     return {
       success: content !== '',
       content: content,
       errorMessage: content !== '' ? '' : 'No output in response',
       usage: this.buildResponsesUsageInfo(response.usage),
-      reasoningContent: ''
+      reasoningContent: reasoningContent
     }
   }
 
@@ -2807,7 +2838,8 @@ export class AIApiService {
         const event = json as OpenAIResponsesStreamEvent
         if (event.type === 'response.output_text.delta' && event.delta !== undefined) {
           result.content = event.delta
-        } else if (event.type === 'response.reasoning_text.delta' && event.delta !== undefined) {
+        } else if ((event.type === 'response.reasoning_summary_text.delta' ||
+          event.type === 'response.reasoning_text.delta') && event.delta !== undefined) {
           result.reasoningContent = event.delta
           result.reasoningIsStructured = true
         } else if ((event.type === 'response.output_item.added' || event.type === 'response.output_item.done') &&
