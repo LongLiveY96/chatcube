@@ -132,7 +132,7 @@ cp build-profile.json5.example build-profile.json5
 
 已开启华为应用市场邀测，欢迎体验最新版本：
 
-- 邀测地址：<https://appgallery.huawei.com/link/invite-test-wap?taskId=c38ffe7d89732a23c4a81f4e583c954a&invitationCode=1QiZlcbjMqB>
+- 邀测地址（活码,始终指向最新版本）：<https://beta.04160518.xyz/r>
 
 当前邀测版本基于鸿蒙 6（API 23）。
 
