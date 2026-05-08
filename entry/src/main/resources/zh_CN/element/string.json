@@ -885,6 +885,10 @@
       "value": "正在编辑"
     },
     {
+      "name": "ai_generated_label",
+      "value": "内容由 AI 生成"
+    },
+    {
       "name": "settings_color_theme",
       "value": "主题配色"
     },

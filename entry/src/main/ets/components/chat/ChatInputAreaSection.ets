@@ -145,6 +145,18 @@ export struct ChatInputAreaSection {
           }
         })
 
+        // AI 生成标识（合规要求，底部居中显示）
+        Row() {
+          Text($r('app.string.ai_generated_label'))
+            .fontSize(10)
+            .fontColor($r('app.color.text_tertiary'))
+            .opacity(0.75)
+            .textAlign(TextAlign.Center)
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.Center)
+        .padding({ top: 6, bottom: 2 })
+
         Column()
           .width('100%')
           .height(this.getBottomSpacerHeight())
