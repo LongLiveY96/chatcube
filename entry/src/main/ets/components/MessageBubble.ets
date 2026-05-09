@@ -119,6 +119,7 @@ export struct MessageBubble {
   private cachedReadonlyReasoningContent: string = ''
   private cachedReadonlyTranslatedText: string = ''
   private cachedHasHtmlSegments: boolean = false
+  private cachedNeedsWideAssistantLayout: boolean = false
   private cachedContentSegments: ContentSegment[] = []
   private cachedPreviewImageEntries: ImageAttachmentEntry[] = []
   private cachedMessageImageEntries: ImageAttachmentEntry[] = []
@@ -367,6 +368,7 @@ export struct MessageBubble {
     this.cachedReadonlyReasoningContent = this.convertTaskListToReadonly(this.message.reasoningContent)
     this.cachedReadonlyTranslatedText = this.convertTaskListToReadonly(this.translatedText)
     this.cachedHasHtmlSegments = !this.message.isGenerating && this.hasHtmlBlocks(this.message.content)
+    this.cachedNeedsWideAssistantLayout = this.computeNeedsWideAssistantLayout(this.message.content)
     this.cachedContentSegments = this.cachedHasHtmlSegments ? this.splitContentToSegments(this.message.content) : []
     this.cachedPreviewImageEntries = this.buildImageAttachmentEntries(this.previewAttachments)
     this.cachedMessageImageEntries = this.buildImageAttachmentEntries(this.message.attachments)
@@ -620,6 +622,32 @@ export struct MessageBubble {
     return /```html?\s*\n[\s\S]*?```/.test(content)
   }
 
+  private hasFencedCodeBlock(content: string): boolean {
+    return /```[\s\S]*?```/.test(content)
+  }
+
+  private hasMarkdownTable(content: string): boolean {
+    const lines = content.split('\n')
+    for (let i = 0; i < lines.length - 1; i++) {
+      const header = lines[i].trim()
+      const separator = lines[i + 1].trim()
+      if (header.indexOf('|') < 0 || separator.indexOf('|') < 0) {
+        continue
+      }
+      if (/^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(separator)) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private computeNeedsWideAssistantLayout(content: string): boolean {
+    if (content.trim().length === 0) {
+      return false
+    }
+    return this.hasMarkdownTable(content) || this.hasFencedCodeBlock(content) || this.hasHtmlBlocks(content)
+  }
+
   // 将内容按 HTML 代码块边界分段，用于内联预览渲染
   private splitContentToSegments(content: string): ContentSegment[] {
     const segments: ContentSegment[] = []
@@ -748,6 +776,11 @@ export struct MessageBubble {
   private hasHtmlSegments(): boolean {
     this.ensureDerivedRenderCaches()
     return this.cachedHasHtmlSegments
+  }
+
+  private needsWideAssistantLayout(): boolean {
+    this.ensureDerivedRenderCaches()
+    return this.cachedNeedsWideAssistantLayout
   }
 
   private getContentSegments(): ContentSegment[] {
@@ -1435,7 +1468,9 @@ export struct MessageBubble {
         }
         .width('100%')
         .margin({ top: this.showHeader ? 8 : 0 })
-        .padding({ left: 14, right: 14, top: 12, bottom: 10 })
+        .padding(this.needsWideAssistantLayout()
+          ? { left: 6, right: 6, top: 10, bottom: 10 }
+          : { left: 14, right: 14, top: 12, bottom: 10 })
           .backgroundColor(this.isMultiSelectMode && this.isSelected
             ? this.themePrimaryLight
             : this.themeAiBubble)
@@ -1451,7 +1486,7 @@ export struct MessageBubble {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
-    .constraintSize({ maxWidth: '92%' })
+    .constraintSize({ maxWidth: this.needsWideAssistantLayout() ? '100%' : '92%' })
     .alignItems(VerticalAlign.Top)
     .onTouch((event: TouchEvent) => {
       this.handleMultiSelectTouch(event)

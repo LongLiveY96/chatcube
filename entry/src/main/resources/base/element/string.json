@@ -2319,6 +2319,82 @@
     {
       "name": "webdav_preview_cancel",
       "value": "Cancel"
+    },
+    {
+      "name": "hw_login_welcome_title",
+      "value": "Sign in to ChatCube"
+    },
+    {
+      "name": "hw_login_welcome_subtitle",
+      "value": "Please sign in with your Huawei ID to continue."
+    },
+    {
+      "name": "hw_login_welcome_phone_prefix",
+      "value": "Welcome back, "
+    },
+    {
+      "name": "hw_login_privacy_prefix",
+      "value": "By signing in, you agree to our "
+    },
+    {
+      "name": "hw_login_privacy_policy",
+      "value": "Privacy Policy"
+    },
+    {
+      "name": "hw_login_privacy_conj",
+      "value": " and "
+    },
+    {
+      "name": "hw_login_privacy_huawei",
+      "value": "Huawei Account Authentication Agreement"
+    },
+    {
+      "name": "hw_login_privacy_suffix",
+      "value": "."
+    },
+    {
+      "name": "hw_login_agreement_dialog_title",
+      "value": "Please review and agree"
+    },
+    {
+      "name": "hw_login_agreement_dialog_desc",
+      "value": "To sign in with Huawei ID, please read and agree to the Privacy Policy and Huawei Account Authentication Agreement."
+    },
+    {
+      "name": "hw_login_agreement_agree",
+      "value": "Agree and continue"
+    },
+    {
+      "name": "hw_login_agreement_cancel",
+      "value": "Not now"
+    },
+    {
+      "name": "hw_login_error_network",
+      "value": "Network unavailable. Please check and retry."
+    },
+    {
+      "name": "hw_login_error_not_logged_in",
+      "value": "Huawei ID is not signed in on this device."
+    },
+    {
+      "name": "hw_login_error_generic",
+      "value": "Sign-in failed. Please try again later."
+    },
+    {
+      "name": "hw_logout_confirm_title",
+      "value": "Sign out"
+    },
+    {
+      "name": "hw_logout_confirm_message",
+      "value": "Sign out of this Huawei ID? You can sign back in at any time."
+    },
+    {
+      "name": "hw_logout_confirm_ok",
+      "value": "Sign out"
+    },
+    {
+      "name": "hw_logout_confirm_cancel",
+      "value": "Cancel"
     }
   ]
 }

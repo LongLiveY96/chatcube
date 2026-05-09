@@ -2319,6 +2319,82 @@
     {
       "name": "webdav_preview_cancel",
       "value": "取消"
+    },
+    {
+      "name": "hw_login_welcome_title",
+      "value": "登录 ChatCube"
+    },
+    {
+      "name": "hw_login_welcome_subtitle",
+      "value": "请使用华为账号登录以继续使用"
+    },
+    {
+      "name": "hw_login_welcome_phone_prefix",
+      "value": "欢迎，"
+    },
+    {
+      "name": "hw_login_privacy_prefix",
+      "value": "登录即同意"
+    },
+    {
+      "name": "hw_login_privacy_policy",
+      "value": "《隐私政策》"
+    },
+    {
+      "name": "hw_login_privacy_conj",
+      "value": "和"
+    },
+    {
+      "name": "hw_login_privacy_huawei",
+      "value": "《华为账号用户认证协议》"
+    },
+    {
+      "name": "hw_login_privacy_suffix",
+      "value": "。"
+    },
+    {
+      "name": "hw_login_agreement_dialog_title",
+      "value": "请阅读并同意以下协议"
+    },
+    {
+      "name": "hw_login_agreement_dialog_desc",
+      "value": "使用华为账号登录，需要同意《隐私政策》和《华为账号用户认证协议》。"
+    },
+    {
+      "name": "hw_login_agreement_agree",
+      "value": "同意并继续"
+    },
+    {
+      "name": "hw_login_agreement_cancel",
+      "value": "暂不同意"
+    },
+    {
+      "name": "hw_login_error_network",
+      "value": "网络未连接，请检查后重试"
+    },
+    {
+      "name": "hw_login_error_not_logged_in",
+      "value": "当前设备未登录华为账号"
+    },
+    {
+      "name": "hw_login_error_generic",
+      "value": "登录失败，请稍后重试"
+    },
+    {
+      "name": "hw_logout_confirm_title",
+      "value": "退出登录"
+    },
+    {
+      "name": "hw_logout_confirm_message",
+      "value": "确认退出当前华为账号？随时可以重新登录。"
+    },
+    {
+      "name": "hw_logout_confirm_ok",
+      "value": "退出登录"
+    },
+    {
+      "name": "hw_logout_confirm_cancel",
+      "value": "取消"
     }
   ]
 }

@@ -23,7 +23,7 @@ import { getToolRegistry, RegisteredTool, ToolExecutor, ToolRegistry } from './T
 const MCP_PROTOCOL_VERSION = '2025-06-18'
 const MCP_DEFAULT_TIMEOUT_MS = 30000
 const MCP_CLIENT_NAME = 'ChatBox'
-const MCP_CLIENT_VERSION = '1.1.2'
+const MCP_CLIENT_VERSION = '1.1.3'
 
 interface McpHttpResponse {
   statusCode: number

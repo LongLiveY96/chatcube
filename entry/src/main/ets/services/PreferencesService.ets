@@ -93,6 +93,13 @@ export class PreferenceKeys {
   static readonly WEBDAV_REMOTE_FILE_NAME: string = 'webdav_remote_file_name'
   static readonly WEBDAV_LAST_SYNC_TIME: string = 'webdav_last_sync_time'
   static readonly WEBDAV_LAST_BACKUP_SIZE: string = 'webdav_last_backup_size'
+
+  // 华为账号登录态持久化 key（以 Preferences 为准）
+  static readonly HW_ACCOUNT_LOGGED_IN: string = 'hw_account_logged_in'
+  static readonly HW_ACCOUNT_OPEN_ID: string = 'hw_account_open_id'
+  static readonly HW_ACCOUNT_UNION_ID: string = 'hw_account_union_id'
+  static readonly HW_ACCOUNT_NICK_NAME: string = 'hw_account_nick_name'
+  static readonly HW_ACCOUNT_AVATAR_URI: string = 'hw_account_avatar_uri'
 }
 
 // models.dev 默认基址，PreferenceKeys.MODELS_DEV_BASE_URL 未配置时使用

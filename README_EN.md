@@ -46,13 +46,15 @@ These screenshots reflect the current HarmonyOS 6 (API 23) build:
   </tr>
 </table>
 
-## Highlights in 1.1.0
+## Highlights in 1.1.3
 
-- Added an Assistant module for managing multiple assistants, viewing their conversations, and starting assistant-specific chats
-- The Assistant module includes custom assistant avatars with text, image links, QQ avatars, and gallery images, rendered more consistently across the app
-- The chat card page now uses HDS material navigation with gradient blur, and search, favorites, and title state behave more consistently while scrolling
-- Reasoning controls now adapt more precisely to provider and model capability, including auto, low, medium, high, and extra-high levels
-- Added the Xiaomi MiMo preset provider; exports now include connection settings by default so imports are ready to use
+- Added Huawei ID one-tap sign-in: a login page on first launch, with an avatar entry in Settings to sign out
+- OpenAI Responses support is tighter, including tool calls, reasoning summaries, history encoding, and share exports
+- Text attachments can now read their body content and inject it into the request as usable context
+- Assistant messages and share cards now widen their layout for tables, code blocks, and HTML so wide content is no longer cramped
+- Multi-session streaming, background tasks, and assistant-message avatars are more stable and no longer leak state across sessions
+- The About section now includes a beta invite entry, and the README invite link points to a live redirect for the latest build
+- The sponsor page now supports Afdian and includes clearer sponsorship notes, usage details, and contact guidance
 
 ## Features
 

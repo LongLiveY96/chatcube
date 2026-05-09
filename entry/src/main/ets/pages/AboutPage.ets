@@ -70,7 +70,7 @@ struct AboutPage {
       this.versionName = info.versionName
     } catch (err) {
       hilog.error(0x0000, TAG, 'Get version failed: %{public}s', JSON.stringify(err))
-      this.versionName = '1.1.2'
+      this.versionName = '1.1.3'
     }
   }
 

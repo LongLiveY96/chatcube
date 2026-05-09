@@ -3,6 +3,7 @@ import { ConfigurationConstant, common } from '@kit.AbilityKit'
 import { notificationManager } from '@kit.NotificationKit'
 import { motion } from '@kit.MultimodalAwarenessKit'
 import { BusinessError } from '@kit.BasicServicesKit'
+import { window } from '@kit.ArkUI'
 import {
   HdsNavigation,
   HdsNavigationTitleBarOptions,
@@ -3822,6 +3823,7 @@ struct Index {
         .fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.text_primary'))
         .layoutWeight(1)
+      this.AccountAvatarEntry()
     }
     .width('100%')
     .height(56)
@@ -3876,6 +3878,7 @@ struct Index {
       .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
       .title($r('app.string.tab_settings'))
       .titleMode(NavigationTitleMode.Mini)
+      .menus((): void => this.SettingsNavigationMenus())
       .mode(NavigationMode.Split)
       .navBarWidth(this.getExpandedSettingsListWidth())
       .hideBackButton(true)
@@ -4350,5 +4353,87 @@ struct Index {
     // 设置分享消息并打开分享预览
     this.shareMessages = fullSession.messages
     this.showSharePreview = true
+  }
+
+  // ========== 华为账号登录态 UI ==========
+
+  /**
+   * 设置页右上方账号头像入口。
+   * - 有 avatarUri 时用 Image 加载，加载失败降级为系统 SymbolGlyph
+   * - 仅登录态展示；未登录（极少出现，正常已在登录页）也给兜底
+   * 点击弹退出登录确认。
+   */
+  @Builder
+  private AccountAvatarEntry() {
+    Button() {
+      if (getAppUiState().hwAccountAvatarUri !== '') {
+        Image(getAppUiState().hwAccountAvatarUri)
+          .width(36)
+          .height(36)
+          .borderRadius(18)
+          .objectFit(ImageFit.Cover)
+          .alt($r('sys.symbol.person_crop_circle_fill'))
+      } else {
+        SymbolGlyph($r('sys.symbol.person_crop_circle_fill'))
+          .fontSize(30)
+          .fontColor([this.themePrimary])
+      }
+    }
+    .type(ButtonType.Circle)
+    .width(36)
+    .height(36)
+    .backgroundColor(Color.Transparent)
+    .padding(0)
+    .margin({ left: 8 })
+    .onClick((): void => {
+      this.showLogoutConfirm()
+    })
+  }
+
+  @Builder
+  private SettingsNavigationMenus() {
+    Row() {
+      this.AccountAvatarEntry()
+    }
+    .padding({ right: 4 })
+  }
+
+  private showLogoutConfirm(): void {
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.hw_logout_confirm_title'),
+      message: $r('app.string.hw_logout_confirm_message'),
+      primaryButton: {
+        value: $r('app.string.hw_logout_confirm_cancel'),
+        action: (): void => {
+        }
+      },
+      secondaryButton: {
+        value: $r('app.string.hw_logout_confirm_ok'),
+        fontColor: $r('app.color.status_error'),
+        action: (): void => {
+          this.performLogout()
+        }
+      }
+    })
+  }
+
+  private performLogout(): void {
+    ServiceRegistry.account().clearLoginState().then((): void => {
+      const stage: window.WindowStage | undefined =
+        AppStorage.get<window.WindowStage>(AppStorageKeys.MAIN_WINDOW_STAGE)
+      if (stage === undefined) {
+        this.showIndexSnack($r('app.string.hw_login_error_generic'), 2000, SnackBarTone.ERROR)
+        return
+      }
+      // debug+模拟器环境下 LoginPage 会自动跳回主页，退出登录前先置一次性 flag 让它放行
+      AppStorage.setOrCreate(AppStorageKeys.HW_PREVENT_AUTO_SKIP_ONCE, true)
+      stage.loadContent('pages/LoginPage', (err: BusinessError): void => {
+        if (err !== null && err !== undefined && err.code !== 0) {
+          this.showIndexSnack($r('app.string.hw_login_error_generic'), 2000, SnackBarTone.ERROR)
+        }
+      })
+    }).catch((): void => {
+      this.showIndexSnack($r('app.string.hw_login_error_generic'), 2000, SnackBarTone.ERROR)
+    })
   }
 }

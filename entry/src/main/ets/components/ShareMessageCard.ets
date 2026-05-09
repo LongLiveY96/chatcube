@@ -95,6 +95,33 @@ export struct ShareMessageCard {
     return controller
   }
 
+  private hasFencedCodeBlock(content: string): boolean {
+    return /```[\s\S]*?```/.test(content)
+  }
+
+  private hasMarkdownTable(content: string): boolean {
+    const lines = content.split('\n')
+    for (let i = 0; i < lines.length - 1; i++) {
+      const header = lines[i].trim()
+      const separator = lines[i + 1].trim()
+      if (header.indexOf('|') < 0 || separator.indexOf('|') < 0) {
+        continue
+      }
+      if (/^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(separator)) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private needsWideAiLayout(message: ChatMessage): boolean {
+    const content = message.content
+    if (content.trim().length === 0) {
+      return false
+    }
+    return this.hasMarkdownTable(content) || this.hasFencedCodeBlock(content)
+  }
+
   // 获取卡片背景色
   private getCardBackground(): ResourceColor {
     return $r('app.color.surface')
@@ -281,7 +308,9 @@ export struct ShareMessageCard {
               }
             }
             .width('100%')
-            .padding({ left: 14, right: 14, top: 12, bottom: 10 })
+            .padding(this.needsWideAiLayout(message)
+              ? { left: 6, right: 6, top: 10, bottom: 10 }
+              : { left: 14, right: 14, top: 12, bottom: 10 })
             .backgroundColor(this.getAiContentBgColor())
             .borderRadius(16)
             .border({ width: 0.5, color: $r('app.color.bubble_border') })

@@ -62,4 +62,15 @@ export class AppStorageKeys {
   static readonly MATERIAL_TYPE: string = 'material_type'
   static readonly MATERIAL_LEVEL: string = 'material_level'
   static readonly LIGHT_COLOR_MODE: string = 'light_color_mode'
+
+  // 华为账号登录态（只在客户端用于 UI 响应，真值以 Preferences 为准）
+  static readonly HW_ACCOUNT_LOGGED_IN: string = 'hw_account_logged_in'
+  static readonly HW_ACCOUNT_NICK_NAME: string = 'hw_account_nick_name'
+  static readonly HW_ACCOUNT_AVATAR_URI: string = 'hw_account_avatar_uri'
+
+  // 退出登录后临时禁用"debug+模拟器自动跳过"一次，避免自动把用户打回主页造成循环
+  static readonly HW_PREVENT_AUTO_SKIP_ONCE: string = 'hw_prevent_auto_skip_once'
+
+  // 主 Ability 的 WindowStage 引用，供登录/退出时通过 loadContent 切换主内容
+  static readonly MAIN_WINDOW_STAGE: string = 'main_window_stage'
 }
