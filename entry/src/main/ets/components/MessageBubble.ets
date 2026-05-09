@@ -7,6 +7,7 @@ import { shouldShowAssistantMessageToolbar } from '../utils/MessageBubbleDisplay
 import { SearchReferenceCard } from './SearchReferenceCard'
 import { ToolCallCard } from './ToolCallCard'
 import { HtmlPreviewCard } from './HtmlPreviewCard'
+import { MermaidPreviewCard } from './MermaidPreviewCard'
 import { TypingDots } from './TypingDots'
 import { AssistantAvatarView } from './AssistantAvatar'
 import { hilog } from '@kit.PerformanceAnalysisKit'
@@ -31,9 +32,15 @@ interface TranslateLanguage {
   nativeName: string
 }
 
-// 内容分段（用于 HTML 代码块内联预览）
+enum ContentSegmentType {
+  MARKDOWN = 'markdown',
+  HTML = 'html',
+  MERMAID = 'mermaid'
+}
+
+// 内容分段（用于可预览代码块内联渲染）
 interface ContentSegment {
-  isHtml: boolean
+  type: ContentSegmentType
   renderContent: string
 }
 
@@ -118,7 +125,7 @@ export struct MessageBubble {
   private cachedReadonlyMessageContent: string = ''
   private cachedReadonlyReasoningContent: string = ''
   private cachedReadonlyTranslatedText: string = ''
-  private cachedHasHtmlSegments: boolean = false
+  private cachedHasPreviewSegments: boolean = false
   private cachedNeedsWideAssistantLayout: boolean = false
   private cachedContentSegments: ContentSegment[] = []
   private cachedPreviewImageEntries: ImageAttachmentEntry[] = []
@@ -367,9 +374,9 @@ export struct MessageBubble {
     this.cachedReadonlyMessageContent = this.convertTaskListToReadonly(this.message.content)
     this.cachedReadonlyReasoningContent = this.convertTaskListToReadonly(this.message.reasoningContent)
     this.cachedReadonlyTranslatedText = this.convertTaskListToReadonly(this.translatedText)
-    this.cachedHasHtmlSegments = !this.message.isGenerating && this.hasHtmlBlocks(this.message.content)
+    this.cachedHasPreviewSegments = !this.message.isGenerating && this.hasPreviewableCodeBlocks(this.message.content)
     this.cachedNeedsWideAssistantLayout = this.computeNeedsWideAssistantLayout(this.message.content)
-    this.cachedContentSegments = this.cachedHasHtmlSegments ? this.splitContentToSegments(this.message.content) : []
+    this.cachedContentSegments = this.cachedHasPreviewSegments ? this.splitContentToSegments(this.message.content) : []
     this.cachedPreviewImageEntries = this.buildImageAttachmentEntries(this.previewAttachments)
     this.cachedMessageImageEntries = this.buildImageAttachmentEntries(this.message.attachments)
     this.cachedMessageFileAttachments = this.getFileAttachments(this.message.attachments)
@@ -614,7 +621,15 @@ export struct MessageBubble {
 
   // 检查内容是否包含完整的 HTML 代码块
   private hasHtmlBlocks(content: string): boolean {
-    return /```html?\s*\n[\s\S]*?```/.test(content)
+    return /```html?\s*\n[\s\S]*?```/i.test(content)
+  }
+
+  private hasMermaidBlocks(content: string): boolean {
+    return /```mermaid\s*\n[\s\S]*?```/i.test(content)
+  }
+
+  private hasPreviewableCodeBlocks(content: string): boolean {
+    return this.hasHtmlBlocks(content) || this.hasMermaidBlocks(content)
   }
 
   private hasFencedCodeBlock(content: string): boolean {
@@ -640,40 +655,40 @@ export struct MessageBubble {
     if (content.trim().length === 0) {
       return false
     }
-    return this.hasMarkdownTable(content) || this.hasFencedCodeBlock(content) || this.hasHtmlBlocks(content)
+    return this.hasMarkdownTable(content) || this.hasFencedCodeBlock(content) || this.hasPreviewableCodeBlocks(content)
   }
 
-  // 将内容按 HTML 代码块边界分段，用于内联预览渲染
+  // 将内容按可预览代码块边界分段，用于内联预览渲染
   private splitContentToSegments(content: string): ContentSegment[] {
     const segments: ContentSegment[] = []
-    const pattern = /```html?\s*\n([\s\S]*?)```/g
+    const pattern = /```(html?|mermaid)\s*\n([\s\S]*?)```/gi
     let lastIndex = 0
     let match = pattern.exec(content)
 
     while (match !== null) {
       const matchIndex = match.index
-      // 添加 HTML 代码块之前的文本段
+      // 添加可预览代码块之前的文本段
       if (matchIndex > lastIndex) {
         const textContent = content.substring(lastIndex, matchIndex)
         if (textContent.trim().length > 0) {
           segments.push({
-            isHtml: false,
+            type: ContentSegmentType.MARKDOWN,
             renderContent: this.convertTaskListToReadonly(textContent)
           } as ContentSegment)
         }
       }
-      // 添加 HTML 代码块段
-      segments.push({ isHtml: true, renderContent: match[1] } as ContentSegment)
+      const segmentType = match[1].toLowerCase() === 'mermaid' ? ContentSegmentType.MERMAID : ContentSegmentType.HTML
+      segments.push({ type: segmentType, renderContent: match[2] } as ContentSegment)
       lastIndex = matchIndex + match[0].length
       match = pattern.exec(content)
     }
 
-    // 添加最后一个 HTML 代码块之后的剩余文本
+    // 添加最后一个可预览代码块之后的剩余文本
     if (lastIndex < content.length) {
       const remaining = content.substring(lastIndex)
       if (remaining.trim().length > 0) {
         segments.push({
-          isHtml: false,
+          type: ContentSegmentType.MARKDOWN,
           renderContent: this.convertTaskListToReadonly(remaining)
         } as ContentSegment)
       }
@@ -768,9 +783,9 @@ export struct MessageBubble {
     return this.cachedCurrentMessageModelIconResourcePath
   }
 
-  private hasHtmlSegments(): boolean {
+  private hasPreviewSegments(): boolean {
     this.ensureDerivedRenderCaches()
-    return this.cachedHasHtmlSegments
+    return this.cachedHasPreviewSegments
   }
 
   private needsWideAssistantLayout(): boolean {
@@ -1364,12 +1379,20 @@ export struct MessageBubble {
                 this.TypingIndicator()
               }
             } else {
-              if (this.hasHtmlSegments()) {
+              if (this.hasPreviewSegments()) {
                 ForEach(this.getContentSegments(),
-                  (segment: ContentSegment, index: number) => {
-                    if (segment.isHtml) {
+                  (segment: ContentSegment) => {
+                    if (segment.type === ContentSegmentType.HTML) {
                       HtmlPreviewCard({
                         htmlCode: segment.renderContent,
+                        onCopyCode: (code: string) => {
+                          this.copyToClipboard(code)
+                          showToast(this.getUIContext(), $r('app.string.copy_success'))
+                        }
+                      })
+                    } else if (segment.type === ContentSegmentType.MERMAID) {
+                      MermaidPreviewCard({
+                        mermaidCode: segment.renderContent,
                         onCopyCode: (code: string) => {
                           this.copyToClipboard(code)
                           showToast(this.getUIContext(), $r('app.string.copy_success'))
@@ -1385,7 +1408,7 @@ export struct MessageBubble {
                     }
                   },
                   (segment: ContentSegment, index: number) => {
-                    return 'segment_' + this.message.id + '_' + index.toString()
+                    return 'segment_' + this.message.id + '_' + segment.type + '_' + index.toString()
                   }
                 )
               } else {

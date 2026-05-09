@@ -52,6 +52,7 @@ These screenshots reflect the current HarmonyOS 6 (API 23) build:
 - OpenAI Responses support is tighter, including tool calls, reasoning summaries, history encoding, and share exports
 - Text attachments can now read their body content and inject it into the request as usable context
 - Assistant messages and share cards now widen their layout for tables, code blocks, and HTML so wide content is no longer cramped
+- Mermaid diagrams can be previewed directly from `mermaid` code blocks, with source view, copy, fullscreen preview, and offline local rendering
 - Multi-session streaming, background tasks, and assistant-message avatars are more stable and no longer leak state across sessions
 - The About section now includes a beta invite entry, and the README invite link points to a live redirect for the latest build
 - The sponsor page now supports Afdian and includes clearer sponsorship notes, usage details, and contact guidance

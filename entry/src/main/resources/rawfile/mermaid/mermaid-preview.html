@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: auto;
+      background: #ffffff;
+      color: #333333;
+      font-family: HarmonyOS Sans, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      padding: 12px;
+    }
+
+    #diagram {
+      width: 100%;
+      min-height: 80px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+    }
+
+    #diagram svg {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    #error {
+      display: none;
+      margin: 0;
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #fff4f4;
+      color: #a12626;
+      font: 12px/18px monospace;
+    }
+
+    body.dark {
+      background: #1a1a1a;
+      color: #e0e0e0;
+    }
+
+    body.dark #error {
+      background: #2f2020;
+      color: #ffb7b7;
+    }
+  </style>
+  <script src="./mermaid.min.js"></script>
+</head>
+<body>
+  <div id="diagram"></div>
+  <pre id="error"></pre>
+  <script>
+    (function () {
+      var renderToken = 0;
+
+      function setTheme(payload) {
+        var dark = !!payload.dark;
+        document.body.classList.toggle('dark', dark);
+        document.body.style.background = payload.background || (dark ? '#1a1a1a' : '#ffffff');
+        document.body.style.color = payload.text || (dark ? '#e0e0e0' : '#333333');
+      }
+
+      function showError(message) {
+        var diagram = document.getElementById('diagram');
+        var error = document.getElementById('error');
+        diagram.innerHTML = '';
+        error.style.display = 'block';
+        error.textContent = message || 'Mermaid render failed.';
+      }
+
+      function getThemeVariables(payload) {
+        var dark = !!payload.dark;
+        return {
+          primaryColor: payload.primaryLight || (dark ? '#273646' : '#D8E2EE'),
+          primaryTextColor: payload.text || (dark ? '#e0e0e0' : '#333333'),
+          primaryBorderColor: payload.primary || (dark ? '#9CBFE8' : '#4E6F9E'),
+          lineColor: payload.line || (dark ? '#9a9a9a' : '#666666'),
+          secondaryColor: dark ? '#242424' : '#f6f8fa',
+          tertiaryColor: payload.background || (dark ? '#1a1a1a' : '#ffffff'),
+          fontFamily: 'HarmonyOS Sans, -apple-system, BlinkMacSystemFont, sans-serif'
+        };
+      }
+
+      window.renderMermaid = function (payload) {
+        payload = payload || {};
+        var currentToken = ++renderToken;
+        var diagram = document.getElementById('diagram');
+        var error = document.getElementById('error');
+        var code = String(payload.code || '').trim();
+
+        setTheme(payload);
+        diagram.innerHTML = '';
+        error.style.display = 'none';
+        error.textContent = '';
+
+        if (!code) {
+          showError('Empty Mermaid diagram.');
+          return;
+        }
+        if (!window.mermaid) {
+          showError('Mermaid library is not loaded.');
+          return;
+        }
+
+        try {
+          window.mermaid.initialize({
+            startOnLoad: false,
+            securityLevel: 'strict',
+            theme: payload.dark ? 'dark' : 'default',
+            themeVariables: getThemeVariables(payload)
+          });
+
+          var renderId = 'chatcube_mermaid_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
+          Promise.resolve(window.mermaid.render(renderId, code))
+            .then(function (result) {
+              if (currentToken !== renderToken) {
+                return;
+              }
+              diagram.innerHTML = result.svg;
+              var svg = diagram.querySelector('svg');
+              if (svg) {
+                svg.style.maxWidth = '100%';
+                svg.style.height = 'auto';
+              }
+              if (typeof result.bindFunctions === 'function') {
+                result.bindFunctions(diagram);
+              }
+            })
+            .catch(function (err) {
+              if (currentToken !== renderToken) {
+                return;
+              }
+              showError(err && err.message ? err.message : String(err));
+            });
+        } catch (err) {
+          showError(err && err.message ? err.message : String(err));
+        }
+      };
+    })();
+  </script>
+</body>
+</html>
