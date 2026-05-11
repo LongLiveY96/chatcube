@@ -91,6 +91,10 @@ export class ChatPageLoadFlow {
 
     const assistant = await this.deps.assistantService.getCurrentAssistantForNewChat()
     this.applyAssistantSnapshot(result, assistant)
+    // 助手显式配置过推理强度偏好时,新会话用它作为默认值,优先级高于 Preferences 里的全局档位
+    if (assistant.reasoningLevelPreference !== undefined && assistant.reasoningLevelPreference.trim() !== '') {
+      result.reasoningLevel = normalizeStoredChatReasoningLevel(assistant.reasoningLevelPreference)
+    }
     const pendingSession = this.deps.chatViewModel.createPendingSession(
       '',
       assistant.id,
