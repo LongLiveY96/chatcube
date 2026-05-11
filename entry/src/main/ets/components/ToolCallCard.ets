@@ -29,7 +29,7 @@ export struct ToolCallCard {
   @Param toolCall: ToolCall = new ToolCall()
   @Param toolResult: ToolResult | null = null
   @Param isExecuting: boolean = false
-  @Local isExpanded: boolean = false
+  @Local showDetailSheet: boolean = false
   @Local showRawArguments: boolean = false
   @Local showRawResult: boolean = false
   // 跳动点动画状态
@@ -161,126 +161,45 @@ export struct ToolCallCard {
         // 展开/折叠按钮（仅在有结果时显示）
         if (this.toolResult !== null) {
           Row() {
-            Text(this.isExpanded ? $r('app.string.common_collapse') : $r('app.string.common_details'))
+            Text($r('app.string.common_details'))
               .fontSize(11)
               .fontColor($r('app.color.text_tertiary'))
 
             SymbolGlyph($r('sys.symbol.chevron_down'))
               .fontSize(12)
               .fontColor([$r('app.color.text_tertiary')])
-              .rotate({ angle: this.isExpanded ? 180 : 0 })
+              .rotate({ angle: 0 })
               .animation({ duration: 200, curve: Curve.EaseOut })
               .margin({ left: 2 })
           }
           .onClick(() => {
-            this.getUIContext().animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
-              if (this.isExpanded) {
-                this.showRawArguments = false
-                this.showRawResult = false
-              }
-              this.isExpanded = !this.isExpanded
-            })
+            this.showDetailSheet = true
           })
         }
       }
       .width('100%')
       .height(32)
       .padding({ left: 10, right: 10 })
-
-      // 展开的详情内容
-      if (this.isExpanded && this.toolResult !== null) {
-        Column({ space: 8 }) {
-          Row() {
-            Text($r('app.string.tool_call_args_label'))
-              .fontSize(11)
-              .fontColor($r('app.color.text_tertiary'))
-              .width(56)
-
-            Text(this.getArgumentPreview().summary)
-              .fontSize(11)
-              .lineHeight(16)
-              .fontColor($r('app.color.text_secondary'))
-              .layoutWeight(1)
-          }
-          .width('100%')
-
-          Row() {
-            Blank()
-            Text(this.showRawArguments ? '收起原始参数' : '查看原始参数')
-              .fontSize(10)
-              .fontColor(this.themePrimary)
-              .onClick(() => {
-                this.showRawArguments = !this.showRawArguments
-              })
-          }
-          .width('100%')
-
-          if (this.showRawArguments) {
-            Scroll() {
-              Text(this.getArgumentPreview().rawPreview)
-                .width('100%')
-                .fontSize(11)
-                .lineHeight(16)
-                .fontFamily('monospace')
-                .fontColor($r('app.color.text_secondary'))
-            }
-            .width('100%')
-            .constraintSize({ maxHeight: 160 })
-            .padding(10)
-            .borderRadius(10)
-            .backgroundColor(this.isDarkMode ? '#14171F' : '#F6F8FC')
-          }
-
-          Row() {
-            Text($r('app.string.tool_call_result_label'))
-              .fontSize(11)
-              .fontColor($r('app.color.text_tertiary'))
-              .width(56)
-
-            Text(this.getResultPreview().summary)
-              .fontSize(11)
-              .lineHeight(16)
-              .fontColor(this.hasFailedResult() ? $r('app.color.status_error') : $r('app.color.text_secondary'))
-              .layoutWeight(1)
-          }
-          .width('100%')
-
-          Row() {
-            Blank()
-            Text(this.showRawResult ? '收起原始结果' : '查看原始结果')
-              .fontSize(10)
-              .fontColor(this.themePrimary)
-              .onClick(() => {
-                this.showRawResult = !this.showRawResult
-              })
-          }
-          .width('100%')
-
-          if (this.showRawResult) {
-            Scroll() {
-              Text(this.getResultPreview().rawPreview)
-                .width('100%')
-                .fontSize(11)
-                .lineHeight(16)
-                .fontFamily('monospace')
-                .fontColor($r('app.color.text_secondary'))
-            }
-            .width('100%')
-            .constraintSize({ maxHeight: 180 })
-            .padding(10)
-            .borderRadius(10)
-            .backgroundColor(this.isDarkMode ? '#14171F' : '#F6F8FC')
-          }
-        }
-        .width('100%')
-        .padding({ left: 10, right: 10, bottom: 8 })
-        .transition(TransitionEffect.OPACITY.animation({ duration: 200 }))
-      }
     }
     .width('100%')
     .backgroundColor($r('app.color.divider'))
     .borderRadius(8)
     .clip(true)
+    .onClick(() => {
+      if (this.toolResult !== null || this.toolCall.arguments.trim() !== '') {
+        this.showDetailSheet = true
+      }
+    })
+    .bindSheet($$this.showDetailSheet, this.ToolDetailSheetBuilder(), {
+      height: SheetSize.LARGE,
+      dragBar: true,
+      showClose: false,
+      preferType: SheetType.BOTTOM,
+      onDisappear: () => {
+        this.showRawArguments = false
+        this.showRawResult = false
+      }
+    })
   }
 
   // 按 functionName + arguments 构造带上下文的标题,如 “搜索:xx”、“朗读:xx”、“保存记忆”
@@ -326,5 +245,301 @@ export struct ToolCallCard {
   private getResultStatusColor(): ResourceColor {
     return this.hasFailedResult() ? $r('app.color.status_error') : $r('app.color.status_success')
   }
+
+  // ============== Bottom Sheet 详情 ==============
+
+  @Builder
+  private ToolDetailSheetBuilder() {
+    Column() {
+      // 顶部标题条
+      Row() {
+        SymbolGlyph(resolveToolSymbol(this.toolCall.functionName))
+          .fontSize(16)
+          .fontColor([this.themePrimary])
+
+        Text(this.getToolTitle())
+          .fontSize(15)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .margin({ left: 8 })
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
+
+        if (this.toolResult !== null) {
+          SymbolGlyph(this.getResultStatusSymbol())
+            .fontSize(16)
+            .fontColor([this.getResultStatusColor()])
+        }
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 8, bottom: 12 })
+
+      // 主体内容:按工具类型分派
+      Scroll() {
+        Column() {
+          if (this.isScrapeTool()) {
+            this.ScrapeDetail()
+          } else if (this.isSearchTool()) {
+            this.SearchDetail()
+          } else {
+            this.GenericDetail()
+          }
+        }
+        .width('100%')
+        .padding({ left: 16, right: 16, bottom: 24 })
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .scrollBar(BarState.Off)
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder
+  private SectionLabel(label: Resource | string) {
+    Text(label)
+      .fontSize(12)
+      .fontWeight(FontWeight.Medium)
+      .fontColor($r('app.color.text_secondary'))
+      .margin({ top: 4, bottom: 6 })
+  }
+
+  @Builder
+  private CodeBox(text: string) {
+    Text(text)
+      .width('100%')
+      .fontSize(11)
+      .lineHeight(16)
+      .fontFamily('monospace')
+      .fontColor($r('app.color.text_secondary'))
+      .padding(10)
+      .borderRadius(10)
+      .backgroundColor(this.isDarkMode ? '#14171F' : '#F6F8FC')
+      .copyOption(CopyOptions.LocalDevice)
+  }
+
+  // search 工具:展示查询词 + 结果列表(title/url/snippet)
+  @Builder
+  private SearchDetail() {
+    Column() {
+      this.SectionLabel('查询')
+      Text(this.getSearchQueryPreview())
+        .fontSize(14)
+        .fontColor($r('app.color.text_primary'))
+        .margin({ bottom: 12 })
+
+      if (this.toolResult !== null) {
+        this.SectionLabel(`搜索结果 (${this.getSearchResultCount()})`)
+        if (this.getSearchResultSummary() !== '') {
+          Text(this.getSearchResultSummary())
+            .fontSize(13)
+            .fontColor($r('app.color.text_primary'))
+            .margin({ bottom: 10 })
+        }
+        ForEach(this.getSearchResultItems(), (item: SearchResultItemVM, _index: number) => {
+          Column() {
+            Text(item.title)
+              .fontSize(14)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.text_primary'))
+              .maxLines(2)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+            if (item.url !== '') {
+              Text(item.url)
+                .fontSize(11)
+                .fontColor(this.themePrimary)
+                .margin({ top: 2 })
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
+
+            if (item.snippet !== '') {
+              Text(item.snippet)
+                .fontSize(12)
+                .fontColor($r('app.color.text_secondary'))
+                .margin({ top: 4 })
+                .maxLines(3)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+          .padding(12)
+          .backgroundColor($r('app.color.divider'))
+          .borderRadius(10)
+          .margin({ bottom: 8 })
+        }, (item: SearchResultItemVM, index: number) => item.url + '_' + index.toString())
+
+        if (this.getSearchResultItems().length === 0) {
+          this.SectionLabel('原始结果')
+          this.CodeBox(this.getResultPreview().rawPreview)
+        }
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  // scrape 工具:url 列表 + 文本预览
+  @Builder
+  private ScrapeDetail() {
+    Column() {
+      this.SectionLabel('目标')
+      Text(this.getScrapeTargetPreview())
+        .fontSize(13)
+        .fontColor(this.themePrimary)
+        .margin({ bottom: 12 })
+
+      if (this.toolResult !== null) {
+        this.SectionLabel('抓取内容')
+        Text(this.getScrapeContentPreview())
+          .width('100%')
+          .fontSize(12)
+          .lineHeight(18)
+          .fontColor($r('app.color.text_primary'))
+          .padding(12)
+          .backgroundColor($r('app.color.divider'))
+          .borderRadius(10)
+          .copyOption(CopyOptions.LocalDevice)
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  // 通用:直接把 arguments 和 result 按 JSON 渲染
+  @Builder
+  private GenericDetail() {
+    Column() {
+      this.SectionLabel('参数')
+      this.CodeBox(this.getArgumentPreview().rawPreview)
+
+      if (this.toolResult !== null) {
+        this.SectionLabel('结果')
+        this.CodeBox(this.getResultPreview().rawPreview)
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  private isSearchTool(): boolean {
+    return isSearchWebFunctionName(this.toolCall.functionName)
+  }
+
+  private isScrapeTool(): boolean {
+    return isScrapeWebFunctionName(this.toolCall.functionName)
+  }
+
+  private getArgumentsObject(): Record<string, Object> {
+    try {
+      const parsed = JSON.parse(this.toolCall.arguments) as Record<string, Object>
+      if (parsed === null || parsed === undefined) {
+        return {} as Record<string, Object>
+      }
+      return parsed
+    } catch (_e) {
+      return {} as Record<string, Object>
+    }
+  }
+
+  private getResultObject(): Record<string, Object> {
+    if (this.toolResult === null) {
+      return {} as Record<string, Object>
+    }
+    try {
+      const parsed = JSON.parse(this.toolResult.content) as Record<string, Object>
+      if (parsed === null || parsed === undefined) {
+        return {} as Record<string, Object>
+      }
+      return parsed
+    } catch (_e) {
+      return {} as Record<string, Object>
+    }
+  }
+
+  private getSearchQueryPreview(): string {
+    const args = this.getArgumentsObject()
+    const candidates: string[] = ['query', 'q', 'keyword']
+    for (let i = 0; i < candidates.length; i++) {
+      const v = args[candidates[i]] as string | undefined
+      if (v !== undefined && typeof v === 'string' && v.trim() !== '') {
+        return v.trim()
+      }
+    }
+    return '(空查询)'
+  }
+
+  private getSearchResultSummary(): string {
+    const result = this.getResultObject()
+    const answer = result['answer'] as string | undefined
+    if (answer !== undefined && typeof answer === 'string') {
+      return answer.trim()
+    }
+    return ''
+  }
+
+  private getSearchResultItems(): SearchResultItemVM[] {
+    const result = this.getResultObject()
+    const rawItems = result['items'] as Object
+    const out: SearchResultItemVM[] = []
+    if (Array.isArray(rawItems)) {
+      const items = rawItems as Object[]
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i] as Record<string, Object>
+        if (it === null || it === undefined) {
+          continue
+        }
+        const title = (it['title'] as string | undefined) ?? ''
+        const url = (it['url'] as string | undefined) ?? ''
+        const snippet = (it['text'] as string | undefined) ?? (it['snippet'] as string | undefined) ?? ''
+        if (title !== '' || url !== '') {
+          out.push({ title: title, url: url, snippet: snippet })
+        }
+      }
+    }
+    return out
+  }
+
+  private getSearchResultCount(): number {
+    return this.getSearchResultItems().length
+  }
+
+  private getScrapeTargetPreview(): string {
+    const args = this.getArgumentsObject()
+    const url = args['url'] as string | undefined
+    if (url !== undefined && typeof url === 'string' && url.trim() !== '') {
+      return url.trim()
+    }
+    const urls = args['urls'] as Object
+    if (Array.isArray(urls)) {
+      const arr = urls as string[]
+      return arr.join('\n')
+    }
+    return '(无)'
+  }
+
+  private getScrapeContentPreview(): string {
+    const result = this.getResultObject()
+    const content = result['content'] as string | undefined
+    if (content !== undefined && typeof content === 'string' && content.trim() !== '') {
+      return content
+    }
+    const text = result['text'] as string | undefined
+    if (text !== undefined && typeof text === 'string' && text.trim() !== '') {
+      return text
+    }
+    // fallback 到原始 JSON
+    return this.getResultPreview().rawPreview
+  }
+}
+
+interface SearchResultItemVM {
+  title: string
+  url: string
+  snippet: string
 }
 
