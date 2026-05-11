@@ -2125,18 +2125,6 @@
       "value": "跟随全局当前模型"
     },
     {
-      "name": "assistant_editor_basic_section",
-      "value": "基础"
-    },
-    {
-      "name": "assistant_editor_prompt_section",
-      "value": "提示词"
-    },
-    {
-      "name": "assistant_editor_params_section",
-      "value": "参数"
-    },
-    {
       "name": "assistant_temperature_override",
       "value": "覆盖温度"
     },

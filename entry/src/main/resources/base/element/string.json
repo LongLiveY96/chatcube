@@ -2125,18 +2125,6 @@
       "value": "Follow global current model"
     },
     {
-      "name": "assistant_editor_basic_section",
-      "value": "Basic"
-    },
-    {
-      "name": "assistant_editor_prompt_section",
-      "value": "Prompt"
-    },
-    {
-      "name": "assistant_editor_params_section",
-      "value": "Params"
-    },
-    {
       "name": "assistant_temperature_override",
       "value": "Override Temperature"
     },

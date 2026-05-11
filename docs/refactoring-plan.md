@@ -85,19 +85,18 @@
 
 ### 4.2 编辑页接入
 
-- [x] 在首页助手 Tab 的 `Index.ets / AssistantEditorSheetBuilder` 补采样配置入口
-- [x] 在首页助手 Tab 的 `Index.ets / AssistantEditorSheetBuilder` 补提示词配置入口
-- [x] 保留 `AssistantManagePage.ets` 同步表单能力，但不把它当当前主入口验收
-- [x] 首页主入口改成固定头像/名称头部 + `基础 / 提示词 / 参数` Tab，不直接铺开底层字段
-- [x] `MCP / 快捷消息 / 预设消息 / 自定义请求` 未闭环前不在首页主入口展示
-- [x] 保存时保留 Store 中的未闭环字段，但首页主入口不提供编辑入口
+- [x] 在 `AssistantManagePage.ets` 补采样配置入口（非当前主入口）
+- [x] 在 `AssistantManagePage.ets` 补扩展配置入口（非当前主入口）
+- [x] 回滚首页助手 Tab 中走偏的可见编辑页改造
+- [ ] 重新设计 `Index.ets / AssistantEditorSheetBuilder` 首页主入口交互
+- [ ] 首页主入口只暴露已闭环能力，未闭环功能不展示
 
 验收标准：
 
-- [x] 已闭环字段能编辑、能保存
-- [x] 首页助手 Tab 打开的编辑 Sheet 能看到固定头部和 Tab，而不是入口卡片或底层字段堆叠
-- [x] 老字段行为不回归
-- [x] 页面还能保持现有列表 / 删除 / 排序行为
+- [ ] 首页助手 Tab 编辑页体验确认
+- [ ] 已闭环字段能编辑、能保存
+- [ ] 老字段行为不回归
+- [ ] 页面还能保持现有列表 / 删除 / 排序行为
 
 ### 4.3 模型解析回退
 

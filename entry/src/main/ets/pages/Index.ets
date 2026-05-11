@@ -16,12 +16,7 @@ import {
   CompactTabsFloatingStyleOptions
 } from '../utils/HdsTabsFloatingStyleHelper'
 import { ChatSession, ChatMessage, ModelProvider } from '../models/ChatModels'
-import {
-  Assistant,
-  DEFAULT_ASSISTANT_ID,
-  ASSISTANT_CONTEXT_MESSAGE_SIZE_MAX,
-  ASSISTANT_MAX_TOKENS_LIMIT
-} from '../models/AssistantModels'
+import { Assistant, DEFAULT_ASSISTANT_ID } from '../models/AssistantModels'
 import { ChatViewModel } from '../viewmodels/ChatViewModel'
 import { SettingsChangeCallback } from '../viewmodels/SettingsManager'
 import { ThemeMode, AppLanguage, PreferenceKeys } from '../services/PreferencesService'
@@ -116,9 +111,6 @@ struct Index {
   private static readonly TAB_ASSISTANTS: number = INDEX_TAB_ASSISTANTS
   private static readonly TAB_CHAT: number = INDEX_TAB_CHAT
   private static readonly TAB_SETTINGS: number = INDEX_TAB_SETTINGS
-  private static readonly ASSISTANT_EDITOR_SECTION_BASIC: string = 'basic'
-  private static readonly ASSISTANT_EDITOR_SECTION_PROMPT: string = 'prompt'
-  private static readonly ASSISTANT_EDITOR_SECTION_PARAMS: string = 'params'
   @Local currentTabIndex: number = Index.TAB_CHAT
   @Local sessions: ChatSession[] = []
   @Local isLoading: boolean = false
@@ -159,7 +151,6 @@ struct Index {
   @Local editingAssistantCreatedAt: number = 0
   @Local editingAssistantSortOrder: number = 0
   @Local editingAssistantIsDefault: boolean = false
-  @Local assistantEditorSection: string = Index.ASSISTANT_EDITOR_SECTION_BASIC
   @Local assistantFormName: string = ''
   @Local assistantFormAvatarSymbol: string = 'AI'
   @Local assistantFormColor: string = DEFAULT_PRIMARY_COLOR
@@ -169,21 +160,6 @@ struct Index {
   @Local assistantFormDefaultModelName: string = ''
   @Local assistantFormTemperatureEnabled: boolean = false
   @Local assistantFormTemperature: number = 0.7
-  @Local assistantFormTopPEnabled: boolean = false
-  @Local assistantFormTopP: number = 1.0
-  @Local assistantFormPresencePenaltyEnabled: boolean = false
-  @Local assistantFormPresencePenalty: number = 0
-  @Local assistantFormFrequencyPenaltyEnabled: boolean = false
-  @Local assistantFormFrequencyPenalty: number = 0
-  @Local assistantFormContextMessageSizeText: string = ''
-  @Local assistantFormMaxTokensText: string = ''
-  @Local assistantFormReasoningLevel: string = ''
-  @Local assistantFormCustomHeadersJson: string = ''
-  @Local assistantFormCustomBodiesJson: string = ''
-  @Local assistantFormMcpServerIdsJson: string = ''
-  @Local assistantFormQuickMessageIdsJson: string = ''
-  @Local assistantFormPresetMessagesJson: string = ''
-  @Local assistantFormTagsJson: string = ''
   @Local currentChatRouteName: string = ''
   @Local chatTabTopSessionId: string = ''
   private get activeChatSessionId(): string {
@@ -876,12 +852,6 @@ struct Index {
       parts.push(`${assistant.id}:${assistant.name}:${assistant.avatarSymbol}:${assistant.color}:` +
         `${assistant.defaultProviderId}:${assistant.defaultModelId}:${assistant.defaultModelName}:` +
         `${assistant.systemPrompt}:${assistant.temperatureEnabled ? '1' : '0'}:${assistant.temperature}:` +
-        `${assistant.topPEnabled ? '1' : '0'}:${assistant.topP}:` +
-        `${assistant.presencePenaltyEnabled ? '1' : '0'}:${assistant.presencePenalty}:` +
-        `${assistant.frequencyPenaltyEnabled ? '1' : '0'}:${assistant.frequencyPenalty}:` +
-        `${assistant.contextMessageSize}:${assistant.maxTokens}:${assistant.reasoningLevel}:` +
-        `${assistant.customHeadersJson}:${assistant.customBodiesJson}:${assistant.mcpServerIdsJson}:` +
-        `${assistant.quickMessageIdsJson}:${assistant.presetMessagesJson}:${assistant.tagsJson}:` +
         `${assistant.isDefault ? '1' : '0'}:${assistant.sortOrder}`)
     }
     return parts.join('|')
@@ -1505,7 +1475,6 @@ struct Index {
             this.showAssistantEditorSheet = false
             this.showAssistantModelSheet = false
             this.showAssistantAvatarEditorSheet = false
-            this.assistantEditorSection = Index.ASSISTANT_EDITOR_SECTION_BASIC
           }
         })
 
@@ -1815,12 +1784,6 @@ struct Index {
     return `${assistant.id}:${assistant.name}:${assistant.avatarSymbol}:${assistant.color}:` +
       `${assistant.defaultProviderId}:${assistant.defaultModelId}:${assistant.defaultModelName}:` +
       `${assistant.systemPrompt}:${assistant.temperatureEnabled ? '1' : '0'}:${assistant.temperature}:` +
-      `${assistant.topPEnabled ? '1' : '0'}:${assistant.topP}:` +
-      `${assistant.presencePenaltyEnabled ? '1' : '0'}:${assistant.presencePenalty}:` +
-      `${assistant.frequencyPenaltyEnabled ? '1' : '0'}:${assistant.frequencyPenalty}:` +
-      `${assistant.contextMessageSize}:${assistant.maxTokens}:${assistant.reasoningLevel}:` +
-      `${assistant.customHeadersJson}:${assistant.customBodiesJson}:${assistant.mcpServerIdsJson}:` +
-      `${assistant.quickMessageIdsJson}:${assistant.presetMessagesJson}:${assistant.tagsJson}:` +
       `${assistant.isDefault ? '1' : '0'}:${assistant.sortOrder}:${this.assistantAvatarRenderTick}`
   }
 
@@ -2227,21 +2190,6 @@ struct Index {
     this.assistantFormDefaultModelName = ''
     this.assistantFormTemperatureEnabled = false
     this.assistantFormTemperature = 0.7
-    this.assistantFormTopPEnabled = false
-    this.assistantFormTopP = 1.0
-    this.assistantFormPresencePenaltyEnabled = false
-    this.assistantFormPresencePenalty = 0
-    this.assistantFormFrequencyPenaltyEnabled = false
-    this.assistantFormFrequencyPenalty = 0
-    this.assistantFormContextMessageSizeText = ''
-    this.assistantFormMaxTokensText = ''
-    this.assistantFormReasoningLevel = ''
-    this.assistantFormCustomHeadersJson = ''
-    this.assistantFormCustomBodiesJson = ''
-    this.assistantFormMcpServerIdsJson = ''
-    this.assistantFormQuickMessageIdsJson = ''
-    this.assistantFormPresetMessagesJson = ''
-    this.assistantFormTagsJson = ''
   }
 
   private fillAssistantEditorForm(assistant: Assistant): void {
@@ -2258,21 +2206,6 @@ struct Index {
     this.assistantFormDefaultModelName = assistant.defaultModelName
     this.assistantFormTemperatureEnabled = assistant.temperatureEnabled
     this.assistantFormTemperature = assistant.temperature
-    this.assistantFormTopPEnabled = assistant.topPEnabled
-    this.assistantFormTopP = assistant.topP
-    this.assistantFormPresencePenaltyEnabled = assistant.presencePenaltyEnabled
-    this.assistantFormPresencePenalty = assistant.presencePenalty
-    this.assistantFormFrequencyPenaltyEnabled = assistant.frequencyPenaltyEnabled
-    this.assistantFormFrequencyPenalty = assistant.frequencyPenalty
-    this.assistantFormContextMessageSizeText = assistant.contextMessageSize > 0 ? assistant.contextMessageSize.toString() : ''
-    this.assistantFormMaxTokensText = assistant.maxTokens > 0 ? assistant.maxTokens.toString() : ''
-    this.assistantFormReasoningLevel = assistant.reasoningLevel
-    this.assistantFormCustomHeadersJson = assistant.customHeadersJson
-    this.assistantFormCustomBodiesJson = assistant.customBodiesJson
-    this.assistantFormMcpServerIdsJson = assistant.mcpServerIdsJson
-    this.assistantFormQuickMessageIdsJson = assistant.quickMessageIdsJson
-    this.assistantFormPresetMessagesJson = assistant.presetMessagesJson
-    this.assistantFormTagsJson = assistant.tagsJson
   }
 
   private setAssistantFormAvatarSymbol(value: string): void {
@@ -2288,14 +2221,12 @@ struct Index {
 
   private async openAssistantEditorForNew(): Promise<void> {
     this.resetAssistantEditorForm()
-    this.assistantEditorSection = Index.ASSISTANT_EDITOR_SECTION_BASIC
     this.showAssistantEditorSheet = true
     await this.loadAssistantProvidersIfNeeded()
   }
 
   private async openAssistantEditor(assistant: Assistant): Promise<void> {
     this.fillAssistantEditorForm(assistant)
-    this.assistantEditorSection = Index.ASSISTANT_EDITOR_SECTION_BASIC
     this.showAssistantEditorSheet = true
     await this.loadAssistantProvidersIfNeeded()
   }
@@ -2307,29 +2238,6 @@ struct Index {
   private getAssistantFormDefaultModelText(): ResourceStr {
     return this.assistantFormDefaultModelName !== '' ? this.assistantFormDefaultModelName :
       $r('app.string.assistant_model_follow_global')
-  }
-
-  private sanitizeAssistantIntegerText(value: string): string {
-    let result = ''
-    for (let i = 0; i < value.length; i++) {
-      const char = value.charAt(i)
-      if (char >= '0' && char <= '9') {
-        result += char
-      }
-    }
-    return result
-  }
-
-  private parseAssistantBoundedIntegerText(value: string, max: number): number {
-    const normalized = this.sanitizeAssistantIntegerText(value)
-    if (normalized === '') {
-      return 0
-    }
-    const parsed = Number.parseInt(normalized, 10)
-    if (Number.isNaN(parsed) || parsed <= 0) {
-      return 0
-    }
-    return parsed > max ? max : parsed
   }
 
   private clearAssistantDefaultModel(): void {
@@ -2371,27 +2279,6 @@ struct Index {
     assistant.defaultModelName = this.assistantFormDefaultModelName
     assistant.temperatureEnabled = this.assistantFormTemperatureEnabled
     assistant.temperature = this.assistantFormTemperature
-    assistant.topPEnabled = this.assistantFormTopPEnabled
-    assistant.topP = this.assistantFormTopP
-    assistant.presencePenaltyEnabled = this.assistantFormPresencePenaltyEnabled
-    assistant.presencePenalty = this.assistantFormPresencePenalty
-    assistant.frequencyPenaltyEnabled = this.assistantFormFrequencyPenaltyEnabled
-    assistant.frequencyPenalty = this.assistantFormFrequencyPenalty
-    assistant.contextMessageSize = this.parseAssistantBoundedIntegerText(
-      this.assistantFormContextMessageSizeText,
-      ASSISTANT_CONTEXT_MESSAGE_SIZE_MAX
-    )
-    assistant.maxTokens = this.parseAssistantBoundedIntegerText(
-      this.assistantFormMaxTokensText,
-      ASSISTANT_MAX_TOKENS_LIMIT
-    )
-    assistant.reasoningLevel = this.assistantFormReasoningLevel
-    assistant.customHeadersJson = this.assistantFormCustomHeadersJson
-    assistant.customBodiesJson = this.assistantFormCustomBodiesJson
-    assistant.mcpServerIdsJson = this.assistantFormMcpServerIdsJson
-    assistant.quickMessageIdsJson = this.assistantFormQuickMessageIdsJson
-    assistant.presetMessagesJson = this.assistantFormPresetMessagesJson
-    assistant.tagsJson = this.assistantFormTagsJson
     assistant.createdAt = this.editingAssistantCreatedAt
     assistant.sortOrder = this.editingAssistantSortOrder
     assistant.isDefault = this.editingAssistantIsDefault
@@ -2993,41 +2880,25 @@ struct Index {
   private AssistantEditorSheetBuilder() {
     Column() {
       this.AssistantEditorHeader()
-      Row() {
-        Column({ space: 6 }) {
-          this.AssistantEditorIdentityHeader()
-          this.AssistantEditorTabs()
-        }
-        .width('100%')
-        .constraintSize({ maxWidth: 640 })
-      }
-      .width('100%')
-      .justifyContent(FlexAlign.Center)
-      .padding({ left: 16, right: 16, bottom: 6 })
 
       Scroll() {
         Row() {
           Column({ space: 14 }) {
-            if (this.assistantEditorSection === Index.ASSISTANT_EDITOR_SECTION_BASIC) {
-              this.AssistantBasicSettingsContent()
-            } else if (this.assistantEditorSection === Index.ASSISTANT_EDITOR_SECTION_PROMPT) {
-              this.AssistantPromptSettingsContent()
-            } else {
-              this.AssistantParamsSettingsContent()
-            }
+            this.AssistantNameAvatarRow()
+            this.AssistantPromptEditor()
+            this.AssistantDefaultModelRow()
+            this.AssistantTemperatureRow()
           }
           .width('100%')
           .constraintSize({ maxWidth: 640 })
         }
         .width('100%')
         .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Top)
-        .padding({ left: 16, right: 16, top: 8, bottom: 28 })
+        .padding({ left: 16, right: 16, bottom: 28 })
       }
       .layoutWeight(1)
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
-      .align(Alignment.Top)
     }
     .width('100%')
     .height('100%')
@@ -3124,116 +2995,7 @@ struct Index {
   }
 
   @Builder
-  private AssistantBasicSettingsContent() {
-    Column({ space: 14 }) {
-      this.AssistantNameEditorRow()
-      this.AssistantAvatarEditorRow()
-      this.AssistantDefaultModelRow()
-    }
-    .width('100%')
-  }
-
-  @Builder
-  private AssistantPromptSettingsContent() {
-    Column({ space: 14 }) {
-      this.AssistantPromptEditor()
-    }
-    .width('100%')
-  }
-
-  @Builder
-  private AssistantParamsSettingsContent() {
-    Column({ space: 14 }) {
-      this.AssistantSamplingConfigSection()
-    }
-    .width('100%')
-  }
-
-  @Builder
-  private AssistantEditorTabs() {
-    Row({ space: 20 }) {
-      this.AssistantEditorTabButton(
-        Index.ASSISTANT_EDITOR_SECTION_BASIC,
-        $r('app.string.assistant_editor_basic_section')
-      )
-      this.AssistantEditorTabButton(
-        Index.ASSISTANT_EDITOR_SECTION_PROMPT,
-        $r('app.string.assistant_editor_prompt_section')
-      )
-      this.AssistantEditorTabButton(
-        Index.ASSISTANT_EDITOR_SECTION_PARAMS,
-        $r('app.string.assistant_editor_params_section')
-      )
-      Blank()
-    }
-    .width('100%')
-    .height(44)
-    .padding({ left: 4, right: 4, top: 4, bottom: 2 })
-  }
-
-  @Builder
-  private AssistantEditorTabButton(section: string, label: ResourceStr) {
-    Button() {
-      Column({ space: 6 }) {
-        Text(label)
-          .fontSize(15)
-          .fontWeight(this.assistantEditorSection === section ? FontWeight.Bold : FontWeight.Medium)
-          .fontColor(this.assistantEditorSection === section ? $r('app.color.text_primary') :
-          $r('app.color.text_secondary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-
-        Column()
-          .width(this.assistantEditorSection === section ? 24 : 14)
-          .height(3)
-          .borderRadius(2)
-          .backgroundColor(this.assistantEditorSection === section ? this.themePrimary : Color.Transparent)
-      }
-      .alignItems(HorizontalAlign.Start)
-    }
-    .type(ButtonType.Normal)
-    .stateEffect(false)
-    .padding({ left: 0, right: 0, top: 4, bottom: 4 })
-    .backgroundColor(Color.Transparent)
-    .onClick(() => {
-      if (this.assistantEditorSection === section) {
-        return
-      }
-      this.assistantEditorSection = section
-    })
-  }
-
-  @Builder
-  private AssistantEditorIdentityHeader() {
-    Row({ space: 12 }) {
-      Button() {
-        this.AssistantFormAvatarBadge(56, 19, 31)
-      }
-      .width(56)
-      .height(56)
-      .padding(0)
-      .backgroundColor(Color.Transparent)
-      .borderRadius(19)
-      .onClick(() => {
-        this.showAssistantAvatarEditorSheet = true
-      })
-
-      Text(this.assistantFormName.trim() !== '' ? this.assistantFormName.trim() : $r('app.string.new_assistant'))
-        .layoutWeight(1)
-        .fontSize(18)
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('app.color.text_primary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
-    .width('100%')
-    .height(72)
-    .padding({ left: 4, right: 4 })
-    .alignItems(VerticalAlign.Center)
-  }
-
-  @Builder
-  private AssistantNameEditorRow() {
+  private AssistantNameAvatarRow() {
     Column({ space: 8 }) {
       Text($r('app.string.assistant_name'))
         .fontSize(13)
@@ -3241,51 +3003,36 @@ struct Index {
         .fontColor($r('app.color.text_secondary'))
         .width('100%')
 
-      TextInput({ text: this.assistantFormName, placeholder: $r('app.string.assistant_name_placeholder') })
-        .width('100%')
-        .height(52)
-        .fontSize(15)
-        .fontColor($r('app.color.text_primary'))
-        .placeholderColor($r('app.color.text_tertiary'))
-        .backgroundColor(this.themeSurface)
-        .borderRadius(16)
-        .padding({ left: 14, right: 14 })
-        .onChange((text: string) => {
-          this.assistantFormName = text
-        })
-    }
-    .width('100%')
-  }
-
-  @Builder
-  private AssistantAvatarEditorRow() {
-    Row({ space: 12 }) {
-      Column({ space: 3 }) {
-        Text($r('app.string.assistant_avatar_symbol'))
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
+      Row({ space: 12 }) {
+        TextInput({ text: this.assistantFormName, placeholder: $r('app.string.assistant_name_placeholder') })
+          .layoutWeight(1)
+          .height(52)
+          .fontSize(15)
           .fontColor($r('app.color.text_primary'))
-        Text($r('app.string.assistant_avatar_edit_title'))
-          .fontSize(12)
-          .fontColor($r('app.color.text_secondary'))
+          .placeholderColor($r('app.color.text_tertiary'))
+          .backgroundColor(this.themeSurface)
+          .borderRadius(18)
+          .padding({ left: 14, right: 14 })
+          .onChange((text: string) => {
+            this.assistantFormName = text
+          })
+
+        Button() {
+          this.AssistantFormAvatarBadge(60, 20, 34)
+        }
+        .width(60)
+        .height(60)
+        .padding(0)
+        .backgroundColor(Color.Transparent)
+        .borderRadius(20)
+        .onClick(() => {
+          this.showAssistantAvatarEditorSheet = true
+        })
       }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-
-      this.AssistantFormAvatarBadge(42, 14, 22)
-
-      SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(16)
-        .fontColor([$r('app.color.text_tertiary')])
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
-    .padding({ left: 14, right: 12, top: 12, bottom: 12 })
-    .backgroundColor(this.themeSurface)
-    .borderRadius(16)
-    .alignItems(VerticalAlign.Center)
-    .onClick(() => {
-      this.showAssistantAvatarEditorSheet = true
-    })
   }
 
   @Builder
@@ -3380,27 +3127,6 @@ struct Index {
   }
 
   @Builder
-  private AssistantFormSectionTitle(title: ResourceStr) {
-    Text(title)
-      .fontSize(13)
-      .fontWeight(FontWeight.Medium)
-      .fontColor($r('app.color.text_secondary'))
-      .width('100%')
-  }
-
-  @Builder
-  private AssistantSamplingConfigSection() {
-    Column({ space: 10 }) {
-      this.AssistantFormSectionTitle($r('app.string.assistant_sampling_section'))
-      this.AssistantTemperatureRow()
-      this.AssistantTopPRow()
-      this.AssistantPresencePenaltyRow()
-      this.AssistantFrequencyPenaltyRow()
-    }
-    .width('100%')
-  }
-
-  @Builder
   private AssistantTemperatureRow() {
     Column({ space: 10 }) {
       Row() {
@@ -3430,131 +3156,6 @@ struct Index {
             .fontSize(13)
             .fontColor($r('app.color.text_secondary'))
             .width(34)
-            .textAlign(TextAlign.End)
-        }
-        .width('100%')
-      }
-    }
-    .width('100%')
-    .padding(14)
-    .backgroundColor(this.themeSurface)
-    .borderRadius(16)
-  }
-
-  @Builder
-  private AssistantTopPRow() {
-    Column({ space: 10 }) {
-      Row() {
-        Text($r('app.string.assistant_top_p_override'))
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-          .layoutWeight(1)
-
-        Toggle({ type: ToggleType.Switch, isOn: this.assistantFormTopPEnabled })
-          .selectedColor(this.themePrimary)
-          .onChange((value: boolean) => {
-            this.assistantFormTopPEnabled = value
-          })
-      }
-      .width('100%')
-
-      if (this.assistantFormTopPEnabled) {
-        Row({ space: 10 }) {
-          Slider({ value: this.assistantFormTopP, min: 0, max: 1, step: 0.05, style: SliderStyle.InSet })
-            .layoutWeight(1)
-            .selectedColor(this.themePrimary)
-            .onChange((value: number, _mode: SliderChangeMode) => {
-              this.assistantFormTopP = Math.round(value * 100) / 100
-            })
-          Text(this.assistantFormTopP.toFixed(2))
-            .fontSize(13)
-            .fontColor($r('app.color.text_secondary'))
-            .width(40)
-            .textAlign(TextAlign.End)
-        }
-        .width('100%')
-      }
-    }
-    .width('100%')
-    .padding(14)
-    .backgroundColor(this.themeSurface)
-    .borderRadius(16)
-  }
-
-  @Builder
-  private AssistantPresencePenaltyRow() {
-    Column({ space: 10 }) {
-      Row() {
-        Text($r('app.string.assistant_presence_penalty_override'))
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-          .layoutWeight(1)
-
-        Toggle({ type: ToggleType.Switch, isOn: this.assistantFormPresencePenaltyEnabled })
-          .selectedColor(this.themePrimary)
-          .onChange((value: boolean) => {
-            this.assistantFormPresencePenaltyEnabled = value
-          })
-      }
-      .width('100%')
-
-      if (this.assistantFormPresencePenaltyEnabled) {
-        Row({ space: 10 }) {
-          Slider({ value: this.assistantFormPresencePenalty, min: -2, max: 2, step: 0.1,
-            style: SliderStyle.InSet })
-            .layoutWeight(1)
-            .selectedColor(this.themePrimary)
-            .onChange((value: number, _mode: SliderChangeMode) => {
-              this.assistantFormPresencePenalty = Math.round(value * 10) / 10
-            })
-          Text(this.assistantFormPresencePenalty.toFixed(1))
-            .fontSize(13)
-            .fontColor($r('app.color.text_secondary'))
-            .width(40)
-            .textAlign(TextAlign.End)
-        }
-        .width('100%')
-      }
-    }
-    .width('100%')
-    .padding(14)
-    .backgroundColor(this.themeSurface)
-    .borderRadius(16)
-  }
-
-  @Builder
-  private AssistantFrequencyPenaltyRow() {
-    Column({ space: 10 }) {
-      Row() {
-        Text($r('app.string.assistant_frequency_penalty_override'))
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-          .layoutWeight(1)
-
-        Toggle({ type: ToggleType.Switch, isOn: this.assistantFormFrequencyPenaltyEnabled })
-          .selectedColor(this.themePrimary)
-          .onChange((value: boolean) => {
-            this.assistantFormFrequencyPenaltyEnabled = value
-          })
-      }
-      .width('100%')
-
-      if (this.assistantFormFrequencyPenaltyEnabled) {
-        Row({ space: 10 }) {
-          Slider({ value: this.assistantFormFrequencyPenalty, min: -2, max: 2, step: 0.1,
-            style: SliderStyle.InSet })
-            .layoutWeight(1)
-            .selectedColor(this.themePrimary)
-            .onChange((value: number, _mode: SliderChangeMode) => {
-              this.assistantFormFrequencyPenalty = Math.round(value * 10) / 10
-            })
-          Text(this.assistantFormFrequencyPenalty.toFixed(1))
-            .fontSize(13)
-            .fontColor($r('app.color.text_secondary'))
-            .width(40)
             .textAlign(TextAlign.End)
         }
         .width('100%')
