@@ -1868,7 +1868,11 @@ export struct MessageBubble {
     if (start === 0) {
       return ''
     }
-    const end = part.reasoningFinishedAt > 0 ? part.reasoningFinishedAt : Date.now()
+    // 读一下 reasoningElapsedMs(由 syncReasoningRuntime 的 120ms 定时器驱动),
+    // ArkUI 会把它当依赖, 在流式中的 reasoning part 就能实时跳秒
+    const _tick = this.reasoningElapsedMs
+    const end = part.reasoningFinishedAt > 0 ? part.reasoningFinishedAt :
+      (_tick >= 0 ? Date.now() : Date.now())
     const seconds = Math.max(0, (end - start) / 1000)
     return `${seconds.toFixed(1)}s`
   }
