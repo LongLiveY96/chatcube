@@ -1941,6 +1941,13 @@ export struct MessageBubble {
                     SymbolGlyph($r('sys.symbol.xmark_circle'))
                       .fontSize(14)
                       .fontColor([$r('app.color.status_error')])
+                  } else if (step.toolStatus === 'pending') {
+                    Text('待授权')
+                      .fontSize(10)
+                      .fontColor(Color.White)
+                      .backgroundColor(this.themePrimary)
+                      .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                      .borderRadius(6)
                   }
                 }
                 .width('100%')
