@@ -1,10 +1,5 @@
-import {
-  Assistant,
-  DEFAULT_ASSISTANT_ID,
-  ASSISTANT_CONTEXT_MESSAGE_SIZE_MAX,
-  ASSISTANT_MAX_TOKENS_LIMIT
-} from '../models/AssistantModels'
-import { ModelProvider, ReasoningLevel } from '../models/ChatModels'
+import { Assistant, DEFAULT_ASSISTANT_ID } from '../models/AssistantModels'
+import { ModelProvider } from '../models/ChatModels'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { AssistantService } from '../services/AssistantService'
 import { ProviderViewModel } from '../viewmodels/ProviderViewModel'
@@ -120,15 +115,6 @@ struct AssistantManagePage {
   @Local formPresencePenalty: number = 0
   @Local formFrequencyPenaltyEnabled: boolean = false
   @Local formFrequencyPenalty: number = 0
-  @Local formContextMessageSizeText: string = ''
-  @Local formMaxTokensText: string = ''
-  @Local formReasoningLevel: string = ''
-  @Local formCustomHeadersJson: string = ''
-  @Local formCustomBodiesJson: string = ''
-  @Local formMcpServerIdsJson: string = ''
-  @Local formQuickMessageIdsJson: string = ''
-  @Local formPresetMessagesJson: string = ''
-  @Local formTagsJson: string = ''
   @Local showModelSheet: boolean = false
   @Local showAvatarEditorSheet: boolean = false
   @Local assistantAvatarRenderTick: number = 0
@@ -243,15 +229,6 @@ struct AssistantManagePage {
     this.formPresencePenalty = assistant.presencePenalty
     this.formFrequencyPenaltyEnabled = assistant.frequencyPenaltyEnabled
     this.formFrequencyPenalty = assistant.frequencyPenalty
-    this.formContextMessageSizeText = assistant.contextMessageSize > 0 ? assistant.contextMessageSize.toString() : ''
-    this.formMaxTokensText = assistant.maxTokens > 0 ? assistant.maxTokens.toString() : ''
-    this.formReasoningLevel = assistant.reasoningLevel
-    this.formCustomHeadersJson = assistant.customHeadersJson
-    this.formCustomBodiesJson = assistant.customBodiesJson
-    this.formMcpServerIdsJson = assistant.mcpServerIdsJson
-    this.formQuickMessageIdsJson = assistant.quickMessageIdsJson
-    this.formPresetMessagesJson = assistant.presetMessagesJson
-    this.formTagsJson = assistant.tagsJson
   }
 
   private startNewAssistant(): void {
@@ -275,15 +252,6 @@ struct AssistantManagePage {
     this.formPresencePenalty = 0
     this.formFrequencyPenaltyEnabled = false
     this.formFrequencyPenalty = 0
-    this.formContextMessageSizeText = ''
-    this.formMaxTokensText = ''
-    this.formReasoningLevel = ''
-    this.formCustomHeadersJson = ''
-    this.formCustomBodiesJson = ''
-    this.formMcpServerIdsJson = ''
-    this.formQuickMessageIdsJson = ''
-    this.formPresetMessagesJson = ''
-    this.formTagsJson = ''
   }
 
   private patchAssistantInMemory(assistant: Assistant): void {
@@ -314,9 +282,6 @@ struct AssistantManagePage {
       `${assistant.topPEnabled ? '1' : '0'}:${assistant.topP}:` +
       `${assistant.presencePenaltyEnabled ? '1' : '0'}:${assistant.presencePenalty}:` +
       `${assistant.frequencyPenaltyEnabled ? '1' : '0'}:${assistant.frequencyPenalty}:` +
-      `${assistant.contextMessageSize}:${assistant.maxTokens}:${assistant.reasoningLevel}:` +
-      `${assistant.customHeadersJson}:${assistant.customBodiesJson}:${assistant.mcpServerIdsJson}:` +
-      `${assistant.quickMessageIdsJson}:${assistant.presetMessagesJson}:${assistant.tagsJson}:` +
       `${assistant.isDefault ? '1' : '0'}:${assistant.sortOrder}:${this.assistantAvatarRenderTick}`
   }
 
@@ -387,113 +352,6 @@ struct AssistantManagePage {
     return this.formTemperatureEnabled ? this.formTemperature.toFixed(1) : $r('app.string.assistant_temperature_global')
   }
 
-  private getReasoningLevelText(level: string): ResourceStr {
-    switch (level) {
-      case ReasoningLevel.AUTO:
-        return $r('app.string.reasoning_level_auto')
-      case ReasoningLevel.LOW:
-        return $r('app.string.reasoning_level_low')
-      case ReasoningLevel.MEDIUM:
-        return $r('app.string.reasoning_level_medium')
-      case ReasoningLevel.HIGH:
-        return $r('app.string.reasoning_level_high')
-      case ReasoningLevel.XHIGH:
-        return $r('app.string.reasoning_level_xhigh')
-      default:
-        return $r('app.string.assistant_follow_global')
-    }
-  }
-
-  private getFormReasoningLevelText(): ResourceStr {
-    return this.getReasoningLevelText(this.formReasoningLevel)
-  }
-
-  private getExtensionSummaryText(raw: string): ResourceStr {
-    const count = this.countJsonArrayItems(raw)
-    return count > 0 ? count.toString() : $r('app.string.assistant_extension_empty')
-  }
-
-  private getJsonConfigSummaryText(raw: string): ResourceStr {
-    return raw.trim() !== '' ? $r('app.string.assistant_json_configured') :
-      $r('app.string.assistant_json_empty')
-  }
-
-  private sanitizeIntegerText(value: string): string {
-    let result = ''
-    for (let i = 0; i < value.length; i++) {
-      const char = value.charAt(i)
-      if (char >= '0' && char <= '9') {
-        result += char
-      }
-    }
-    return result
-  }
-
-  private parseBoundedIntegerText(value: string, max: number): number {
-    const normalized = this.sanitizeIntegerText(value)
-    if (normalized === '') {
-      return 0
-    }
-    const parsed = Number.parseInt(normalized, 10)
-    if (Number.isNaN(parsed) || parsed <= 0) {
-      return 0
-    }
-    return parsed > max ? max : parsed
-  }
-
-  private normalizeJsonObjectText(raw: string): string {
-    const trimmed = raw.trim()
-    if (trimmed === '') {
-      return ''
-    }
-    try {
-      const parsed = JSON.parse(trimmed) as Object
-      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed as Object[])) {
-        return ''
-      }
-      return JSON.stringify(parsed)
-    } catch (_error) {
-      return ''
-    }
-  }
-
-  private normalizeJsonArrayText(raw: string): string {
-    const trimmed = raw.trim()
-    if (trimmed === '') {
-      return ''
-    }
-    try {
-      const parsed = JSON.parse(trimmed) as Object[]
-      if (!Array.isArray(parsed)) {
-        return ''
-      }
-      return parsed.length > 0 ? JSON.stringify(parsed) : ''
-    } catch (_error) {
-      return ''
-    }
-  }
-
-  private countJsonArrayItems(raw: string): number {
-    const trimmed = raw.trim()
-    if (trimmed === '') {
-      return 0
-    }
-    try {
-      const parsed = JSON.parse(trimmed) as Object[]
-      return Array.isArray(parsed) ? parsed.length : 0
-    } catch (_error) {
-      return 0
-    }
-  }
-
-  private hasInvalidObjectJson(raw: string): boolean {
-    return raw.trim() !== '' && this.normalizeJsonObjectText(raw) === ''
-  }
-
-  private hasInvalidArrayJson(raw: string): boolean {
-    return raw.trim() !== '' && this.normalizeJsonArrayText(raw) === ''
-  }
-
   private clearDefaultModel(): void {
     this.formDefaultProviderId = ''
     this.formDefaultModelId = ''
@@ -508,15 +366,6 @@ struct AssistantManagePage {
     const name = this.formName.trim()
     if (name === '') {
       this.showPageSnack($r('app.string.assistant_name_required'), SnackBarTone.ERROR)
-      return
-    }
-    if (this.hasInvalidObjectJson(this.formCustomHeadersJson) || this.hasInvalidObjectJson(this.formCustomBodiesJson)) {
-      this.showPageSnack($r('app.string.assistant_json_object_invalid'), SnackBarTone.ERROR)
-      return
-    }
-    if (this.hasInvalidArrayJson(this.formMcpServerIdsJson) || this.hasInvalidArrayJson(this.formQuickMessageIdsJson) ||
-      this.hasInvalidArrayJson(this.formPresetMessagesJson) || this.hasInvalidArrayJson(this.formTagsJson)) {
-      this.showPageSnack($r('app.string.assistant_json_array_invalid'), SnackBarTone.ERROR)
       return
     }
 
@@ -537,18 +386,6 @@ struct AssistantManagePage {
     assistant.presencePenalty = this.formPresencePenalty
     assistant.frequencyPenaltyEnabled = this.formFrequencyPenaltyEnabled
     assistant.frequencyPenalty = this.formFrequencyPenalty
-    assistant.contextMessageSize = this.parseBoundedIntegerText(
-      this.formContextMessageSizeText,
-      ASSISTANT_CONTEXT_MESSAGE_SIZE_MAX
-    )
-    assistant.maxTokens = this.parseBoundedIntegerText(this.formMaxTokensText, ASSISTANT_MAX_TOKENS_LIMIT)
-    assistant.reasoningLevel = this.formReasoningLevel
-    assistant.customHeadersJson = this.normalizeJsonObjectText(this.formCustomHeadersJson)
-    assistant.customBodiesJson = this.normalizeJsonObjectText(this.formCustomBodiesJson)
-    assistant.mcpServerIdsJson = this.normalizeJsonArrayText(this.formMcpServerIdsJson)
-    assistant.quickMessageIdsJson = this.normalizeJsonArrayText(this.formQuickMessageIdsJson)
-    assistant.presetMessagesJson = this.normalizeJsonArrayText(this.formPresetMessagesJson)
-    assistant.tagsJson = this.normalizeJsonArrayText(this.formTagsJson)
     assistant.createdAt = this.editingCreatedAt
     assistant.sortOrder = this.editingSortOrder
     assistant.isDefault = this.editingIsDefault
@@ -870,8 +707,10 @@ struct AssistantManagePage {
         })
 
       this.DefaultModelRow()
-      this.SamplingConfigSection()
-      this.ExtensionsConfigSection()
+      this.TemperatureRow()
+      this.TopPRow()
+      this.PresencePenaltyRow()
+      this.FrequencyPenaltyRow()
 
       Row({ space: 12 }) {
         Button($r('app.string.save'))
@@ -955,7 +794,6 @@ struct AssistantManagePage {
 
       Row({ space: 8 }) {
         this.AssistantEditorMetric($r('app.string.assistant_temperature_override'), this.getFormTemperatureText())
-        this.AssistantEditorMetric($r('app.string.assistant_reasoning_level'), this.getFormReasoningLevelText())
       }
       .width('100%')
     }
@@ -1161,281 +999,6 @@ struct AssistantManagePage {
     .onClick(() => {
       this.showModelSheet = true
     })
-  }
-
-  @Builder
-  private FormSectionTitle(title: ResourceStr) {
-    Text(title)
-      .fontSize(13)
-      .fontWeight(FontWeight.Medium)
-      .fontColor($r('app.color.text_secondary'))
-      .width('100%')
-  }
-
-  @Builder
-  private SamplingConfigSection() {
-    Column({ space: 10 }) {
-      this.FormSectionTitle($r('app.string.assistant_sampling_section'))
-      this.TemperatureRow()
-      this.TopPRow()
-      this.PresencePenaltyRow()
-      this.FrequencyPenaltyRow()
-      this.NumericConfigRow(
-        $r('app.string.assistant_context_message_size'),
-        $r('app.string.assistant_context_message_size_desc'),
-        this.formContextMessageSizeText,
-        ASSISTANT_CONTEXT_MESSAGE_SIZE_MAX.toString(),
-        (value: string): void => {
-          this.formContextMessageSizeText = this.sanitizeIntegerText(value)
-        }
-      )
-      this.NumericConfigRow(
-        $r('app.string.assistant_max_tokens'),
-        $r('app.string.assistant_max_tokens_desc'),
-        this.formMaxTokensText,
-        ASSISTANT_MAX_TOKENS_LIMIT.toString(),
-        (value: string): void => {
-          this.formMaxTokensText = this.sanitizeIntegerText(value)
-        }
-      )
-      this.ReasoningLevelRow()
-    }
-    .width('100%')
-  }
-
-  @Builder
-  private ExtensionsConfigSection() {
-    Column({ space: 10 }) {
-      this.FormSectionTitle($r('app.string.assistant_extensions_section'))
-      this.JsonConfigEditor(
-        $r('app.string.assistant_custom_headers'),
-        $r('app.string.assistant_custom_headers_desc'),
-        this.formCustomHeadersJson,
-        '{"HTTP-Referer":"https://example.com"}',
-        (value: string): void => {
-          this.formCustomHeadersJson = value
-        }
-      )
-      this.JsonConfigEditor(
-        $r('app.string.assistant_custom_bodies'),
-        $r('app.string.assistant_custom_bodies_desc'),
-        this.formCustomBodiesJson,
-        '{"stream":true}',
-        (value: string): void => {
-          this.formCustomBodiesJson = value
-        }
-      )
-      this.JsonConfigEditor(
-        $r('app.string.assistant_tags'),
-        $r('app.string.assistant_tags_desc'),
-        this.formTagsJson,
-        '["work","writing"]',
-        (value: string): void => {
-          this.formTagsJson = value
-        }
-      )
-      this.ReadOnlyExtensionRow($r('app.string.assistant_mcp_servers'), this.formMcpServerIdsJson)
-      this.ReadOnlyExtensionRow($r('app.string.assistant_quick_messages'), this.formQuickMessageIdsJson)
-      this.ReadOnlyExtensionRow($r('app.string.assistant_preset_messages'), this.formPresetMessagesJson)
-    }
-    .width('100%')
-  }
-
-  @Builder
-  private NumericConfigRow(
-    title: ResourceStr,
-    desc: ResourceStr,
-    value: string,
-    placeholder: string,
-    onChange: (value: string) => void
-  ) {
-    Column({ space: 8 }) {
-      Row({ space: 12 }) {
-        Column({ space: 3 }) {
-          Text(title)
-            .fontSize(14)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.text_primary'))
-          Text(desc)
-            .fontSize(12)
-            .fontColor($r('app.color.text_secondary'))
-            .maxLines(2)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-
-        TextInput({ text: value, placeholder: placeholder })
-          .width(104)
-          .height(42)
-          .fontSize(14)
-          .fontColor($r('app.color.text_primary'))
-          .textAlign(TextAlign.End)
-          .backgroundColor(getAppUiState().themeSurface)
-          .borderRadius(14)
-          .padding({ left: 10, right: 10 })
-          .onChange((text: string) => {
-            onChange(text)
-          })
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-    }
-    .width('100%')
-    .padding(14)
-    .backgroundColor(getAppUiState().themeBackground)
-    .borderRadius(16)
-  }
-
-  @Builder
-  private ReasoningLevelRow() {
-    Column({ space: 10 }) {
-      Row({ space: 8 }) {
-        Column({ space: 3 }) {
-          Text($r('app.string.assistant_reasoning_level'))
-            .fontSize(14)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.text_primary'))
-          Text(this.getFormReasoningLevelText())
-            .fontSize(12)
-            .fontColor($r('app.color.text_secondary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      Column({ space: 8 }) {
-        this.ReasoningOptionRow('', $r('app.string.assistant_follow_global'))
-        this.ReasoningOptionRow(ReasoningLevel.OFF, $r('app.string.reasoning_level_off'))
-        this.ReasoningOptionRow(ReasoningLevel.AUTO, $r('app.string.reasoning_level_auto'))
-        this.ReasoningOptionRow(ReasoningLevel.LOW, $r('app.string.reasoning_level_low'))
-        this.ReasoningOptionRow(ReasoningLevel.MEDIUM, $r('app.string.reasoning_level_medium'))
-        this.ReasoningOptionRow(ReasoningLevel.HIGH, $r('app.string.reasoning_level_high'))
-        this.ReasoningOptionRow(ReasoningLevel.XHIGH, $r('app.string.reasoning_level_xhigh'))
-      }
-      .width('100%')
-    }
-    .width('100%')
-    .padding(14)
-    .backgroundColor(getAppUiState().themeBackground)
-    .borderRadius(16)
-  }
-
-  @Builder
-  private ReasoningOptionRow(level: string, label: ResourceStr) {
-    Row({ space: 8 }) {
-      if (this.formReasoningLevel === level) {
-        SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-          .fontSize(17)
-          .fontColor([this.themePrimary])
-      } else {
-        SymbolGlyph($r('sys.symbol.circle'))
-          .fontSize(17)
-          .fontColor([$r('app.color.text_tertiary')])
-      }
-      Text(label)
-        .fontSize(13)
-        .fontWeight(this.formReasoningLevel === level ? FontWeight.Medium : FontWeight.Regular)
-        .fontColor(this.formReasoningLevel === level ? this.themePrimary : $r('app.color.text_secondary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .layoutWeight(1)
-    }
-    .width('100%')
-    .height(34)
-    .padding({ left: 10, right: 10 })
-    .borderRadius(12)
-    .backgroundColor(this.formReasoningLevel === level ? getAppUiState().themeSurface : Color.Transparent)
-    .onClick(() => {
-      this.formReasoningLevel = level
-    })
-  }
-
-  @Builder
-  private JsonConfigEditor(
-    title: ResourceStr,
-    desc: ResourceStr,
-    value: string,
-    placeholder: string,
-    onChange: (value: string) => void
-  ) {
-    Column({ space: 8 }) {
-      Row({ space: 8 }) {
-        Column({ space: 3 }) {
-          Text(title)
-            .fontSize(14)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.text_primary'))
-          Text(desc)
-            .fontSize(12)
-            .fontColor($r('app.color.text_secondary'))
-            .maxLines(2)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-
-        Text(this.getJsonConfigSummaryText(value))
-          .fontSize(12)
-          .fontColor($r('app.color.text_tertiary'))
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-
-      TextArea({ text: value, placeholder: placeholder })
-        .width('100%')
-        .height(88)
-        .fontSize(13)
-        .fontColor($r('app.color.text_primary'))
-        .placeholderColor($r('app.color.text_tertiary'))
-        .backgroundColor(getAppUiState().themeSurface)
-        .borderRadius(14)
-        .padding(12)
-        .onChange((text: string) => {
-          onChange(text)
-        })
-    }
-    .width('100%')
-    .padding(14)
-    .backgroundColor(getAppUiState().themeBackground)
-    .borderRadius(16)
-  }
-
-  @Builder
-  private ReadOnlyExtensionRow(title: ResourceStr, value: string) {
-    Row({ space: 12 }) {
-      Column({ space: 3 }) {
-        Text(title)
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-        Text($r('app.string.assistant_readonly_extension'))
-          .fontSize(12)
-          .fontColor($r('app.color.text_secondary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-
-      Text(this.getExtensionSummaryText(value))
-        .fontSize(12)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.text_secondary'))
-        .height(26)
-        .padding({ left: 10, right: 10 })
-        .backgroundColor(getAppUiState().themeSurface)
-        .borderRadius(13)
-    }
-    .width('100%')
-    .padding(14)
-    .backgroundColor(getAppUiState().themeBackground)
-    .borderRadius(16)
-    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
