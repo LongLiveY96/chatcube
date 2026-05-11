@@ -1,4 +1,6 @@
 import { getDatabaseService, DatabaseService } from '../services/DatabaseService'
+import { MessagePart, MessagePartKind, ToolPartStatus } from '../models/MessageParts'
+import { createToolPart, resolveMessageParts } from '../utils/ChatMessagePartsHelper'
 import {
   getAIApiService,
   AIApiService,
@@ -351,6 +353,9 @@ export class ChatViewModel {
     // 流式完成时顺便把本轮 Responses reasoning 原文持久化到消息上。
     // 对非官方 Responses 路径来说 blob 始终为空,不影响其他模型。
     this.harvestResponsesReasoningSignature(aiMessage)
+    // 若本轮流式期间没 push 过 parts(例如非 function-calling 路径),按旧字段一次合成 parts,
+    // 保证数据持久化和下游渲染都有一致的 parts 视图。
+    this.ensurePartsBackfill(aiMessage)
 
     if (aiMessage.content.trim() !== '') {
       return
@@ -378,6 +383,94 @@ export class ChatViewModel {
     const blob = this.aiApiService.consumeLastStreamResponsesReasoningBlob()
     if (blob !== '') {
       aiMessage.reasoningSignatureBlob = blob
+    }
+  }
+
+  // 按到达顺序把一段 reasoning 文本合并到 aiMessage.parts。
+  // 若最后一个 part 就是尚未完成的 REASONING,则追加;否则 push 一个新的 reasoning part。
+  // 这是支持 DeepSeek V4 等 thinking↔tool 交错的核心:
+  // 每次出现 tool 后再回来的 reasoning 会被归为新 part, UI 可按顺序渲染。
+  private pushPartReasoning(aiMessage: ChatMessage, delta: string): void {
+    if (delta === '') {
+      return
+    }
+    const last = aiMessage.parts.length > 0 ? aiMessage.parts[aiMessage.parts.length - 1] : null
+    if (last !== null && last.kind === MessagePartKind.REASONING && last.reasoningFinishedAt === 0) {
+      last.text = last.text + delta
+      return
+    }
+    const part = MessagePart.reasoning(delta)
+    aiMessage.parts = aiMessage.parts.concat([part])
+  }
+
+  // 追加一段 content 文本到最后一个 text part, 或新建 text part。
+  // 通常只在 "已确认不会退回 buffer" 的路径上调用(直接 flush 到 aiMessage.content 时)。
+  private pushPartText(aiMessage: ChatMessage, delta: string): void {
+    if (delta === '') {
+      return
+    }
+    const last = aiMessage.parts.length > 0 ? aiMessage.parts[aiMessage.parts.length - 1] : null
+    if (last !== null && last.kind === MessagePartKind.TEXT) {
+      last.text = last.text + delta
+      return
+    }
+    const part = MessagePart.text(delta)
+    aiMessage.parts = aiMessage.parts.concat([part])
+  }
+
+  // 标记当前最后一个 reasoning part 为已完成(被工具调用 / 最终文本打断),
+  // 便于 UI 显示总用时并让后续新的 reasoning 独立分段。
+  private finishTrailingReasoningPart(aiMessage: ChatMessage): void {
+    for (let i = aiMessage.parts.length - 1; i >= 0; i--) {
+      const p = aiMessage.parts[i]
+      if (p.kind === MessagePartKind.REASONING) {
+        if (p.reasoningFinishedAt === 0) {
+          p.reasoningFinishedAt = Date.now()
+        }
+        return
+      }
+      if (p.kind === MessagePartKind.TOOL || p.kind === MessagePartKind.TEXT) {
+        return
+      }
+    }
+  }
+
+  // 新收到一个 tool call 时向 parts 追加 ToolPart(尚无结果)
+  private pushToolPart(aiMessage: ChatMessage, toolCall: ToolCall): void {
+    this.finishTrailingReasoningPart(aiMessage)
+    const part = createToolPart(toolCall, null)
+    aiMessage.parts = aiMessage.parts.concat([part])
+  }
+
+  // 工具结果到达时, 按 toolCallId 回写到对应 ToolPart
+  private attachToolResultPart(aiMessage: ChatMessage, result: ToolResult): void {
+    for (let i = 0; i < aiMessage.parts.length; i++) {
+      const p = aiMessage.parts[i]
+      if (p.kind === MessagePartKind.TOOL && p.toolCallId === result.toolCallId) {
+        p.toolResult = result.content
+        p.toolIsError = result.isError
+        p.toolStatus = result.isError ? ToolPartStatus.FAILED : ToolPartStatus.SUCCEEDED
+        return
+      }
+    }
+  }
+
+  // 兜底: 流式完成时, 若 parts 仍为空但旧字段有内容, 按保守顺序(reasoning→tools→text)合成 parts。
+  // 用于非 tools 路径或流式期间没有调用 push* helper 的边界情况, 保证下游 UI 可走 parts 分支。
+  private ensurePartsBackfill(aiMessage: ChatMessage): void {
+    if (aiMessage.parts.length > 0) {
+      return
+    }
+    if (aiMessage.content === '' && aiMessage.reasoningContent === '' &&
+      aiMessage.toolCalls.length === 0 && aiMessage.toolResults.length === 0) {
+      return
+    }
+    aiMessage.parts = resolveMessageParts(aiMessage)
+    for (let i = 0; i < aiMessage.parts.length; i++) {
+      const p = aiMessage.parts[i]
+      if (p.kind === MessagePartKind.REASONING && p.reasoningFinishedAt === 0) {
+        p.reasoningFinishedAt = Date.now()
+      }
     }
   }
 
@@ -760,6 +853,7 @@ export class ChatViewModel {
               return
             }
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
             hasReceivedFirstChunk = true
           })
@@ -769,6 +863,7 @@ export class ChatViewModel {
               return
             }
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           })
         }
@@ -784,6 +879,7 @@ export class ChatViewModel {
           }
           if (throttledContent !== '') {
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -793,6 +889,7 @@ export class ChatViewModel {
           }
           if (throttledReasoning !== '') {
             aiMessage.reasoningContent += throttledReasoning
+            this.pushPartReasoning(aiMessage, throttledReasoning)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -802,6 +899,7 @@ export class ChatViewModel {
           }
           if (throttledContent !== '') {
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -833,6 +931,7 @@ export class ChatViewModel {
           }
           if (throttledContent !== '') {
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -842,6 +941,7 @@ export class ChatViewModel {
           }
           if (throttledReasoning !== '') {
             aiMessage.reasoningContent += throttledReasoning
+            this.pushPartReasoning(aiMessage, throttledReasoning)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -851,6 +951,7 @@ export class ChatViewModel {
           }
           if (throttledContent !== '') {
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -878,6 +979,7 @@ export class ChatViewModel {
             return
           }
           aiMessage.reasoningContent += throttledContent
+          this.pushPartReasoning(aiMessage, throttledContent)
           onAIMessageUpdated(aiMessage)
         })
       },
@@ -1052,6 +1154,7 @@ ${webContext.content}
               return
             }
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
             hasReceivedFirstChunk = true
           })
@@ -1061,6 +1164,7 @@ ${webContext.content}
               return
             }
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           })
         }
@@ -1075,6 +1179,7 @@ ${webContext.content}
           }
           if (throttledContent !== '') {
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -1084,6 +1189,7 @@ ${webContext.content}
           }
           if (throttledReasoning !== '') {
             aiMessage.reasoningContent += throttledReasoning
+            this.pushPartReasoning(aiMessage, throttledReasoning)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -1093,6 +1199,7 @@ ${webContext.content}
           }
           if (throttledContent !== '') {
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -1121,6 +1228,7 @@ ${webContext.content}
           }
           if (throttledContent !== '') {
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -1130,6 +1238,7 @@ ${webContext.content}
           }
           if (throttledReasoning !== '') {
             aiMessage.reasoningContent += throttledReasoning
+            this.pushPartReasoning(aiMessage, throttledReasoning)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -1139,6 +1248,7 @@ ${webContext.content}
           }
           if (throttledContent !== '') {
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -1166,6 +1276,7 @@ ${webContext.content}
             return
           }
           aiMessage.reasoningContent += throttledContent
+          this.pushPartReasoning(aiMessage, throttledContent)
           onAIMessageUpdated(aiMessage)
         })
       },
@@ -1371,6 +1482,7 @@ ${limitedSearchContext}
               return
             }
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
             hasReceivedFirstChunk = true
           })
@@ -1380,6 +1492,7 @@ ${limitedSearchContext}
               return
             }
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           })
         }
@@ -1394,6 +1507,7 @@ ${limitedSearchContext}
           }
           if (throttledContent !== '') {
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -1403,6 +1517,7 @@ ${limitedSearchContext}
           }
           if (throttledReasoning !== '') {
             aiMessage.reasoningContent += throttledReasoning
+            this.pushPartReasoning(aiMessage, throttledReasoning)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -1412,6 +1527,7 @@ ${limitedSearchContext}
           }
           if (throttledContent !== '') {
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -1440,6 +1556,7 @@ ${limitedSearchContext}
           }
           if (throttledContent !== '') {
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -1449,6 +1566,7 @@ ${limitedSearchContext}
           }
           if (throttledReasoning !== '') {
             aiMessage.reasoningContent += throttledReasoning
+            this.pushPartReasoning(aiMessage, throttledReasoning)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -1458,6 +1576,7 @@ ${limitedSearchContext}
           }
           if (throttledContent !== '') {
             aiMessage.content += throttledContent
+            this.pushPartText(aiMessage, throttledContent)
             onAIMessageUpdated(aiMessage)
           }
         })
@@ -1485,6 +1604,7 @@ ${limitedSearchContext}
             return
           }
           aiMessage.reasoningContent += throttledContent
+          this.pushPartReasoning(aiMessage, throttledContent)
           onAIMessageUpdated(aiMessage)
         })
       },
@@ -1883,6 +2003,7 @@ ${limitedSearchContext}
         return
       }
       aiMessage.content += content
+      this.pushPartText(aiMessage, content)
       streamedContentLength += content.length
       onAIMessageUpdated(aiMessage)
     }
@@ -1896,6 +2017,7 @@ ${limitedSearchContext}
         return
       }
       aiMessage.reasoningContent += content
+      this.pushPartReasoning(aiMessage, content)
       streamedReasoningLength += content.length
       onAIMessageUpdated(aiMessage)
     }
@@ -1903,10 +2025,12 @@ ${limitedSearchContext}
     const flushBufferedRoundOutput = (): void => {
       if (roundContentBuffer !== '') {
         aiMessage.content += roundContentBuffer
+        this.pushPartText(aiMessage, roundContentBuffer)
         roundContentBuffer = ''
       }
       if (roundReasoningBuffer !== '') {
         aiMessage.reasoningContent += roundReasoningBuffer
+        this.pushPartReasoning(aiMessage, roundReasoningBuffer)
         roundReasoningBuffer = ''
       }
     }
@@ -1994,6 +2118,7 @@ ${limitedSearchContext}
               }
             }
             aiMessage.toolCalls.push(toolCalls[i])
+            this.pushToolPart(aiMessage, toolCalls[i])
           }
           onAIMessageUpdated(aiMessage)
 
@@ -2042,6 +2167,7 @@ ${limitedSearchContext}
           // 保存工具结果到 AI 消息
           for (let i = 0; i < toolResults.length; i++) {
             aiMessage.toolResults.push(toolResults[i])
+            this.attachToolResultPart(aiMessage, toolResults[i])
           }
 
           // 持久化工具事件到数据库（使用快照 sessionId）
