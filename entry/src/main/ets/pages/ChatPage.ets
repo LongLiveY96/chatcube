@@ -3279,11 +3279,12 @@ export struct ChatPage {
     this.clearDraftAutosaveTimer()
     // 创建新会话
     const assistant = await ServiceRegistry.assistant().getCurrentAssistantForNewChat()
+    const resolvedModel = await ServiceRegistry.assistant().resolveChatModel(assistant)
     const session = await this.chatViewModel.createNewSession(
       '',
       assistant.id,
-      assistant.defaultModelId,
-      assistant.defaultProviderId
+      resolvedModel.modelId,
+      resolvedModel.providerId
     )
     this.isNewChatTransition = true
     this.routeParams = {} as ChatPageRouteParams

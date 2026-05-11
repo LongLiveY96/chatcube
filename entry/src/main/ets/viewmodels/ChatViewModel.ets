@@ -478,28 +478,40 @@ export class ChatViewModel {
   }
 
   // 创建新会话
-	  async createNewSession(
-	    title: string = '',
-	    assistantId: string = 'default',
-	    modelIdSeed: string = '',
-	    providerIdSeed: string = ''
-	  ): Promise<ChatSession> {
-	    const session = await this.sessionStore.createNewSession(title, assistantId, modelIdSeed, providerIdSeed)
-	    this.currentSession = this.sessionStore.getCurrentSession()
-	    return session
-	  }
+  async createNewSession(
+    title: string = '',
+    assistantId: string = 'default',
+    modelIdSeed: string = '',
+    providerIdSeed: string = ''
+  ): Promise<ChatSession> {
+    const session = await this.sessionStore.createNewSession(title, assistantId, modelIdSeed, providerIdSeed)
+    this.currentSession = this.sessionStore.getCurrentSession()
+    return session
+  }
 
-	  // 创建待持久化的会话（仅内存中，不保存到数据库）
-	  createPendingSession(
-	    title: string = '',
-	    assistantId: string = 'default',
-	    modelIdSeed: string = '',
-	    providerIdSeed: string = ''
-	  ): ChatSession {
-	    const session = this.sessionStore.createPendingSession(title, assistantId, modelIdSeed, providerIdSeed)
-	    this.currentSession = this.sessionStore.getCurrentSession()
-	    return session
-	  }
+  // 创建待持久化的会话（仅内存中，不保存到数据库）
+  createPendingSession(
+    title: string = '',
+    assistantId: string = 'default',
+    modelIdSeed: string = '',
+    providerIdSeed: string = ''
+  ): ChatSession {
+    const session = this.sessionStore.createPendingSession(title, assistantId, modelIdSeed, providerIdSeed)
+    this.currentSession = this.sessionStore.getCurrentSession()
+    return session
+  }
+
+  private async createSessionForCurrentAssistant(title: string = ''): Promise<ChatSession> {
+    const assistant = await this.assistantService.getCurrentAssistantForNewChat()
+    const resolvedModel = await this.assistantService.resolveChatModel(assistant)
+    return await this.createNewSession(title, assistant.id, resolvedModel.modelId, resolvedModel.providerId)
+  }
+
+  private async createPendingSessionForCurrentAssistant(title: string = ''): Promise<ChatSession> {
+    const assistant = await this.assistantService.getCurrentAssistantForNewChat()
+    const resolvedModel = await this.assistantService.resolveChatModel(assistant)
+    return this.createPendingSession(title, assistant.id, resolvedModel.modelId, resolvedModel.providerId)
+  }
 
   // 持久化待处理的会话
   private async persistPendingSession(): Promise<void> {
@@ -509,13 +521,12 @@ export class ChatViewModel {
 
   async saveSessionDraft(content: string, attachments: MessageAttachment[]): Promise<ChatSession | null> {
     const hasDraftContent = content.trim() !== '' || attachments.length > 0
-	    if (this.currentSession === null) {
-	      if (!hasDraftContent) {
-	        return null
-	      }
-	      const assistant = await this.assistantService.getCurrentAssistantForNewChat()
-	      this.createPendingSession('', assistant.id, assistant.defaultModelId, assistant.defaultProviderId)
-	    }
+    if (this.currentSession === null) {
+      if (!hasDraftContent) {
+        return null
+      }
+      await this.createPendingSessionForCurrentAssistant()
+    }
     if (hasDraftContent && this.sessionStore.isCurrentSessionPending()) {
       await this.persistPendingSession()
     }
@@ -606,10 +617,9 @@ export class ChatViewModel {
     }
 
     // 如果仍然没有当前会话，创建新的
-	    if (this.currentSession === null) {
-	      const assistant = await this.assistantService.getCurrentAssistantForNewChat()
-	      await this.createNewSession('', assistant.id, assistant.defaultModelId, assistant.defaultProviderId)
-	    }
+    if (this.currentSession === null) {
+      await this.createSessionForCurrentAssistant()
+    }
     if (this.isCancelled(cancelSnapshot)) {
       return
     }
@@ -918,10 +928,9 @@ export class ChatViewModel {
       return
     }
 
-	    if (this.currentSession === null) {
-	      const assistant = await this.assistantService.getCurrentAssistantForNewChat()
-	      await this.createNewSession('', assistant.id, assistant.defaultModelId, assistant.defaultProviderId)
-	    }
+    if (this.currentSession === null) {
+      await this.createSessionForCurrentAssistant()
+    }
     if (this.isCancelled(cancelSnapshot)) {
       return
     }
@@ -1206,10 +1215,9 @@ ${webContext.content}
       return
     }
 
-	    if (this.currentSession === null) {
-	      const assistant = await this.assistantService.getCurrentAssistantForNewChat()
-	      await this.createNewSession('', assistant.id, assistant.defaultModelId, assistant.defaultProviderId)
-	    }
+    if (this.currentSession === null) {
+      await this.createSessionForCurrentAssistant()
+    }
     if (this.isCancelled(cancelSnapshot)) {
       return
     }
@@ -1529,10 +1537,9 @@ ${limitedSearchContext}
     }
 
     // 如果仍然没有当前会话，创建新的
-	    if (this.currentSession === null) {
-	      const assistant = await this.assistantService.getCurrentAssistantForNewChat()
-	      await this.createNewSession('', assistant.id, assistant.defaultModelId, assistant.defaultProviderId)
-	    }
+    if (this.currentSession === null) {
+      await this.createSessionForCurrentAssistant()
+    }
     if (this.isCancelled(cancelSnapshot)) {
       return
     }

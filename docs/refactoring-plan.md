@@ -10,10 +10,12 @@
 - [x] Task 1：能力推断 DSL / Registry DSL
 - [x] Task 2：状态收敛到 `AppSettingsStore`
 - [x] Task 3：预设服务商声明式 + Migration + 余额查询
-- [ ] Task 4：Assistant 升级为完整对话配置模板
+- [~] Task 4：Assistant 升级为完整对话配置模板
 
 ### 已完成提交
 
+- `32bfeae refactor: 扩展 Assistant 模板数据层`
+- `e45cd87 docs: 更新重构任务清单`
 - `48593e6 feat: 完成预设服务商声明式改造`
 - `c315711 docs: ModelManagePage refreshFromCache 注释对齐 Store 后的语义`
 - `01cb6fb refactor: Prompt 模板收敛到 AppSettingsStore,完结 DefaultModel 迁移`
@@ -56,11 +58,11 @@
 
 ### 4.1 数据层扩展
 
-- [ ] 在 `entry/src/main/ets/models/AssistantModels.ets` 增加完整模板字段
-- [ ] 在 `entry/src/main/ets/services/DatabaseService.ets` 补 `assistants` 表列
-- [ ] 复用 Task 3 的 migration 框架，新增 Assistant migration
-- [ ] 写入前做 normalize，读取后做孤立引用清理
-- [ ] 旧数据兼容默认值统一为 `0 / '' / false`
+- [x] 在 `entry/src/main/ets/models/AssistantModels.ets` 增加完整模板字段
+- [x] 在 `entry/src/main/ets/services/DatabaseService.ets` 补 `assistants` 表列
+- [x] 复用 Task 3 的 migration 框架，新增 Assistant migration
+- [x] 写入前做 normalize，读取后做孤立引用清理
+- [x] 旧数据兼容默认值统一为 `0 / '' / false`
 
 建议新增字段：
 
@@ -76,9 +78,9 @@
 
 验收标准：
 
-- 旧 assistant 数据能正常加载
-- 新字段写入后重启仍保留
-- 缺失的 provider / model 能回退到全局默认
+- [x] 旧 assistant 数据能正常加载
+- [x] 新字段写入后重启仍保留
+- [x] 缺失的 provider / model 能回退到全局默认
 
 ### 4.2 编辑页接入
 
@@ -95,15 +97,15 @@
 
 ### 4.3 模型解析回退
 
-- [ ] 在 Store 或 `AssistantService` 增加 `resolveChatModel(assistant)`
-- [ ] `defaultModelId` / `defaultProviderId` 为空时回退全局 chat 默认模型
-- [ ] `ChatViewModel.sendMessage*` 改走 resolver
-- [ ] `ChatPageLoadFlow` 的展示也改用解析后的结果
+- [x] 在 Store 或 `AssistantService` 增加 `resolveChatModel(assistant)`
+- [x] `defaultModelId` / `defaultProviderId` 为空时回退全局 chat 默认模型
+- [x] `ChatViewModel.sendMessage*` 改走 resolver
+- [x] `ChatPageLoadFlow` 的展示也改用解析后的结果
 
 验收标准：
 
-- assistant 模型配置为空时不再依赖业务层特判
-- title / translate / searchOpt 仍继续使用全局默认
+- [x] assistant 模型配置为空时不再依赖业务层特判
+- [x] title / translate / searchOpt 仍继续使用全局默认
 
 ### 4.4 页面拆分
 

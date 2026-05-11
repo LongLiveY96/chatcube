@@ -4,7 +4,7 @@ import {
   ASSISTANT_CONTEXT_MESSAGE_SIZE_MAX,
   ASSISTANT_MAX_TOKENS_LIMIT
 } from '../models/AssistantModels'
-import { ReasoningLevel } from '../models/ChatModels'
+import { ModelRole, ReasoningLevel } from '../models/ChatModels'
 import { AppStorageKeys } from '../config/AppStorageKeys'
 import { DEFAULT_PRIMARY_COLOR } from '../config/ThemeDefaults'
 import { getAppUiState, setAppUiStateValue } from '../state/AppUiState'
@@ -22,6 +22,24 @@ export class AssistantRuntimeConfig {
   presencePenalty: number = 0
   frequencyPenaltyEnabled: boolean = false
   frequencyPenalty: number = 0
+}
+
+export class ResolvedAssistantModel {
+  providerId: string = ''
+  modelId: string = ''
+  modelName: string = ''
+  providerName: string = ''
+
+  constructor(providerId: string = '', modelId: string = '', modelName: string = '', providerName: string = '') {
+    this.providerId = providerId
+    this.modelId = modelId
+    this.modelName = modelName
+    this.providerName = providerName
+  }
+
+  isConfigured(): boolean {
+    return this.providerId !== '' && this.modelId !== ''
+  }
 }
 
 class AssistantPresetMessageData {
@@ -400,6 +418,64 @@ export class AssistantService {
     config.frequencyPenaltyEnabled = assistant.frequencyPenaltyEnabled
     config.frequencyPenalty = assistant.frequencyPenalty
     return config
+  }
+
+  async resolveChatModel(assistant: Assistant): Promise<ResolvedAssistantModel> {
+    await this.store.ensureInitialized()
+    await this.store.ensureDefaultModelsInitialized()
+
+    const assistantModel = this.resolveEnabledModel(
+      assistant.defaultProviderId,
+      assistant.defaultModelId,
+      assistant.defaultModelName,
+      ''
+    )
+    if (assistantModel !== null) {
+      return assistantModel
+    }
+
+    const defaultChatModel = this.store.getDefaultModel(ModelRole.CHAT)
+    const fallbackModel = this.resolveEnabledModel(
+      defaultChatModel.providerId,
+      defaultChatModel.modelId,
+      defaultChatModel.modelName,
+      defaultChatModel.providerName
+    )
+    if (fallbackModel !== null) {
+      return fallbackModel
+    }
+
+    return new ResolvedAssistantModel()
+  }
+
+  private resolveEnabledModel(
+    providerId: string,
+    modelId: string,
+    modelNameFallback: string,
+    providerNameFallback: string
+  ): ResolvedAssistantModel | null {
+    const normalizedProviderId = providerId.trim()
+    const normalizedModelId = modelId.trim()
+    if (normalizedProviderId === '' || normalizedModelId === '') {
+      return null
+    }
+
+    const provider = this.store.getProviderById(normalizedProviderId)
+    if (provider === null || !provider.isConnected) {
+      return null
+    }
+
+    for (let i = 0; i < provider.models.length; i++) {
+      const model = provider.models[i]
+      if (model.id !== normalizedModelId || !model.isEnabled) {
+        continue
+      }
+      const modelName = model.name.trim() !== '' ? model.name.trim() :
+        (modelNameFallback.trim() !== '' ? modelNameFallback.trim() : model.id)
+      const providerName = provider.name.trim() !== '' ? provider.name.trim() : providerNameFallback.trim()
+      return new ResolvedAssistantModel(provider.id, model.id, modelName, providerName)
+    }
+    return null
   }
 
   combineSystemPrompts(globalPrompt: string, assistantPrompt: string): string {

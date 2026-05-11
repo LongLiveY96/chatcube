@@ -90,12 +90,13 @@ export class ChatPageLoadFlow {
     }
 
     const assistant = await this.deps.assistantService.getCurrentAssistantForNewChat()
+    const resolvedModel = await this.deps.assistantService.resolveChatModel(assistant)
     this.applyAssistantSnapshot(result, assistant)
     const pendingSession = this.deps.chatViewModel.createPendingSession(
       '',
       assistant.id,
-      assistant.defaultModelId,
-      assistant.defaultProviderId
+      resolvedModel.modelId,
+      resolvedModel.providerId
     )
     result.sessionId = pendingSession.id
     result.sessionTitle = pendingSession.title
