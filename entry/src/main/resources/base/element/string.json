@@ -673,6 +673,14 @@
       "value": "Maximum reasoning budget. Slowest but most thorough."
     },
     {
+      "name": "chain_of_thought_collapse",
+      "value": "Collapse"
+    },
+    {
+      "name": "chain_of_thought_show_more",
+      "value": "Show %d more steps"
+    },
+    {
       "name": "search_service_config",
       "value": "Search Service"
     },

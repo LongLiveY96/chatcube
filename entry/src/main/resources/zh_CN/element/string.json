@@ -673,6 +673,14 @@
       "value": "最大推理预算。最慢但最彻底。"
     },
     {
+      "name": "chain_of_thought_collapse",
+      "value": "收起"
+    },
+    {
+      "name": "chain_of_thought_show_more",
+      "value": "显示更多 %d 步"
+    },
+    {
       "name": "search_service_config",
       "value": "搜索服务"
     },
