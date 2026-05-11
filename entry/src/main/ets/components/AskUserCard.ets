@@ -148,7 +148,7 @@ export struct AskUserCard {
             .width('100%')
 
           if (q.options.length > 0) {
-            Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(6), cross: LengthMetrics.vp(6) } }) {
+            Flex({ wrap: FlexWrap.Wrap }) {
               ForEach(q.options, (opt: string) => {
                 this.OptionChip(q, opt)
               }, (opt: string) => opt)
@@ -209,6 +209,7 @@ export struct AskUserCard {
         .fontColor(this.isOptionSelected(q, option) ? Color.White : $r('app.color.text_primary'))
     }
     .padding({ left: 10, right: 10, top: 6, bottom: 6 })
+    .margin({ right: 6, bottom: 6 })
     .backgroundColor(this.isOptionSelected(q, option) ? this.themePrimary : $r('app.color.background'))
     .borderRadius(12)
     .border({ width: 0.5, color: $r('app.color.divider') })

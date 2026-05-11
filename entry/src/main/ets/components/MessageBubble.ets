@@ -6,6 +6,7 @@ import { getModelIconPath, buildIconResourcePath } from '../utils/ProviderIconUt
 import { shouldShowAssistantMessageToolbar } from '../utils/MessageBubbleDisplayUtils'
 import { SearchReferenceCard } from './SearchReferenceCard'
 import { ToolCallCard } from './ToolCallCard'
+import { AskUserCard } from './AskUserCard'
 import { HtmlPreviewCard } from './HtmlPreviewCard'
 import { MermaidPreviewCard } from './MermaidPreviewCard'
 import { TypingDots } from './TypingDots'
@@ -21,7 +22,7 @@ import {
   getMarkdownTitleSizes
 } from '../utils/MarkdownTypographyUtils'
 import { withColorAlpha } from '../utils/ColorAlphaUtils'
-import { isSearchToolFunctionName, isSearchToolId } from '../utils/SearchToolIdentityUtils'
+import { isSearchToolFunctionName, isSearchToolId, isAskUserFunctionName } from '../utils/SearchToolIdentityUtils'
 import { MessagePart, MessagePartKind } from '../models/MessageParts'
 import { resolveMessageParts } from '../utils/ChatMessagePartsHelper'
 import { resolveToolSymbol } from '../utils/ToolIconMapping'
@@ -1499,12 +1500,22 @@ export struct MessageBubble {
               if (this.message.hasToolCalls()) {
                 ForEach(this.message.toolCalls, (toolCall: ToolCall, index: number) => {
                   if (!this.shouldHideToolCallCard(toolCall)) {
-                    ToolCallCard({
-                      toolCall: toolCall,
-                      toolResult: index < this.message.toolResults.length ? this.message.toolResults[index] : null,
-                      isExecuting: this.message.isGenerating && index >= this.message.toolResults.length
-                    })
-                      .margin({ bottom: 6 })
+                    if (isAskUserFunctionName(toolCall.functionName)) {
+                      AskUserCard({
+                        toolCall: toolCall,
+                        isAnswered: toolCall.approvalState === 'answered' ||
+                          (index < this.message.toolResults.length),
+                        answeredPayload: toolCall.approvalReason
+                      })
+                        .margin({ bottom: 6 })
+                    } else {
+                      ToolCallCard({
+                        toolCall: toolCall,
+                        toolResult: index < this.message.toolResults.length ? this.message.toolResults[index] : null,
+                        isExecuting: this.message.isGenerating && index >= this.message.toolResults.length
+                      })
+                        .margin({ bottom: 6 })
+                    }
                   }
                 }, (toolCall: ToolCall, index: number) => toolCall.id + '_' + index.toString())
               }
