@@ -2,6 +2,7 @@ import { ToolCall, ToolResult } from '../models/ChatModels'
 import { getAppUiState } from '../state/AppUiState'
 import { buildToolArgumentsPreview, buildToolResultPreview, ToolPayloadPreview } from '../utils/ToolPayloadSummaryUtils'
 import { isScrapeWebFunctionName, isSearchWebFunctionName } from '../utils/SearchToolIdentityUtils'
+import { resolveToolSymbol } from '../utils/ToolIconMapping'
 
 // 获取工具显示名称
 function getToolDisplayName(toolCall: ToolCall): string | Resource {
@@ -101,8 +102,8 @@ export struct ToolCallCard {
     Column() {
       // 标题栏
       Row() {
-        // 工具图标
-        SymbolGlyph($r('sys.symbol.gearshape'))
+        // 工具图标 - 按 functionName 映射不同符号(搜索/抓取/记忆/剪贴板/TTS/询问/技能/MCP)
+        SymbolGlyph(resolveToolSymbol(this.toolCall.functionName))
           .fontSize(14)
           .fontColor([this.isExecuting ? this.themePrimary : $r('app.color.text_secondary')])
 
