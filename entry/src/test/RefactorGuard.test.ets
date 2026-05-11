@@ -163,6 +163,7 @@ function buildTestChatMessageSignature(
     false,
     isEditing,
     false,
+    false,
     '',
     15,
     '',
@@ -437,9 +438,9 @@ export default function refactorGuardTest() {
     })
 
     it('providerOrderUtils_should_filter_providers_by_tab', 0, () => {
-      const enabledProvider = new ModelProvider('openai', 'OpenAI', ProviderType.CUSTOM, 'message', '#000000')
+      const enabledProvider = new ModelProvider('openai', 'OpenAI', ProviderType.CUSTOM, 'message', $r('app.color.brand_custom'))
       enabledProvider.isConnected = true
-      const disabledProvider = new ModelProvider('anthropic', 'Anthropic', ProviderType.CUSTOM, 'message', '#000000')
+      const disabledProvider = new ModelProvider('anthropic', 'Anthropic', ProviderType.CUSTOM, 'message', $r('app.color.brand_custom'))
       disabledProvider.isConnected = false
 
       const enabledOnly = filterProvidersByTab([enabledProvider, disabledProvider], ProviderManageTabKey.ENABLED)
@@ -452,15 +453,15 @@ export default function refactorGuardTest() {
     })
 
     it('providerOrderUtils_should_reorder_enabled_providers_without_touching_disabled_slots', 0, () => {
-      const providerA = new ModelProvider('a', 'A', ProviderType.CUSTOM, 'message', '#000000')
+      const providerA = new ModelProvider('a', 'A', ProviderType.CUSTOM, 'message', $r('app.color.brand_custom'))
       providerA.isConnected = true
-      const providerX = new ModelProvider('x', 'X', ProviderType.CUSTOM, 'message', '#000000')
+      const providerX = new ModelProvider('x', 'X', ProviderType.CUSTOM, 'message', $r('app.color.brand_custom'))
       providerX.isConnected = false
-      const providerB = new ModelProvider('b', 'B', ProviderType.CUSTOM, 'message', '#000000')
+      const providerB = new ModelProvider('b', 'B', ProviderType.CUSTOM, 'message', $r('app.color.brand_custom'))
       providerB.isConnected = true
-      const providerY = new ModelProvider('y', 'Y', ProviderType.CUSTOM, 'message', '#000000')
+      const providerY = new ModelProvider('y', 'Y', ProviderType.CUSTOM, 'message', $r('app.color.brand_custom'))
       providerY.isConnected = false
-      const providerC = new ModelProvider('c', 'C', ProviderType.CUSTOM, 'message', '#000000')
+      const providerC = new ModelProvider('c', 'C', ProviderType.CUSTOM, 'message', $r('app.color.brand_custom'))
       providerC.isConnected = true
 
       const reordered = reorderProvidersWithinTab(
@@ -626,6 +627,7 @@ export default function refactorGuardTest() {
         false,
         true,
         false,
+        false,
         '',
         15,
         '',
@@ -638,6 +640,7 @@ export default function refactorGuardTest() {
         false,
         false,
         true,
+        false,
         false,
         '',
         15,
@@ -652,6 +655,7 @@ export default function refactorGuardTest() {
         false,
         false,
         false,
+        false,
         '',
         15,
         '',
@@ -660,6 +664,7 @@ export default function refactorGuardTest() {
       )
       const nonEditingPreviewChangedSignature = buildChatMessageRowRenderSignature(
         message,
+        false,
         false,
         false,
         false,
