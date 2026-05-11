@@ -87,4 +87,5 @@ export function syncChatMessageFromSource(target: ChatMessage, source: ChatMessa
   target.toolCalls = source.toolCalls.slice()
   target.toolResults = source.toolResults.slice()
   target.toolCallId = source.toolCallId
+  target.parts = source.parts.slice()
 }

@@ -26,6 +26,7 @@ import {
   ToolResult
 } from '../models/ChatModels'
 import { Assistant, DEFAULT_ASSISTANT_ID } from '../models/AssistantModels'
+import { deserializeMessageParts, serializeMessageParts } from '../models/MessageParts'
 import { DatabaseService } from './DatabaseService'
 import { AttachmentStorageService } from './AttachmentStorageService'
 import { getPreferencesService, PreferenceKeys } from './PreferencesService'
@@ -219,6 +220,7 @@ interface MessageData {
   modelName: string
   reasoningContent: string
   reasoningSignatureBlob?: string
+  partsJson?: string
   searchQuery: string
   searchEngine: string
   searchSource?: string
@@ -697,6 +699,7 @@ export class ImportExportService {
             modelName: m.modelName,
             reasoningContent: m.reasoningContent,
             reasoningSignatureBlob: m.reasoningSignatureBlob || '',
+            partsJson: serializeMessageParts(m.parts),
             searchQuery: m.searchQuery,
             searchEngine: m.searchEngine,
             searchSource: m.searchSource,
@@ -1018,6 +1021,7 @@ export class ImportExportService {
           message.timestamp = msgData.timestamp
           message.reasoningContent = msgData.reasoningContent || ''
           message.reasoningSignatureBlob = msgData.reasoningSignatureBlob || ''
+          message.parts = deserializeMessageParts(msgData.partsJson || '')
           message.searchQuery = msgData.searchQuery || ''
           message.searchEngine = msgData.searchEngine || ''
           message.searchSource = msgData.searchSource || ''

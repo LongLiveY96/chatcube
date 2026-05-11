@@ -10,6 +10,7 @@ import {
   SearchReference
 } from '../models/ChatModels'
 import { Assistant, DEFAULT_ASSISTANT_ID, createDefaultAssistant } from '../models/AssistantModels'
+import { deserializeMessageParts, serializeMessageParts } from '../models/MessageParts'
 import { DEFAULT_PRIMARY_COLOR } from '../config/ThemeDefaults'
 import { generateDefaultTextIcon } from '../utils/IconGeneratorUtils'
 import { isPresetProvider, getPresetProviderById } from '../config/PresetProviders'
@@ -221,6 +222,7 @@ export class DatabaseService {
         timestamp INTEGER,
         reasoning_content TEXT,
         reasoning_signature_blob TEXT DEFAULT '',
+        parts_json TEXT DEFAULT '',
         FOREIGN KEY (session_id) REFERENCES ${TableNames.SESSIONS}(id)
       )
     `
@@ -296,6 +298,8 @@ export class DatabaseService {
       await this.addReasoningContentColumnIfNeeded()
       // 尝试添加 reasoning_signature_blob 字段(用于 OpenAI Responses 跨轮保持推理状态)
       await this.addReasoningSignatureBlobColumnIfNeeded()
+      // 尝试添加 parts_json 字段(消息的有序 parts 持久化)
+      await this.addMessagePartsJsonColumnIfNeeded()
       // 尝试添加 is_preset 和 icon_path 字段（用于供应商图标管理）
       await this.addProviderIconColumnsIfNeeded()
       await this.addApiPathColumnIfNeeded()
@@ -366,6 +370,18 @@ export class DatabaseService {
       await this.rdbStore.executeSql(`ALTER TABLE ${TableNames.MESSAGES} ADD COLUMN reasoning_signature_blob TEXT DEFAULT ''`)
     } catch (error) {
       console.info('DatabaseService', 'reasoning_signature_blob column may already exist')
+    }
+  }
+
+  // 添加 parts_json 字段(消息有序 parts 的 JSON 持久化)
+  private async addMessagePartsJsonColumnIfNeeded(): Promise<void> {
+    if (this.rdbStore === null) {
+      return
+    }
+    try {
+      await this.rdbStore.executeSql(`ALTER TABLE ${TableNames.MESSAGES} ADD COLUMN parts_json TEXT DEFAULT ''`)
+    } catch (error) {
+      console.info('DatabaseService', 'parts_json column may already exist')
     }
   }
 
@@ -1639,6 +1655,7 @@ export class DatabaseService {
       timestamp: message.timestamp,
       reasoning_content: message.reasoningContent,
       reasoning_signature_blob: message.reasoningSignatureBlob || '',
+      parts_json: serializeMessageParts(message.parts),
       // 保存搜索引用数据
       search_query: message.searchQuery || '',
       search_engine: message.searchEngine || '',
@@ -1781,6 +1798,7 @@ export class DatabaseService {
     message.timestamp = resultSet.getLong(resultSet.getColumnIndex('timestamp'))
     message.reasoningContent = this.safeGetString(resultSet, 'reasoning_content')
     message.reasoningSignatureBlob = this.safeGetString(resultSet, 'reasoning_signature_blob')
+    message.parts = deserializeMessageParts(this.safeGetString(resultSet, 'parts_json'))
     message.searchQuery = this.safeGetString(resultSet, 'search_query')
     message.searchEngine = this.safeGetString(resultSet, 'search_engine')
     message.searchSource = this.safeGetString(resultSet, 'search_source')

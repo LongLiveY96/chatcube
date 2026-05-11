@@ -1,3 +1,6 @@
+import { MessagePart } from './MessageParts'
+
+// 消息角色类型
 // 消息角色类型
 export enum MessageRole {
   USER = 'user',
@@ -475,6 +478,9 @@ export class ChatMessage {
   // 仅在官方 Responses + include=reasoning.encrypted_content 时产生
   // JSON 字符串,值为 OpenAIResponsesInputItem[] 序列化;空串表示没有需透传的推理项
   @Trace reasoningSignatureBlob: string
+  // 有序消息片段(text/reasoning/tool/image...),用于支持 DeepSeek V4 / Claude thinking 等
+  // 边思考边调工具的交错展示。空数组表示消息尚未迁移到 parts 结构,UI 层需回退到旧字段。
+  @Trace parts: MessagePart[]
 
   constructor(id: string, role: MessageRole, content: string, modelName: string = '', modelId: string = '') {
     this.id = id
@@ -495,6 +501,7 @@ export class ChatMessage {
     this.toolResults = []
     this.toolCallId = ''
     this.reasoningSignatureBlob = ''
+    this.parts = []
   }
 
   // 检查是否有推理内容
