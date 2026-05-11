@@ -66,7 +66,10 @@ export struct MessageBubble {
   @Param isEditing: boolean = false  // 是否处于编辑状态（被编辑的消息高亮显示）
   @Param previewContent: string = ''  // 编辑时的实时预览内容
   @Param previewAttachments: MessageAttachment[] = []  // 编辑时的实时预览附件
-  @Local isReasoningExpanded: boolean = false  // 推理内容是否展开
+  @Local isReasoningExpanded: boolean = false  // 用户显式展开/折叠状态
+  @Local reasoningElapsedMs: number = 0         // 流式中已思考毫秒数,驱动 UI 刷新
+  @Local reasoningAutoPreview: boolean = false  // 流式中自动进入的预览态,用户切换后置 false
+  @Local reasoningShimmerAlpha: number = 1.0    // shimmer 呼吸动画透明度
   @Local translatedText: string = ''  // 翻译结果
   @Local isTranslating: boolean = false  // 是否正在翻译
   @Local showTranslation: boolean = false  // 是否显示翻译结果
@@ -110,6 +113,12 @@ export struct MessageBubble {
   // lv-markdown-in 自带流式渲染，无需手动节流
   private boundMessageId: string = ''
   private translationRequestToken: number = 0
+  // Reasoning 计时
+  private reasoningStartAt: number = 0
+  private reasoningFinalMs: number = 0
+  private reasoningTimerId: number = -1
+  private reasoningShimmerTimerId: number = -1
+  private reasoningScroller: Scroller = new Scroller()
   private get speakingMessageId(): string {
     return getAppUiState().speakingMessageId
   }
@@ -258,6 +267,12 @@ export struct MessageBubble {
     this.configureMarkdownStyles()
 
     this.isReasoningExpanded = false
+    this.syncReasoningRuntime()
+  }
+
+  aboutToDisappear(): void {
+    this.stopReasoningTimer()
+    this.stopReasoningShimmer()
   }
 
   // 消息状态变化回调（优化跳动点动画性能）
@@ -265,12 +280,14 @@ export struct MessageBubble {
   onMessageStateChange(): void {
     this.syncMessageScopedState()
     this.syncDerivedRenderCaches()
+    this.syncReasoningRuntime()
   }
 
   @Monitor('contentRenderSignature')
   onContentRenderSignatureChange(): void {
     this.syncMessageScopedState()
     this.syncDerivedRenderCaches()
+    this.syncReasoningRuntime()
   }
 
   @Monitor('previewContent')
@@ -309,11 +326,91 @@ export struct MessageBubble {
   private resetMessageScopedState(): void {
     this.translationRequestToken++
     this.isReasoningExpanded = false
+    this.reasoningAutoPreview = false
+    this.reasoningElapsedMs = 0
+    this.reasoningStartAt = 0
+    this.reasoningFinalMs = 0
+    this.reasoningShimmerAlpha = 1.0
+    this.stopReasoningTimer()
+    this.stopReasoningShimmer()
     this.translatedText = ''
     this.isTranslating = false
     this.showTranslation = false
     this.isTranslationExpanded = true
     this.currentTranslateLang = ''
+  }
+
+  // 流式拿到第一段 reasoning 时启动定时器,每 120ms 刷新已思考时长,驱动 UI 计数和 shimmer
+  private startReasoningTimer(): void {
+    if (this.reasoningTimerId !== -1) {
+      return
+    }
+    this.reasoningStartAt = Date.now()
+    this.reasoningElapsedMs = 0
+    this.reasoningTimerId = setInterval(() => {
+      this.reasoningElapsedMs = Date.now() - this.reasoningStartAt
+    }, 120)
+  }
+
+  private stopReasoningTimer(): void {
+    if (this.reasoningTimerId === -1) {
+      return
+    }
+    clearInterval(this.reasoningTimerId)
+    this.reasoningTimerId = -1
+    if (this.reasoningStartAt > 0) {
+      this.reasoningFinalMs = Date.now() - this.reasoningStartAt
+    }
+  }
+
+  private startReasoningShimmer(): void {
+    if (this.reasoningShimmerTimerId !== -1) {
+      return
+    }
+    let high = false
+    this.reasoningShimmerTimerId = setInterval(() => {
+      high = !high
+      this.getUIContext().animateTo({ duration: 700, curve: Curve.EaseInOut }, () => {
+        this.reasoningShimmerAlpha = high ? 0.55 : 1.0
+      })
+    }, 700)
+  }
+
+  private stopReasoningShimmer(): void {
+    if (this.reasoningShimmerTimerId !== -1) {
+      clearInterval(this.reasoningShimmerTimerId)
+      this.reasoningShimmerTimerId = -1
+    }
+    this.reasoningShimmerAlpha = 1.0
+  }
+
+  // 根据消息当前状态驱动 reasoning 计时器/shimmer/自动预览的开关
+  private syncReasoningRuntime(): void {
+    const isGenerating = this.message.isGenerating
+    const hasReasoning = this.message.reasoningContent.length > 0
+    if (isGenerating && hasReasoning) {
+      if (this.reasoningTimerId === -1) {
+        this.startReasoningTimer()
+      }
+      if (this.reasoningShimmerTimerId === -1) {
+        this.startReasoningShimmer()
+      }
+      // 用户没主动操作时,流式中默认进入预览态
+      if (!this.isReasoningExpanded && !this.reasoningAutoPreview) {
+        this.reasoningAutoPreview = true
+      }
+      // 流式中滚动到思考内容底部,跟随最新输出
+      if (this.reasoningAutoPreview) {
+        this.reasoningScroller.scrollEdge(Edge.Bottom)
+      }
+    } else {
+      this.stopReasoningTimer()
+      this.stopReasoningShimmer()
+      if (!isGenerating) {
+        // 生成结束自动收起 preview,让用户看到完整对话内容
+        this.reasoningAutoPreview = false
+      }
+    }
   }
 
   private buildAttachmentSignature(attachments: MessageAttachment[]): string {
@@ -1709,20 +1806,28 @@ export struct MessageBubble {
 
         // 标题文本：根据生成状态显示不同内容
         if (this.message.isGenerating && this.message.content.length === 0) {
-          // 正在思考状态：显示跳动点动画（仅在内容尚未开始生成时）
-          Row({ space: 4 }) {
-            Text($r('app.string.reasoning_thinking'))
+          // 正在思考状态：显示 “思考中 X.X 秒 + 跳动点 + shimmer”
+          Row({ space: 6 }) {
+            Text(this.getReasoningThinkingLabel())
               .fontSize(12)
               .fontWeight(FontWeight.Medium)
               .fontColor(this.themePrimary)
+              .opacity(this.reasoningShimmerAlpha)
 
-            // 三个跳动的点
             TypingDots({ dotSize: 4, spacing: 2 })
           }
           .margin({ left: 6 })
+        } else if (this.message.isGenerating) {
+          // 有正文的情况:展示已思考 X.X 秒计数 + shimmer
+          Text(this.getReasoningThinkingLabel())
+            .fontSize(12)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.themePrimary)
+            .opacity(this.reasoningShimmerAlpha)
+            .margin({ left: 6 })
         } else {
-          // 静态状态：显示"思考过程"
-          Text($r('app.string.reasoning_process'))
+          // 生成结束:展示 “思考过程 · 用时 X.X 秒”
+          Text(this.getReasoningFinishedLabel())
             .fontSize(12)
             .fontWeight(FontWeight.Medium)
             .fontColor($r('app.color.text_secondary'))
@@ -1732,7 +1837,7 @@ export struct MessageBubble {
         Blank()
 
         // 展开/折叠状态提示
-        Text(this.isReasoningExpanded ? $r('app.string.common_collapse') : $r('app.string.common_expand'))
+        Text(this.isReasoningCardVisible() ? $r('app.string.common_collapse') : $r('app.string.common_expand'))
           .fontSize(11)
           .fontColor($r('app.color.text_secondary'))
 
@@ -1740,7 +1845,7 @@ export struct MessageBubble {
         SymbolGlyph($r('sys.symbol.chevron_down'))
           .fontSize(12)
           .fontColor([$r('app.color.text_secondary')])
-          .rotate({ angle: this.isReasoningExpanded ? 180 : 0 })
+          .rotate({ angle: this.isReasoningCardVisible() ? 180 : 0 })
           .animation({ duration: 200, curve: Curve.EaseOut })
           .margin({ left: 4 })
       }
@@ -1751,12 +1856,13 @@ export struct MessageBubble {
       .borderRadius(8)
       .clip(true)
       .onClick(() => {
-        this.isReasoningExpanded = !this.isReasoningExpanded
-        this.getUIContext().animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
-        })
+        this.toggleReasoningCard()
       })
 
-      // 推理内容默认折叠，仅在用户显式展开后显示
+      // 正文渲染:
+      // 1) 用户主动展开 → 完整滚动显示
+      // 2) 流式中自动预览 → 限制 100vp 高度 + 上下渐变蒙版 + 自动滚到底部
+      // 3) 其他情况折叠
       if (this.isReasoningExpanded) {
         Column() {
           Markdown({
@@ -1773,10 +1879,86 @@ export struct MessageBubble {
         .clip(true)
         .margin({ top: -8 })
         .transition(TransitionEffect.OPACITY.animation({ duration: 200 }))
+      } else if (this.reasoningAutoPreview && this.message.reasoningContent.length > 0) {
+        Stack() {
+          Scroll(this.reasoningScroller) {
+            Markdown({
+              controller: this.reasoningMarkdownController,
+              text: this.getReadonlyReasoningContent()
+            })
+              .constraintSize({ maxWidth: '100%' })
+              .backgroundColor(Color.Transparent)
+          }
+          .scrollable(ScrollDirection.Vertical)
+          .scrollBar(BarState.Off)
+          .edgeEffect(EdgeEffect.None)
+          .width('100%')
+          .height(100)
+
+          // 顶部渐变蒙版:让刚滚出视口的老内容渐隐
+          Column()
+            .width('100%')
+            .height(16)
+            .linearGradient({
+              angle: 180,
+              colors: [[getAppUiState().themeAiBubble, 0.0], ['rgba(0,0,0,0)', 1.0]]
+            })
+            .align(Alignment.Top)
+
+          // 底部渐变蒙版
+          Column()
+            .width('100%')
+            .height(16)
+            .linearGradient({
+              angle: 0,
+              colors: [[getAppUiState().themeAiBubble, 0.0], ['rgba(0,0,0,0)', 1.0]]
+            })
+            .align(Alignment.Bottom)
+        }
+        .alignContent(Alignment.Top)
+        .width('100%')
+        .padding({ left: 10, right: 10, top: 8, bottom: 8 })
+        .backgroundColor($r('app.color.divider'))
+        .borderRadius({ topLeft: 0, topRight: 0, bottomLeft: 8, bottomRight: 8 })
+        .clip(true)
+        .margin({ top: -8 })
+        .transition(TransitionEffect.OPACITY.animation({ duration: 200 }))
       }
     }
     .width('100%')
     .margin({ bottom: 4 })
+  }
+
+  // 当前 reasoning 卡片是否处于可见态(完整展开 or 预览)
+  private isReasoningCardVisible(): boolean {
+    return this.isReasoningExpanded || this.reasoningAutoPreview
+  }
+
+  // 点击标题栏切换展开:可见 → 完全收起;收起 → 完全展开
+  private toggleReasoningCard(): void {
+    this.getUIContext().animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+      if (this.isReasoningCardVisible()) {
+        this.isReasoningExpanded = false
+        this.reasoningAutoPreview = false
+      } else {
+        this.isReasoningExpanded = true
+        this.reasoningAutoPreview = false
+      }
+    })
+  }
+
+  // 流式中标题:已思考 X.X 秒
+  private getReasoningThinkingLabel(): string {
+    const seconds = Math.max(0, this.reasoningElapsedMs / 1000)
+    return `思考中 · 已思考 ${seconds.toFixed(1)} 秒`
+  }
+
+  // 生成结束后标题:带总时长(若已记录)
+  private getReasoningFinishedLabel(): string {
+    if (this.reasoningFinalMs > 0) {
+      return `思考过程 · 用时 ${(this.reasoningFinalMs / 1000).toFixed(1)} 秒`
+    }
+    return '思考过程'
   }
 
   /**
