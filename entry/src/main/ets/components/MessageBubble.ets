@@ -22,6 +22,10 @@ import {
 } from '../utils/MarkdownTypographyUtils'
 import { withColorAlpha } from '../utils/ColorAlphaUtils'
 import { isSearchToolFunctionName, isSearchToolId } from '../utils/SearchToolIdentityUtils'
+import { MessagePart, MessagePartKind } from '../models/MessageParts'
+import { resolveMessageParts } from '../utils/ChatMessagePartsHelper'
+import { resolveToolSymbol } from '../utils/ToolIconMapping'
+import { buildToolTitle } from '../utils/ToolTitleBuilder'
 
 const DOMAIN = 0x0002
 const TAG = 'MessageBubble'
@@ -1486,18 +1490,24 @@ export struct MessageBubble {
         // 内容区域 - 无气泡，全宽显示
         Column() {
           Column() {
-            // ========== 工具调用区域 ==========
-            if (this.message.hasToolCalls()) {
-              ForEach(this.message.toolCalls, (toolCall: ToolCall, index: number) => {
-                if (!this.shouldHideToolCallCard(toolCall)) {
-                  ToolCallCard({
-                    toolCall: toolCall,
-                    toolResult: index < this.message.toolResults.length ? this.message.toolResults[index] : null,
-                    isExecuting: this.message.isGenerating && index >= this.message.toolResults.length
-                  })
-                    .margin({ bottom: 6 })
-                }
-              }, (toolCall: ToolCall, index: number) => toolCall.id + '_' + index.toString())
+            if (this.shouldRenderPartsTimeline()) {
+              // 新版交错渲染:检测到 DeepSeek V4 等 thinking↔tool 多轮交错时走 Chain of Thought 时间线,
+              // 跳过原本的 ToolCallCard 列表和 ReasoningSection, 避免重复渲染
+              this.PartsTimeline()
+            } else {
+              // ========== 工具调用区域 ==========
+              if (this.message.hasToolCalls()) {
+                ForEach(this.message.toolCalls, (toolCall: ToolCall, index: number) => {
+                  if (!this.shouldHideToolCallCard(toolCall)) {
+                    ToolCallCard({
+                      toolCall: toolCall,
+                      toolResult: index < this.message.toolResults.length ? this.message.toolResults[index] : null,
+                      isExecuting: this.message.isGenerating && index >= this.message.toolResults.length
+                    })
+                      .margin({ bottom: 6 })
+                  }
+                }, (toolCall: ToolCall, index: number) => toolCall.id + '_' + index.toString())
+              }
             }
 
             // ========== 搜索引用区域 ==========
@@ -1516,8 +1526,9 @@ export struct MessageBubble {
               this.AssistantAttachments()
             }
 
-            // ========== 推理内容区域（可折叠） ==========
-            if (this.message.hasReasoningContent()) {
+            // ========== 推理内容区域(可折叠) ==========
+            // parts 时间线已经把 reasoning 串在一起渲染,这里就跳过,避免重复
+            if (this.message.hasReasoningContent() && !this.shouldRenderPartsTimeline()) {
               this.ReasoningSection()
             }
 
@@ -1791,6 +1802,185 @@ export struct MessageBubble {
     .backgroundColor($r('app.color.divider'))
     .borderRadius(12)
     .clip(true)
+  }
+
+  // 交错 thinking 判定:只在 parts 非空且内部包含两段或以上 reasoning,或者 reasoning 与 tool 顺序
+  // 穿插时启用时间线;单轮 "先思考后调用工具" 的场景继续走旧 UI,减少视觉跳变
+  private shouldRenderPartsTimeline(): boolean {
+    if (this.message.parts.length === 0) {
+      return false
+    }
+    let reasoningCount = 0
+    let toolCount = 0
+    let sawToolAfterReasoning = false
+    let sawReasoningAfterTool = false
+    let lastKind: MessagePartKind | null = null
+    for (let i = 0; i < this.message.parts.length; i++) {
+      const kind = this.message.parts[i].kind
+      if (kind === MessagePartKind.REASONING) {
+        reasoningCount++
+        if (lastKind === MessagePartKind.TOOL) {
+          sawReasoningAfterTool = true
+        }
+        lastKind = kind
+      } else if (kind === MessagePartKind.TOOL) {
+        toolCount++
+        if (lastKind === MessagePartKind.REASONING) {
+          sawToolAfterReasoning = true
+        }
+        lastKind = kind
+      }
+    }
+    // 两段以上 reasoning, 或 tool 和 reasoning 之间出现真正的双向切换, 才启用新 UI
+    if (reasoningCount >= 2 && toolCount >= 1) {
+      return true
+    }
+    if (sawReasoningAfterTool && sawToolAfterReasoning) {
+      return true
+    }
+    return false
+  }
+
+  private getThinkingSteps(): MessagePart[] {
+    const steps: MessagePart[] = []
+    for (let i = 0; i < this.message.parts.length; i++) {
+      const p = this.message.parts[i]
+      if (p.kind === MessagePartKind.REASONING || p.kind === MessagePartKind.TOOL) {
+        steps.push(p)
+      }
+    }
+    return steps
+  }
+
+  private formatReasoningDuration(part: MessagePart): string {
+    const start = part.reasoningCreatedAt > 0 ? part.reasoningCreatedAt : 0
+    if (start === 0) {
+      return ''
+    }
+    const end = part.reasoningFinishedAt > 0 ? part.reasoningFinishedAt : Date.now()
+    const seconds = Math.max(0, (end - start) / 1000)
+    return `${seconds.toFixed(1)}s`
+  }
+
+  // 交错 thinking 的时间线视图: 左侧竖线 + 依次渲染 reasoning / tool 步骤。
+  // 为了最小改动,这里不复用 ChainOfThought 组件,直接在 MessageBubble 里内联 Row/Column。
+  @Builder
+  PartsTimeline() {
+    Stack({ alignContent: Alignment.TopStart }) {
+      // 竖线
+      Column()
+        .width(1)
+        .height('100%')
+        .margin({ left: 10, top: 10, bottom: 10 })
+        .backgroundColor($r('app.color.divider'))
+
+      Column() {
+        ForEach(this.getThinkingSteps(), (step: MessagePart, index: number) => {
+          Row({ space: 10 }) {
+            // 左侧图标 + 背景遮罩压住竖线
+            Stack() {
+              Column()
+                .width(20)
+                .height(20)
+                .borderRadius(10)
+                .backgroundColor(this.themeAiBubble)
+              if (step.kind === MessagePartKind.REASONING) {
+                SymbolGlyph($r('sys.symbol.lightbulb'))
+                  .fontSize(14)
+                  .fontColor([this.themePrimary])
+              } else {
+                SymbolGlyph(resolveToolSymbol(step.toolName))
+                  .fontSize(14)
+                  .fontColor([$r('app.color.text_secondary')])
+              }
+            }
+            .width(24)
+            .height(24)
+
+            Column() {
+              if (step.kind === MessagePartKind.REASONING) {
+                Row({ space: 6 }) {
+                  Text(step.reasoningFinishedAt > 0 ? '思考过程' : '思考中')
+                    .fontSize(13)
+                    .fontWeight(FontWeight.Medium)
+                    .fontColor($r('app.color.text_primary'))
+
+                  if (this.formatReasoningDuration(step) !== '') {
+                    Text(this.formatReasoningDuration(step))
+                      .fontSize(11)
+                      .fontColor($r('app.color.text_secondary'))
+                  }
+                }
+                .width('100%')
+
+                if (step.text.trim() !== '') {
+                  Text(step.text)
+                    .fontSize(12)
+                    .lineHeight(18)
+                    .fontColor($r('app.color.text_secondary'))
+                    .maxLines(4)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    .margin({ top: 4 })
+                }
+              } else {
+                // tool step
+                Row({ space: 6 }) {
+                  Text(this.buildToolStepTitle(step))
+                    .fontSize(13)
+                    .fontWeight(FontWeight.Medium)
+                    .fontColor($r('app.color.text_primary'))
+                    .layoutWeight(1)
+                    .maxLines(2)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+                  if (step.toolStatus === 'succeeded') {
+                    SymbolGlyph($r('sys.symbol.checkmark_circle'))
+                      .fontSize(14)
+                      .fontColor([$r('app.color.status_success')])
+                  } else if (step.toolStatus === 'failed' || step.toolStatus === 'denied') {
+                    SymbolGlyph($r('sys.symbol.xmark_circle'))
+                      .fontSize(14)
+                      .fontColor([$r('app.color.status_error')])
+                  }
+                }
+                .width('100%')
+              }
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
+          }
+          .width('100%')
+          .padding({ top: 6, bottom: 6 })
+        }, (step: MessagePart, index: number) => {
+          return step.kind === MessagePartKind.TOOL ? `tool_${step.toolCallId}_${index}` : `reasoning_${step.reasoningCreatedAt}_${index}`
+        })
+      }
+      .width('100%')
+      .padding({ left: 0, right: 0 })
+    }
+    .width('100%')
+    .padding(10)
+    .backgroundColor($r('app.color.divider'))
+    .borderRadius(10)
+    .margin({ bottom: 8 })
+  }
+
+  private buildToolStepTitle(part: MessagePart): string {
+    if (part.toolDisplayName.trim() !== '' && part.toolDisplayName !== part.toolName) {
+      return part.toolDisplayName
+    }
+    // 复用 ToolTitleBuilder 的派发: 构造一个最小 ToolCall 对象传给 buildToolTitle
+    const toolCall = new ToolCall(
+      part.toolCallId,
+      part.toolName,
+      part.toolArguments,
+      '',
+      part.toolDisplayName,
+      part.toolSourceType,
+      part.toolSourceLabel,
+      part.toolPermissionLevel
+    )
+    return buildToolTitle(toolCall)
   }
 
   // 推理内容区域（可折叠）
