@@ -1,5 +1,5 @@
 import { AppStorageV2, UIUtils } from '@kit.ArkUI'
-import { ModelProvider } from '../models/ChatModels'
+import { ModelProvider, DefaultModelConfig } from '../models/ChatModels'
 import { Assistant, DEFAULT_ASSISTANT_ID } from '../models/AssistantModels'
 
 /**
@@ -26,6 +26,14 @@ export class AppSettingsState {
   @Trace assistantsInitialized: boolean = false
   @Trace assistantsVersion: number = 0
   @Trace currentAssistantId: string = DEFAULT_ASSISTANT_ID
+
+  // ===== default models（chat / title / translate / search optimization 四个 role）=====
+  @Trace defaultChatModel: DefaultModelConfig = new DefaultModelConfig()
+  @Trace defaultTitleModel: DefaultModelConfig = new DefaultModelConfig()
+  @Trace defaultTranslateModel: DefaultModelConfig = new DefaultModelConfig()
+  @Trace defaultSearchOptimizationModel: DefaultModelConfig = new DefaultModelConfig()
+  @Trace defaultModelsInitialized: boolean = false
+  @Trace defaultModelsVersion: number = 0
 }
 
 function createAppSettingsState(): AppSettingsState {
@@ -60,6 +68,18 @@ function resolveAppSettingsStatePath(path: string): string {
       return 'assistantsVersion'
     case 'currentAssistantId':
       return 'currentAssistantId'
+    case 'defaultChatModel':
+      return 'defaultChatModel'
+    case 'defaultTitleModel':
+      return 'defaultTitleModel'
+    case 'defaultTranslateModel':
+      return 'defaultTranslateModel'
+    case 'defaultSearchOptimizationModel':
+      return 'defaultSearchOptimizationModel'
+    case 'defaultModelsInitialized':
+      return 'defaultModelsInitialized'
+    case 'defaultModelsVersion':
+      return 'defaultModelsVersion'
     default:
       return path
   }

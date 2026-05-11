@@ -1,5 +1,5 @@
 import { getDatabaseService, DatabaseService, ProviderConfig } from '../services/DatabaseService'
-import { getPreferencesService, PreferencesService } from '../services/PreferencesService'
+import { getPreferencesService, PreferencesService, PreferenceKeys } from '../services/PreferencesService'
 import {
   ModelProvider,
   ModelInfo,
@@ -11,9 +11,12 @@ import {
   InputMode,
   OutputMode,
   ModelCapabilitiesJson,
-  ProviderIconType
+  ProviderIconType,
+  DefaultModelConfig,
+  ModelRole
 } from '../models/ChatModels'
 import { Assistant, DEFAULT_ASSISTANT_ID } from '../models/AssistantModels'
+import { DefaultPrompts } from '../config/DefaultPrompts'
 import {
   getPresetProviderIconPath,
   isPresetProvider,
@@ -81,6 +84,7 @@ export class AppSettingsStore {
   private preferences: PreferencesService
   private initPromise: Promise<void> | null = null
   private assistantsInitPromise: Promise<void> | null = null
+  private defaultModelsInitPromise: Promise<void> | null = null
 
   private constructor() {
     this.db = getDatabaseService()
@@ -647,6 +651,171 @@ export class AppSettingsStore {
   private setCurrentAssistantIdInMemory(id: string): void {
     getAppSettingsState().currentAssistantId = id
   }
+
+  // ============================================================================
+  // DefaultModel —— 加载 / 读 / 写（Preferences 层）
+  // ============================================================================
+
+  /** 读内存中对应 role 的 default model 配置 */
+  getDefaultModel(role: ModelRole): DefaultModelConfig {
+    const s = getAppSettingsState()
+    if (role === ModelRole.CHAT) {
+      return s.defaultChatModel
+    } else if (role === ModelRole.TITLE) {
+      return s.defaultTitleModel
+    } else if (role === ModelRole.TRANSLATE) {
+      return s.defaultTranslateModel
+    } else if (role === ModelRole.SEARCH_OPTIMIZATION) {
+      return s.defaultSearchOptimizationModel
+    }
+    return new DefaultModelConfig()
+  }
+
+  /** 启动时加载四个 role 的 default model（幂等，多次调用合并为一个 promise） */
+  async ensureDefaultModelsInitialized(): Promise<void> {
+    if (getAppSettingsState().defaultModelsInitialized) {
+      return
+    }
+    if (this.defaultModelsInitPromise !== null) {
+      await this.defaultModelsInitPromise
+      return
+    }
+    this.defaultModelsInitPromise = this.doInitializeDefaultModels()
+    try {
+      await this.defaultModelsInitPromise
+    } finally {
+      this.defaultModelsInitPromise = null
+    }
+  }
+
+  /** 强制刷新（DefaultModelPage.loadConfig 的语义） */
+  async reloadDefaultModels(): Promise<void> {
+    await this.doInitializeDefaultModels()
+    getAppSettingsState().defaultModelsInitialized = true
+  }
+
+  private async doInitializeDefaultModels(): Promise<void> {
+    const chat = await this.loadDefaultModelFromPreferences(
+      PreferenceKeys.DEFAULT_CHAT_MODEL_ID,
+      PreferenceKeys.DEFAULT_CHAT_PROVIDER_ID,
+      PreferenceKeys.DEFAULT_CHAT_MODEL_NAME,
+      PreferenceKeys.DEFAULT_CHAT_PROVIDER_NAME,
+      '', '', '', ''
+    )
+    const title = await this.loadDefaultModelFromPreferences(
+      PreferenceKeys.DEFAULT_TITLE_MODEL_ID,
+      PreferenceKeys.DEFAULT_TITLE_PROVIDER_ID,
+      PreferenceKeys.DEFAULT_TITLE_MODEL_NAME,
+      PreferenceKeys.DEFAULT_TITLE_PROVIDER_NAME,
+      DefaultPrompts.SILICONFLOW_TITLE_MODEL,
+      DefaultPrompts.SILICONFLOW_PROVIDER_ID,
+      DefaultPrompts.SILICONFLOW_TITLE_MODEL,
+      '硅基流动'
+    )
+    const translate = await this.loadDefaultModelFromPreferences(
+      PreferenceKeys.DEFAULT_TRANSLATE_MODEL_ID,
+      PreferenceKeys.DEFAULT_TRANSLATE_PROVIDER_ID,
+      PreferenceKeys.DEFAULT_TRANSLATE_MODEL_NAME,
+      PreferenceKeys.DEFAULT_TRANSLATE_PROVIDER_NAME,
+      DefaultPrompts.SILICONFLOW_TRANSLATE_MODEL,
+      DefaultPrompts.SILICONFLOW_PROVIDER_ID,
+      DefaultPrompts.SILICONFLOW_TRANSLATE_MODEL,
+      '硅基流动'
+    )
+    const searchOpt = await this.loadDefaultModelFromPreferences(
+      PreferenceKeys.DEFAULT_SEARCH_OPTIMIZATION_MODEL_ID,
+      PreferenceKeys.DEFAULT_SEARCH_OPTIMIZATION_PROVIDER_ID,
+      PreferenceKeys.DEFAULT_SEARCH_OPTIMIZATION_MODEL_NAME,
+      PreferenceKeys.DEFAULT_SEARCH_OPTIMIZATION_PROVIDER_NAME,
+      DefaultPrompts.SILICONFLOW_SEARCH_OPTIMIZATION_MODEL,
+      DefaultPrompts.SILICONFLOW_PROVIDER_ID,
+      DefaultPrompts.SILICONFLOW_SEARCH_OPTIMIZATION_MODEL,
+      '硅基流动'
+    )
+
+    const s = getAppSettingsState()
+    s.defaultChatModel = chat
+    s.defaultTitleModel = title
+    s.defaultTranslateModel = translate
+    s.defaultSearchOptimizationModel = searchOpt
+    s.defaultModelsVersion = s.defaultModelsVersion + 1
+    s.defaultModelsInitialized = true
+  }
+
+  private async loadDefaultModelFromPreferences(
+    modelIdKey: string, providerIdKey: string, modelNameKey: string, providerNameKey: string,
+    modelIdFallback: string, providerIdFallback: string, modelNameFallback: string, providerNameFallback: string
+  ): Promise<DefaultModelConfig> {
+    const modelId = await this.preferences.getString(modelIdKey, modelIdFallback)
+    const providerId = await this.preferences.getString(providerIdKey, providerIdFallback)
+    const modelName = await this.preferences.getString(modelNameKey, modelNameFallback)
+    const providerName = await this.preferences.getString(providerNameKey, providerNameFallback)
+    return new DefaultModelConfig(modelId, providerId, modelName, providerName)
+  }
+
+  /** 写某个 role 的 default model：Preferences 持久化 + state 同步 */
+  async setDefaultModel(role: ModelRole, config: DefaultModelConfig): Promise<void> {
+    const keys = this.preferenceKeysFor(role)
+    if (keys === null) {
+      return
+    }
+    await this.preferences.setString(keys.modelIdKey, config.modelId)
+    await this.preferences.setString(keys.providerIdKey, config.providerId)
+    await this.preferences.setString(keys.modelNameKey, config.modelName)
+    await this.preferences.setString(keys.providerNameKey, config.providerName)
+
+    const s = getAppSettingsState()
+    if (role === ModelRole.CHAT) {
+      s.defaultChatModel = config
+    } else if (role === ModelRole.TITLE) {
+      s.defaultTitleModel = config
+    } else if (role === ModelRole.TRANSLATE) {
+      s.defaultTranslateModel = config
+    } else if (role === ModelRole.SEARCH_OPTIMIZATION) {
+      s.defaultSearchOptimizationModel = config
+    }
+    s.defaultModelsVersion = s.defaultModelsVersion + 1
+  }
+
+  private preferenceKeysFor(role: ModelRole): DefaultModelPreferenceKeys | null {
+    if (role === ModelRole.CHAT) {
+      return {
+        modelIdKey: PreferenceKeys.DEFAULT_CHAT_MODEL_ID,
+        providerIdKey: PreferenceKeys.DEFAULT_CHAT_PROVIDER_ID,
+        modelNameKey: PreferenceKeys.DEFAULT_CHAT_MODEL_NAME,
+        providerNameKey: PreferenceKeys.DEFAULT_CHAT_PROVIDER_NAME
+      }
+    } else if (role === ModelRole.TITLE) {
+      return {
+        modelIdKey: PreferenceKeys.DEFAULT_TITLE_MODEL_ID,
+        providerIdKey: PreferenceKeys.DEFAULT_TITLE_PROVIDER_ID,
+        modelNameKey: PreferenceKeys.DEFAULT_TITLE_MODEL_NAME,
+        providerNameKey: PreferenceKeys.DEFAULT_TITLE_PROVIDER_NAME
+      }
+    } else if (role === ModelRole.TRANSLATE) {
+      return {
+        modelIdKey: PreferenceKeys.DEFAULT_TRANSLATE_MODEL_ID,
+        providerIdKey: PreferenceKeys.DEFAULT_TRANSLATE_PROVIDER_ID,
+        modelNameKey: PreferenceKeys.DEFAULT_TRANSLATE_MODEL_NAME,
+        providerNameKey: PreferenceKeys.DEFAULT_TRANSLATE_PROVIDER_NAME
+      }
+    } else if (role === ModelRole.SEARCH_OPTIMIZATION) {
+      return {
+        modelIdKey: PreferenceKeys.DEFAULT_SEARCH_OPTIMIZATION_MODEL_ID,
+        providerIdKey: PreferenceKeys.DEFAULT_SEARCH_OPTIMIZATION_PROVIDER_ID,
+        modelNameKey: PreferenceKeys.DEFAULT_SEARCH_OPTIMIZATION_MODEL_NAME,
+        providerNameKey: PreferenceKeys.DEFAULT_SEARCH_OPTIMIZATION_PROVIDER_NAME
+      }
+    }
+    return null
+  }
+}
+
+interface DefaultModelPreferenceKeys {
+  modelIdKey: string
+  providerIdKey: string
+  modelNameKey: string
+  providerNameKey: string
 }
 
 export function getAppSettingsStore(): AppSettingsStore {
