@@ -3,6 +3,7 @@ import { getAppUiState } from '../state/AppUiState'
 import { buildToolArgumentsPreview, buildToolResultPreview, ToolPayloadPreview } from '../utils/ToolPayloadSummaryUtils'
 import { isScrapeWebFunctionName, isSearchWebFunctionName } from '../utils/SearchToolIdentityUtils'
 import { resolveToolSymbol } from '../utils/ToolIconMapping'
+import { buildToolTitle } from '../utils/ToolTitleBuilder'
 
 // 获取工具显示名称
 function getToolDisplayName(toolCall: ToolCall): string | Resource {
@@ -108,7 +109,7 @@ export struct ToolCallCard {
           .fontColor([this.isExecuting ? this.themePrimary : $r('app.color.text_secondary')])
 
         // 工具名称
-        Text(getToolDisplayName(this.toolCall))
+        Text(this.getToolTitle())
           .fontSize(13)
           .fontWeight(FontWeight.Medium)
           .fontColor(this.isExecuting ? this.themePrimary : $r('app.color.text_secondary'))
@@ -280,6 +281,16 @@ export struct ToolCallCard {
     .backgroundColor($r('app.color.divider'))
     .borderRadius(8)
     .clip(true)
+  }
+
+  // 按 functionName + arguments 构造带上下文的标题,如 “搜索:xx”、“朗读:xx”、“保存记忆”
+  // 若 toolCall 已经由上游显式指定了 displayName(通常来自 MCP 服务端),保留其原意;其他情况走 buildToolTitle 派发
+  private getToolTitle(): string {
+    const display = this.toolCall.displayName.trim()
+    if (display !== '' && display !== this.toolCall.functionName) {
+      return display
+    }
+    return buildToolTitle(this.toolCall)
   }
 
   private getArgumentPreview(): ToolPayloadPreview {
