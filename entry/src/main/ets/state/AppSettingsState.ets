@@ -34,6 +34,13 @@ export class AppSettingsState {
   @Trace defaultSearchOptimizationModel: DefaultModelConfig = new DefaultModelConfig()
   @Trace defaultModelsInitialized: boolean = false
   @Trace defaultModelsVersion: number = 0
+
+  // ===== 生成类 Prompt 模板（标题 / 翻译）=====
+  @Trace titlePromptTemplate: string = ''
+  @Trace translatePromptTemplate: string = ''
+  @Trace translateTargetLanguage: string = ''
+  @Trace promptsInitialized: boolean = false
+  @Trace promptsVersion: number = 0
 }
 
 function createAppSettingsState(): AppSettingsState {
@@ -80,6 +87,16 @@ function resolveAppSettingsStatePath(path: string): string {
       return 'defaultModelsInitialized'
     case 'defaultModelsVersion':
       return 'defaultModelsVersion'
+    case 'titlePromptTemplate':
+      return 'titlePromptTemplate'
+    case 'translatePromptTemplate':
+      return 'translatePromptTemplate'
+    case 'translateTargetLanguage':
+      return 'translateTargetLanguage'
+    case 'promptsInitialized':
+      return 'promptsInitialized'
+    case 'promptsVersion':
+      return 'promptsVersion'
     default:
       return path
   }

@@ -85,6 +85,7 @@ export class AppSettingsStore {
   private initPromise: Promise<void> | null = null
   private assistantsInitPromise: Promise<void> | null = null
   private defaultModelsInitPromise: Promise<void> | null = null
+  private promptsInitPromise: Promise<void> | null = null
 
   private constructor() {
     this.db = getDatabaseService()
@@ -808,6 +809,90 @@ export class AppSettingsStore {
       }
     }
     return null
+  }
+
+  // ============================================================================
+  // Prompt 模板（title / translate / translateTargetLanguage）
+  // ============================================================================
+
+  /** 启动时加载三个 prompt 字段（幂等） */
+  async ensurePromptsInitialized(): Promise<void> {
+    if (getAppSettingsState().promptsInitialized) {
+      return
+    }
+    if (this.promptsInitPromise !== null) {
+      await this.promptsInitPromise
+      return
+    }
+    this.promptsInitPromise = this.doInitializePrompts()
+    try {
+      await this.promptsInitPromise
+    } finally {
+      this.promptsInitPromise = null
+    }
+  }
+
+  private async doInitializePrompts(): Promise<void> {
+    const title = await this.preferences.getString(
+      PreferenceKeys.TITLE_PROMPT_TEMPLATE, DefaultPrompts.TITLE_PROMPT)
+    const translate = await this.preferences.getString(
+      PreferenceKeys.TRANSLATE_PROMPT_TEMPLATE, DefaultPrompts.TRANSLATE_PROMPT)
+    const lang = await this.preferences.getString(
+      PreferenceKeys.TRANSLATE_TARGET_LANGUAGE, DefaultPrompts.DEFAULT_TARGET_LANGUAGE)
+
+    const s = getAppSettingsState()
+    s.titlePromptTemplate = title
+    s.translatePromptTemplate = translate
+    s.translateTargetLanguage = lang
+    s.promptsVersion = s.promptsVersion + 1
+    s.promptsInitialized = true
+  }
+
+  getTitlePromptTemplate(): string {
+    return getAppSettingsState().titlePromptTemplate
+  }
+
+  getTranslatePromptTemplate(): string {
+    return getAppSettingsState().translatePromptTemplate
+  }
+
+  getTranslateTargetLanguage(): string {
+    return getAppSettingsState().translateTargetLanguage
+  }
+
+  async setTitlePromptTemplate(prompt: string): Promise<void> {
+    await this.preferences.setString(PreferenceKeys.TITLE_PROMPT_TEMPLATE, prompt)
+    this.updatePromptField((s: AppSettingsState): void => {
+      s.titlePromptTemplate = prompt
+    })
+  }
+
+  async setTranslatePromptTemplate(prompt: string): Promise<void> {
+    await this.preferences.setString(PreferenceKeys.TRANSLATE_PROMPT_TEMPLATE, prompt)
+    this.updatePromptField((s: AppSettingsState): void => {
+      s.translatePromptTemplate = prompt
+    })
+  }
+
+  async setTranslateTargetLanguage(language: string): Promise<void> {
+    await this.preferences.setString(PreferenceKeys.TRANSLATE_TARGET_LANGUAGE, language)
+    this.updatePromptField((s: AppSettingsState): void => {
+      s.translateTargetLanguage = language
+    })
+  }
+
+  async resetTitlePromptTemplate(): Promise<void> {
+    await this.setTitlePromptTemplate(DefaultPrompts.TITLE_PROMPT)
+  }
+
+  async resetTranslatePromptTemplate(): Promise<void> {
+    await this.setTranslatePromptTemplate(DefaultPrompts.TRANSLATE_PROMPT)
+  }
+
+  private updatePromptField(mutator: (state: AppSettingsState) => void): void {
+    const s = getAppSettingsState()
+    mutator(s)
+    s.promptsVersion = s.promptsVersion + 1
   }
 }
 

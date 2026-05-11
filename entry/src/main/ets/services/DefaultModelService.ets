@@ -1,26 +1,21 @@
 // 默认模型配置服务
-import { getPreferencesService, PreferencesService, PreferenceKeys } from './PreferencesService'
+import { getPreferencesService, PreferencesService } from './PreferencesService'
 import { DefaultModelConfig, ModelRole } from '../models/ChatModels'
 import { DefaultPrompts } from '../config/DefaultPrompts'
 import { getAppSettingsStore, AppSettingsStore } from '../state/AppSettingsStore'
 
 // 默认模型服务 - 单例模式
 //
-// 本轮重构：
-// - 4 个 role 的 DefaultModelConfig（chat / title / translate / search opt）迁到 AppSettingsStore，
-//   对外 getModel / setModel 语义不变。loadConfig / initialize 委托 Store 的 ensure 机制。
-// - Prompt 相关字段（titlePrompt / translatePrompt / translateTargetLanguage）仍在本服务缓存与落盘，
-//   避免单次 commit 扩散到其他订阅端（getTitlePrompt 等在 AITaskService 是高频路径）。
+// 已迁移到 AppSettingsStore：
+// - 4 个 role 的 DefaultModelConfig（chat / title / translate / search opt）
+// - 3 个 Prompt 模板字段（title / translate 模板 + translateTargetLanguage）
+//
+// 本服务目前只剩纯派生（System/User Prompt 格式化）+ facade 委托，
+// 方便后续进一步拆解或合并到 Store
 export class DefaultModelService {
   private static instance: DefaultModelService | null = null
   private preferencesService: PreferencesService
   private store: AppSettingsStore
-
-  // 缓存 Prompt 配置
-  private titlePrompt: string = ''
-  private translatePrompt: string = ''
-  private translateTargetLanguage: string = ''
-  private promptsLoaded: boolean = false
 
   private constructor() {
     this.preferencesService = getPreferencesService()
@@ -39,28 +34,10 @@ export class DefaultModelService {
     await this.loadConfig()
   }
 
-  // 加载所有配置：model 部分走 Store，Prompt 部分走本地
+  // 加载所有配置（model + prompt 都走 Store）
   async loadConfig(): Promise<void> {
     await this.store.ensureDefaultModelsInitialized()
-    if (!this.promptsLoaded) {
-      await this.loadPrompts()
-      this.promptsLoaded = true
-    }
-  }
-
-  private async loadPrompts(): Promise<void> {
-    this.titlePrompt = await this.preferencesService.getString(
-      PreferenceKeys.TITLE_PROMPT_TEMPLATE,
-      DefaultPrompts.TITLE_PROMPT
-    )
-    this.translatePrompt = await this.preferencesService.getString(
-      PreferenceKeys.TRANSLATE_PROMPT_TEMPLATE,
-      DefaultPrompts.TRANSLATE_PROMPT
-    )
-    this.translateTargetLanguage = await this.preferencesService.getString(
-      PreferenceKeys.TRANSLATE_TARGET_LANGUAGE,
-      DefaultPrompts.DEFAULT_TARGET_LANGUAGE
-    )
+    await this.store.ensurePromptsInitialized()
   }
 
   // ============================================================================
@@ -76,7 +53,7 @@ export class DefaultModelService {
   }
 
   // ============================================================================
-  // Prompt（仍在本服务内落盘）
+  // 纯派生 Prompt（不依赖缓存，保留在本服务）
   // ============================================================================
 
   getTitleSystemPrompt(locale: string): string {
@@ -91,65 +68,64 @@ export class DefaultModelService {
     return prompt
   }
 
+  // ============================================================================
+  // Prompt 模板（委托 Store）
+  // ============================================================================
+
   // 旧版兼容：自定义 Prompt 场景下的标题生成
   getTitlePrompt(content: string, locale: string): string {
-    let prompt = this.titlePrompt
+    let prompt = this.store.getTitlePromptTemplate()
     prompt = prompt.replace('{content}', content)
     prompt = prompt.replace('{locale}', locale)
     return prompt
   }
 
   getTranslatePrompt(sourceText: string, targetLang: string = ''): string {
-    const lang = targetLang !== '' ? targetLang : this.translateTargetLanguage
-    let prompt = this.translatePrompt
+    const lang = targetLang !== '' ? targetLang : this.store.getTranslateTargetLanguage()
+    let prompt = this.store.getTranslatePromptTemplate()
     prompt = prompt.replace('{source_text}', sourceText)
     prompt = prompt.replace('{target_lang}', lang)
     return prompt
   }
 
   getTitlePromptTemplate(): string {
-    return this.titlePrompt
+    return this.store.getTitlePromptTemplate()
   }
 
   getTranslatePromptTemplate(): string {
-    return this.translatePrompt
+    return this.store.getTranslatePromptTemplate()
   }
 
   getTranslateTargetLanguage(): string {
-    return this.translateTargetLanguage
+    return this.store.getTranslateTargetLanguage()
   }
 
   async setTitlePromptTemplate(prompt: string): Promise<void> {
-    this.titlePrompt = prompt
-    await this.preferencesService.setString(PreferenceKeys.TITLE_PROMPT_TEMPLATE, prompt)
+    await this.store.setTitlePromptTemplate(prompt)
   }
 
   async setTranslatePromptTemplate(prompt: string): Promise<void> {
-    this.translatePrompt = prompt
-    await this.preferencesService.setString(PreferenceKeys.TRANSLATE_PROMPT_TEMPLATE, prompt)
+    await this.store.setTranslatePromptTemplate(prompt)
   }
 
   async setTranslateTargetLanguage(language: string): Promise<void> {
-    this.translateTargetLanguage = language
-    await this.preferencesService.setString(PreferenceKeys.TRANSLATE_TARGET_LANGUAGE, language)
+    await this.store.setTranslateTargetLanguage(language)
   }
 
   async resetTitlePrompt(): Promise<void> {
-    this.titlePrompt = DefaultPrompts.TITLE_PROMPT
-    await this.preferencesService.setString(PreferenceKeys.TITLE_PROMPT_TEMPLATE, DefaultPrompts.TITLE_PROMPT)
+    await this.store.resetTitlePromptTemplate()
   }
 
   async resetTranslatePrompt(): Promise<void> {
-    this.translatePrompt = DefaultPrompts.TRANSLATE_PROMPT
-    await this.preferencesService.setString(PreferenceKeys.TRANSLATE_PROMPT_TEMPLATE, DefaultPrompts.TRANSLATE_PROMPT)
+    await this.store.resetTranslatePromptTemplate()
   }
 
   isDefaultTitlePrompt(): boolean {
-    return this.titlePrompt === DefaultPrompts.TITLE_PROMPT
+    return this.store.getTitlePromptTemplate() === DefaultPrompts.TITLE_PROMPT
   }
 
   isDefaultTranslatePrompt(): boolean {
-    return this.translatePrompt === DefaultPrompts.TRANSLATE_PROMPT
+    return this.store.getTranslatePromptTemplate() === DefaultPrompts.TRANSLATE_PROMPT
   }
 }
 
