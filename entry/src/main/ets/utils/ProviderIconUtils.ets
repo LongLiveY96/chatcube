@@ -2,17 +2,29 @@
  * 供应商图标工具模块
  * 处理供应商和模型图标的显示逻辑
  *
- * 模型图标完全走 models.dev 网络 logo + 沙箱缓存
+ * 优先使用 AIIconMatcher 本地正则匹配（返回 rawfile 路径），
+ * 匹配不到时回退 models.dev 网络缓存
  */
 
 import { getPresetProviderIconPath } from '../config/PresetProviders'
 import { ModelCapabilityMatcher } from '../services/ModelCapabilityMatcher'
 import { IconDownloadCache } from '../services/IconDownloadCache'
+import { matchModelIconPath } from '../services/registry/AIIconMatcher'
 
 // 默认图标路径
 const DEFAULT_ICON_PATH = ''
 
-function resolveModelLogoUrl(modelId: string): string {
+/**
+ * 解析模型图标路径
+ * 优先本地正则匹配（rawfile 路径），回退 models.dev 网络 URL
+ */
+function resolveModelIconPathInternal(modelId: string): string {
+  // 优先本地正则匹配（确定性强，离线可用）
+  const localPath = matchModelIconPath(modelId)
+  if (localPath !== '') {
+    return localPath
+  }
+  // 回退 models.dev 缓存
   return ModelCapabilityMatcher.getInstance().getLogoUrl(modelId)
 }
 
@@ -47,24 +59,25 @@ export function getProviderIconPath(providerId: string, customIconPath?: string)
 }
 
 /**
- * 根据模型 ID 获取图标路径（走 models.dev 网络 logo）
- * @param modelId 模型 ID（优先）或模型名称（回退）
- * @param providerId 供应商 ID（用于回退）
- * @param providerIconPath 供应商图标路径（用于回退）
- * @returns 图标路径（网络 URL 或沙箱路径）
+ * 根据模型 ID 获取图标路径
+ * 本地 rawfile 路径直接返回；网络 URL 走下载缓存
  */
 export function getModelIconPath(modelId: string, providerId: string, providerIconPath?: string): string {
-  const logoUrl = resolveModelLogoUrl(modelId)
-  if (logoUrl !== '') {
-    const cachedUri = IconDownloadCache.getInstance().getCachedIconUri(logoUrl)
-    if (cachedUri !== '') {
-      return cachedUri
-    }
-    // 后台触发下载缓存（不阻塞）
-    IconDownloadCache.getInstance().downloadAndCache(logoUrl)
-    return logoUrl
+  const iconPath = resolveModelIconPathInternal(modelId)
+  if (iconPath === '') {
+    return ''
   }
-  return ''
+  // 本地 rawfile 路径直接返回
+  if (!isNetworkIconPath(iconPath)) {
+    return iconPath
+  }
+  // 网络 URL 走缓存
+  const cachedUri = IconDownloadCache.getInstance().getCachedIconUri(iconPath)
+  if (cachedUri !== '') {
+    return cachedUri
+  }
+  IconDownloadCache.getInstance().downloadAndCache(iconPath)
+  return iconPath
 }
 
 /**
@@ -72,26 +85,32 @@ export function getModelIconPath(modelId: string, providerId: string, providerIc
  * 适合截图、离屏渲染等不能容忍异步资源未就绪的场景。
  */
 export function getCachedModelIconPath(modelId: string): string {
-  const logoUrl = resolveModelLogoUrl(modelId)
-  if (logoUrl === '') {
+  const iconPath = resolveModelIconPathInternal(modelId)
+  if (iconPath === '') {
     return ''
   }
-  return IconDownloadCache.getInstance().getCachedIconUri(logoUrl)
+  // 本地 rawfile 路径始终可用
+  if (!isNetworkIconPath(iconPath)) {
+    return iconPath
+  }
+  return IconDownloadCache.getInstance().getCachedIconUri(iconPath)
 }
 
 export async function preloadModelIcon(modelId: string): Promise<string> {
-  const logoUrl = resolveModelLogoUrl(modelId)
-  if (logoUrl === '') {
+  const iconPath = resolveModelIconPathInternal(modelId)
+  if (iconPath === '') {
     return ''
   }
-  return await IconDownloadCache.getInstance().downloadAndCache(logoUrl)
+  // 本地 rawfile 路径无需预加载
+  if (!isNetworkIconPath(iconPath)) {
+    return iconPath
+  }
+  return await IconDownloadCache.getInstance().downloadAndCache(iconPath)
 }
 
 /**
  * 构建图标资源的完整路径
  * 网络 URL 或沙箱路径原样返回
- * @param iconPath 图标路径
- * @returns 完整路径
  */
 export function buildIconResourcePath(iconPath: string): string {
   if (iconPath === '') {

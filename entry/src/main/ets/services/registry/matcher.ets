@@ -122,6 +122,36 @@ function sequenceMatchLength(modelTokens: string[], specTokens: string[]): numbe
   return null
 }
 
+// 判断 token spec 是否为正则模式（以 ^ 开头或 $ 结尾）
+function isRegexSpec(spec: string): boolean {
+  return spec.startsWith('^') || spec.endsWith('$')
+}
+
+// 支持正则 token 的子序列匹配（用于 ModelAbilityRegistry）
+export function sequenceMatchWithRegex(modelTokens: string[], specTokens: string[]): number | null {
+  if (specTokens.length === 0) {
+    return null
+  }
+  let si = 0
+  for (let i = 0; i < modelTokens.length; i++) {
+    const spec = specTokens[si]
+    let matched = false
+    if (isRegexSpec(spec)) {
+      const regex = new RegExp(spec, 'i')
+      matched = regex.test(modelTokens[i])
+    } else {
+      matched = modelTokens[i] === spec
+    }
+    if (matched) {
+      si++
+      if (si === specTokens.length) {
+        return specTokens.length
+      }
+    }
+  }
+  return null
+}
+
 const EXACT_ID_BONUS: number = 1000
 
 function scoreModelMatchSpec(modelId: string, modelTokens: string[], spec: ModelMatchSpec): number | null {

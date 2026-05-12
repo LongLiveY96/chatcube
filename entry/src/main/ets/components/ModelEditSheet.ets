@@ -8,6 +8,7 @@
 import { ModelInfo, InputMode, OutputMode, ModelInfoExtendedJson } from '../models/ChatModels'
 import { LengthMetrics } from '@kit.ArkUI'
 import { getAppUiState } from '../state/AppUiState'
+import { lookupModelAbilities, ModelAbility, ModelModality } from '../services/registry/ModelAbilityRegistry'
 
 @ComponentV2
 export struct ModelEditSheet {
@@ -46,6 +47,16 @@ export struct ModelEditSheet {
     this.capSupportsStreaming = this.model.capabilities.supportsStreaming
     this.capOutputImage = this.model.outputMode === OutputMode.IMAGE
     this.reasoningStrategyOverride = this.model.reasoningStrategyOverride
+  }
+
+  private resetCapabilities(): void {
+    const result = lookupModelAbilities(this.model.id)
+    this.capSupportsTools = result.abilities.includes(ModelAbility.TOOL)
+    this.capSupportsReasoning = result.abilities.includes(ModelAbility.REASONING)
+    this.capSupportsVision = result.inputModalities.includes(ModelModality.IMAGE)
+    this.capOutputImage = result.outputModalities.includes(ModelModality.IMAGE)
+    this.capSupportsWebSearch = false
+    this.capSupportsStreaming = true
   }
 
   private buildDraft(): ModelInfoExtendedJson {
@@ -198,10 +209,22 @@ export struct ModelEditSheet {
   @Builder
   CapabilityChipsSection() {
     Column() {
-      Text('模型能力')
-        .fontSize(13)
-        .fontColor($r('app.color.text_tertiary'))
-        .margin({ bottom: 12 })
+      Row() {
+        Text('模型能力')
+          .fontSize(13)
+          .fontColor($r('app.color.text_tertiary'))
+
+        Blank()
+
+        Text('重置')
+          .fontSize(12)
+          .fontColor($r('app.color.text_tertiary'))
+          .onClick(() => {
+            this.resetCapabilities()
+          })
+      }
+      .width('100%')
+      .margin({ bottom: 12 })
 
       Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(8), cross: LengthMetrics.vp(8) } }) {
         // 工具调用

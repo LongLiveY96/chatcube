@@ -1,6 +1,7 @@
 import { http } from '@kit.NetworkKit'
 import { ModelInfo, InputMode, OutputMode } from '../models/ChatModels'
 import { PreferenceKeys, getPreferencesService, DEFAULT_MODELS_DEV_BASE_URL } from './PreferencesService'
+import { lookupModelAbilities, ModelAbility, ModelModality } from './registry/ModelAbilityRegistry'
 
 // models.dev 单个模型的数据结构
 interface ModelsDevModalities {
@@ -502,60 +503,29 @@ export class ModelCapabilityMatcher {
   }
 
   private applyKnownCapabilityFallback(model: ModelInfo): boolean {
-    const id = model.id.trim().toLowerCase()
+    const result = lookupModelAbilities(model.id)
+    if (result.abilities.length === 0 && result.inputModalities.length <= 1 && result.outputModalities.length <= 1) {
+      return false
+    }
+
     let changed = false
 
-    if (id.startsWith('qwen3') ||
-      id.startsWith('qwq') ||
-      id.startsWith('qvq') ||
-      id.includes('/qwen3') ||
-      id.includes('/qwq') ||
-      id.includes('/qvq')) {
-      if (!model.capabilities.supportsReasoning) {
-        model.capabilities.supportsReasoning = true
-        changed = true
-      }
+    if (result.abilities.includes(ModelAbility.TOOL) && !model.capabilities.supportsTools) {
+      model.capabilities.supportsTools = true
+      changed = true
     }
-
-    if (id.startsWith('minimax-m2') || id.includes('/minimax-m2')) {
-      if (!model.capabilities.supportsReasoning) {
-        model.capabilities.supportsReasoning = true
-        changed = true
-      }
+    if (result.abilities.includes(ModelAbility.REASONING) && !model.capabilities.supportsReasoning) {
+      model.capabilities.supportsReasoning = true
+      changed = true
     }
-
-    if (id.includes('kimi-k2-thinking') || id.includes('kimi-k2.5')) {
-      if (!model.capabilities.supportsReasoning) {
-        model.capabilities.supportsReasoning = true
-        changed = true
-      }
+    if (result.inputModalities.includes(ModelModality.IMAGE) && !model.capabilities.supportsVision) {
+      model.capabilities.supportsVision = true
+      model.inputMode = InputMode.VISION
+      changed = true
     }
-
-    if (id.includes('deepseek-v4')) {
-      if (!model.capabilities.supportsTools) {
-        model.capabilities.supportsTools = true
-        changed = true
-      }
-      if (!model.capabilities.supportsReasoning) {
-        model.capabilities.supportsReasoning = true
-        changed = true
-      }
-    }
-
-    if (id.includes('claude-opus-4-7')) {
-      if (!model.capabilities.supportsTools) {
-        model.capabilities.supportsTools = true
-        changed = true
-      }
-      if (!model.capabilities.supportsReasoning) {
-        model.capabilities.supportsReasoning = true
-        changed = true
-      }
-      if (!model.capabilities.supportsVision) {
-        model.capabilities.supportsVision = true
-        model.inputMode = InputMode.VISION
-        changed = true
-      }
+    if (result.outputModalities.includes(ModelModality.IMAGE) && model.outputMode !== OutputMode.IMAGE) {
+      model.outputMode = OutputMode.IMAGE
+      changed = true
     }
 
     return changed
