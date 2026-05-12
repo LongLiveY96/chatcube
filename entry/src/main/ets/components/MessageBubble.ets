@@ -1531,7 +1531,9 @@ export struct MessageBubble {
             }
 
             // ========== 搜索引用区域 ==========
-            if (this.message.hasSearchReferences()) {
+            // 走 timeline 时搜索结果由 timeline 里对应工具 step 统一展示,气泡上不再重复独立卡片;
+            // 旧 UI (非 timeline) 场景 (例如没有 parts 的历史会话) 保持原来的独立卡片
+            if (this.message.hasSearchReferences() && !this.shouldRenderPartsTimeline()) {
               SearchReferenceCard({
                 query: this.extractSearchQuery(),
                 searchEngine: this.message.searchEngine || 'Web',
@@ -1825,39 +1827,17 @@ export struct MessageBubble {
     .clip(true)
   }
 
-  // 交错 thinking 判定:只在 parts 非空且内部包含两段或以上 reasoning,或者 reasoning 与 tool 顺序
-  // 穿插时启用时间线;单轮 "先思考后调用工具" 的场景继续走旧 UI,减少视觉跳变
+  // 交错 thinking 判定:只要消息里有任意 reasoning 或 tool part, 就走 timeline 统一展示。
+  // 这样搜索、MCP、工具调用、推理都汇总到一条黄色链路里, 气泡上不再有并列的独立卡片。
   private shouldRenderPartsTimeline(): boolean {
     if (this.message.parts.length === 0) {
       return false
     }
-    let reasoningCount = 0
-    let toolCount = 0
-    let sawToolAfterReasoning = false
-    let sawReasoningAfterTool = false
-    let lastKind: MessagePartKind | null = null
     for (let i = 0; i < this.message.parts.length; i++) {
       const kind = this.message.parts[i].kind
-      if (kind === MessagePartKind.REASONING) {
-        reasoningCount++
-        if (lastKind === MessagePartKind.TOOL) {
-          sawReasoningAfterTool = true
-        }
-        lastKind = kind
-      } else if (kind === MessagePartKind.TOOL) {
-        toolCount++
-        if (lastKind === MessagePartKind.REASONING) {
-          sawToolAfterReasoning = true
-        }
-        lastKind = kind
+      if (kind === MessagePartKind.REASONING || kind === MessagePartKind.TOOL) {
+        return true
       }
-    }
-    // 两段以上 reasoning, 或 tool 和 reasoning 之间出现真正的双向切换, 才启用新 UI
-    if (reasoningCount >= 2 && toolCount >= 1) {
-      return true
-    }
-    if (sawReasoningAfterTool && sawToolAfterReasoning) {
-      return true
     }
     return false
   }
