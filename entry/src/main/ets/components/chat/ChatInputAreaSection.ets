@@ -1,5 +1,5 @@
 import { MessageAttachment, ReasoningLevel } from '../../models/ChatModels'
-import { ChatToolbar } from '../ChatToolbar'
+import { ChatToolbar, SearchEngineMenuOption } from '../ChatToolbar'
 import { ChatInputBar } from '../ChatInputBar'
 import { ScreenshotBanner } from '../ScreenshotBanner'
 import { ReasoningControlMode } from '../../services/registry/CompatibilityResolver'
@@ -25,7 +25,9 @@ export struct ChatInputAreaSection {
   @Param isEditing: boolean = false
   @Param webSearchAvailable: boolean = false
   @Param webSearchEnabled: boolean = false
-  @Event onToggleWebSearch: () => void = (): void => {}
+  @Param availableSearchEngines: SearchEngineMenuOption[] = []
+  @Param activeSearchEngineId: string = ''
+  @Event onSearchEngineSelect: (engineId: string) => void = (_id: string): void => {}
   @Param toolSelectionAvailable: boolean = false
   @Param hasSelectedTools: boolean = false
   @Event onOpenTools: () => void = (): void => {}
@@ -76,8 +78,10 @@ export struct ChatInputAreaSection {
         ChatToolbar({
           webSearchAvailable: this.webSearchAvailable,
           webSearchEnabled: this.webSearchEnabled,
-          onToggleWebSearch: (): void => {
-            this.onToggleWebSearch()
+          availableSearchEngines: this.availableSearchEngines,
+          activeSearchEngineId: this.activeSearchEngineId,
+          onSearchEngineSelect: (engineId: string): void => {
+            this.onSearchEngineSelect(engineId)
           },
           toolSelectionAvailable: this.toolSelectionAvailable,
           hasSelectedTools: this.hasSelectedTools,

@@ -17,7 +17,8 @@ import {
   ToolCall,
   ToolConfig,
   ToolApprovalPolicy,
-  ToolSourceType
+  ToolSourceType,
+  SearchEngine
 } from '../models/ChatModels'
 import { Assistant, DEFAULT_ASSISTANT_ID } from '../models/AssistantModels'
 import { AttachmentPicker } from '../components/AttachmentPicker'
@@ -48,6 +49,8 @@ import { ChatMultiSelectToolbar } from '../components/chat/ChatMultiSelectToolba
 import { ChatMessageListSection } from '../components/chat/ChatMessageListSection'
 import { ChatToolPickerSheetContent } from '../components/chat/ChatToolPickerSheetContent'
 import { ChatToolExecutionApprovalSheetContent } from '../components/chat/ChatToolExecutionApprovalSheetContent'
+import { SearchEngineMenuOption } from '../components/ChatToolbar'
+import { getSearchEngineRegistry, registerAllSearchEngines, SearchEngineDescriptor } from '../services/search/Index'
 import {
   ChatNavigationTitleContent,
   CHAT_NAVIGATION_TITLE_STACK_BUILDER_HEIGHT
@@ -196,6 +199,10 @@ export struct ChatPage {
   // 联网查询全局可用状态（工具中心控制）
   @Local webSearchAvailable: boolean = false
   @Local webSearchConversationEnabled: boolean = false
+  // 联网菜单内可选的引擎列表(Bing 永远在内, 其它引擎填了 API Key 才出现)
+  @Local availableSearchEngines: SearchEngineMenuOption[] = []
+  // 当前选中的引擎 id(SearchEngine 枚举字符串)。和 PreferenceKeys.SEARCH_ENGINE 同步。
+  @Local activeSearchEngineId: string = SearchEngine.BING
   @Local selectedToolIds: string[] = []
   @Local availableChatTools: ToolConfig[] = []
   @Local isRefreshingMcpToolAvailability: boolean = false
@@ -1086,9 +1093,44 @@ export struct ChatPage {
       }
     }
     this.rebuildAvailableChatTools()
+    await this.refreshAvailableSearchEngines()
     const enabledMcpServerIds = await this.loadEnabledMcpServerIds()
     const selectedToolIds = await this.mcpService.loadSelectedToolIds()
     this.applySelectedToolIdsInMemory(selectedToolIds, enabledMcpServerIds)
+  }
+
+  // 重建联网菜单的引擎列表 + 当前活跃引擎。
+  // 已配置 = 引擎没有需要密码的配置项(Bing) 或 至少一个密码字段非空。
+  // ToolsCenterPanel 没有"启用/禁用"单引擎的概念, 这里以"配置完整"代表"可用"。
+  private async refreshAvailableSearchEngines(): Promise<void> {
+    registerAllSearchEngines()
+    const registry = getSearchEngineRegistry()
+    const descriptors = registry.getAll()
+    const next: SearchEngineMenuOption[] = []
+    for (let i = 0; i < descriptors.length; i++) {
+      if (await this.isSearchEngineConfigured(descriptors[i])) {
+        next.push({ id: descriptors[i].id as string, label: descriptors[i].label })
+      }
+    }
+    this.availableSearchEngines = next
+
+    const storedEngine = await this.preferencesService.getString(PreferenceKeys.SEARCH_ENGINE, SearchEngine.BING)
+    this.activeSearchEngineId = storedEngine !== '' ? storedEngine : SearchEngine.BING
+  }
+
+  private async isSearchEngineConfigured(desc: SearchEngineDescriptor): Promise<boolean> {
+    let hasPasswordField = false
+    for (let i = 0; i < desc.configFields.length; i++) {
+      if (desc.configFields[i].isPassword) {
+        hasPasswordField = true
+        const value = await this.preferencesService.getString(desc.configFields[i].key, '')
+        if (value.trim() !== '') {
+          return true
+        }
+      }
+    }
+    // 无密码字段(Bing 这种零配置引擎) -> 始终可用
+    return !hasPasswordField
   }
 
   private async refreshMcpToolAvailability(showError: boolean): Promise<void> {
@@ -1307,15 +1349,27 @@ export struct ChatPage {
     await this.preferencesService.setString(PreferenceKeys.CHAT_REASONING_LEVEL, level)
   }
 
-  private handleComposerWebSearchToggle(): void {
-    const nextValue = !this.getActiveComposerWebSearchEnabled()
+  private handleComposerWebSearchSelect(engineId: string): void {
+    // engineId 非空 = 选择某个引擎并启用联网; 空串 = "禁用联网"项。
+    // 引擎选择全局持久化(SEARCH_ENGINE), 即便在编辑模式下也跟随; 启用/禁用在编辑模式下只改本地状态。
+    if (engineId !== '') {
+      this.activeSearchEngineId = engineId
+      this.persistSearchEnginePreference(engineId)
+    }
+    const enableSearch = engineId !== ''
     if (this.isEditingMessage) {
-      this.editingWebSearchEnabled = this.webSearchAvailable && nextValue
+      this.editingWebSearchEnabled = this.webSearchAvailable && enableSearch
       return
     }
-    this.setWebSearchConversationEnabled(nextValue).catch((error: Object) => {
+    this.setWebSearchConversationEnabled(enableSearch).catch((error: Object) => {
       console.error('ChatPage', `Failed to update chat search setting: ${JSON.stringify(error)}`)
       this.showError(pickLocalizedText('联网查询开关保存失败', 'Failed to save web search toggle'))
+    })
+  }
+
+  private persistSearchEnginePreference(engineId: string): void {
+    this.preferencesService.setString(PreferenceKeys.SEARCH_ENGINE, engineId).catch((error: Object) => {
+      console.error('ChatPage', `Failed to persist search engine: ${JSON.stringify(error)}`)
     })
   }
 
@@ -2220,8 +2274,10 @@ export struct ChatPage {
               isAttachmentPanelOpen: this.showAttachmentPicker,
               webSearchAvailable: this.webSearchAvailable,
               webSearchEnabled: this.getActiveComposerWebSearchEnabled(),
-              onToggleWebSearch: (): void => {
-                this.handleComposerWebSearchToggle()
+              availableSearchEngines: this.availableSearchEngines,
+              activeSearchEngineId: this.activeSearchEngineId,
+              onSearchEngineSelect: (engineId: string): void => {
+                this.handleComposerWebSearchSelect(engineId)
               },
               toolSelectionAvailable: shouldShowToolSelectionChipForChat(
                 this.availableChatTools.length,

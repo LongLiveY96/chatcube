@@ -2,6 +2,7 @@ export const LEGACY_WEB_SEARCH_TOOL_ID: string = 'web_search'
 export const SEARCH_WEB_TOOL_ID: string = 'search_web'
 export const SCRAPE_WEB_TOOL_ID: string = 'scrape_web'
 export const ASK_USER_TOOL_ID: string = 'ask_user'
+export const GET_TIME_INFO_TOOL_ID: string = 'get_time_info'
 
 export function normalizeToolFunctionName(raw: string): string {
   const value = raw as string | null | undefined

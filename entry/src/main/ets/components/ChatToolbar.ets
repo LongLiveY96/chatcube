@@ -7,11 +7,22 @@ import { ReasoningLevel } from '../models/ChatModels'
 import { ReasoningControlMode } from '../services/registry/CompatibilityResolver'
 import { getAppUiState } from '../state/AppUiState'
 
+// 联网菜单中的引擎条目: id = SearchEngine 枚举字符串值, label = 引擎显示名
+export interface SearchEngineMenuOption {
+  id: string
+  label: string
+}
+
 @ComponentV2
 export struct ChatToolbar {
   @Param webSearchAvailable: boolean = false
   @Param webSearchEnabled: boolean = false
-  @Event onToggleWebSearch: () => void = (): void => {}
+  // 已配置的引擎列表(Bing 永远在内, 其它引擎填了 API Key 才出现); 用于联网 chip 的下拉菜单。
+  @Param availableSearchEngines: SearchEngineMenuOption[] = []
+  // 当前选中的引擎 id(SearchEngine 枚举字符串)。即使 webSearchEnabled=false 也会保留以便切回时复用。
+  @Param activeSearchEngineId: string = ''
+  // 用户在菜单里点了某个引擎(传入引擎 id)或"禁用联网"(传入空串)。
+  @Event onSearchEngineSelect: (engineId: string) => void = (_id: string): void => {}
   @Param toolSelectionAvailable: boolean = false
   @Param hasSelectedTools: boolean = false
   @Event onOpenTools: () => void = (): void => {}
@@ -67,6 +78,9 @@ export struct ChatToolbar {
     return this.isDarkMode ? 'rgba(0, 0, 0, 0.18)' : 'rgba(15, 23, 42, 0.06)'
   }
 
+  // 联网 chip 始终显示"联网"标签, 引擎名通过菜单内的勾选项呈现, 不外露在 chip 上。
+  // 启用与否仅靠 chip 高亮区分, 避免引擎名(如 "Firecrawl")撑宽工具栏导致与右侧 FAB 重合。
+
   build() {
     Row() {
       if (this.webSearchAvailable) {
@@ -81,6 +95,11 @@ export struct ChatToolbar {
               .fontColor(this.webSearchEnabled ? this.themePrimary : $r('app.color.text_secondary'))
               .fontWeight(this.webSearchEnabled ? FontWeight.Medium : FontWeight.Regular)
               .margin({ left: 4 })
+
+            SymbolGlyph($r('sys.symbol.chevron_up'))
+              .fontSize(12)
+              .fontColor([this.webSearchEnabled ? this.themePrimary : $r('app.color.text_secondary')])
+              .margin({ left: 2 })
           }
         }
         .height(32)
@@ -94,8 +113,11 @@ export struct ChatToolbar {
         })
         .shadow({ radius: 10, color: this.getChipShadowColor(), offsetX: 0, offsetY: 2 })
         .animation({ duration: 200, curve: Curve.EaseOut })
-        .onClick(() => {
-          this.onToggleWebSearch()
+        .bindMenu(this.WebSearchMenuBuilder(), {
+          placement: Placement.BottomLeft,
+          offset: { x: 0, y: 8 },
+          backgroundColor: this.themeSurface,
+          backgroundBlurStyle: BlurStyle.Regular
         })
       }
 
@@ -131,24 +153,19 @@ export struct ChatToolbar {
       }
 
       if (this.reasoningAvailable) {
-        // 推理控制按钮
+        // 推理控制按钮: 启用时只显示 level(自动/低/中/高/超高), 禁用时显示"推理"label。
+        // 旧版同时显示 "推理 + level" 在小屏会和联网/工具 chip 一起把工具栏挤满, 这里精简为单 Text。
         Button({ type: ButtonType.Capsule, stateEffect: false }) {
           Row() {
             SymbolGlyph($r('sys.symbol.lightbulb'))
               .fontSize(16)
               .fontColor([this.isReasoningEnabled() ? this.themePrimary : $r('app.color.text_secondary')])
 
-            Text($r('app.string.chat_toolbar_reasoning'))
+            Text(this.getReasoningChipText())
               .fontSize(14)
               .fontColor(this.isReasoningEnabled() ? this.themePrimary : $r('app.color.text_secondary'))
               .fontWeight(this.isReasoningEnabled() ? FontWeight.Medium : FontWeight.Regular)
               .margin({ left: 4 })
-
-            Text(this.getReasoningLevelText(this.reasoningLevel))
-              .fontSize(13)
-              .fontColor(this.isReasoningEnabled() ? this.themePrimary : $r('app.color.text_secondary'))
-              .fontWeight(this.isReasoningEnabled() ? FontWeight.Medium : FontWeight.Regular)
-              .margin({ left: 6 })
 
             SymbolGlyph($r('sys.symbol.chevron_up'))
               .fontSize(12)
@@ -209,6 +226,68 @@ export struct ChatToolbar {
         return $r('app.string.reasoning_level_xhigh')
       default:
         return $r('app.string.reasoning_level_off')
+    }
+  }
+
+  // 推理 chip 单文本: 启用时只显示级别(自动/低/中/高/超高), 禁用时显示"推理"避免显示成"关闭"。
+  private getReasoningChipText(): ResourceStr {
+    if (this.isReasoningEnabled()) {
+      return this.getReasoningLevelText(this.reasoningLevel)
+    }
+    return $r('app.string.chat_toolbar_reasoning')
+  }
+
+  @Builder
+  private WebSearchMenuBuilder() {
+    Menu() {
+      ForEach(this.availableSearchEngines, (engine: SearchEngineMenuOption): void => {
+        this.WebSearchEngineMenuItem(engine.id, engine.label)
+      }, (engine: SearchEngineMenuOption): string => engine.id)
+      this.WebSearchDisableMenuItem()
+    }
+  }
+
+  @Builder
+  private WebSearchEngineMenuItem(engineId: string, label: string) {
+    if (this.webSearchEnabled && this.activeSearchEngineId === engineId) {
+      MenuItem({
+        startIcon: $r('sys.symbol.checkmark'),
+        content: label
+      })
+        .contentFont({ size: 14 })
+        .onClick(() => {
+          this.onSearchEngineSelect(engineId)
+        })
+    } else {
+      MenuItem({
+        content: label
+      })
+        .contentFont({ size: 14 })
+        .onClick(() => {
+          this.onSearchEngineSelect(engineId)
+        })
+    }
+  }
+
+  @Builder
+  private WebSearchDisableMenuItem() {
+    if (!this.webSearchEnabled) {
+      MenuItem({
+        startIcon: $r('sys.symbol.checkmark'),
+        content: $r('app.string.chat_search_menu_disable')
+      })
+        .contentFont({ size: 14 })
+        .onClick(() => {
+          this.onSearchEngineSelect('')
+        })
+    } else {
+      MenuItem({
+        content: $r('app.string.chat_search_menu_disable')
+      })
+        .contentFont({ size: 14 })
+        .onClick(() => {
+          this.onSearchEngineSelect('')
+        })
     }
   }
 

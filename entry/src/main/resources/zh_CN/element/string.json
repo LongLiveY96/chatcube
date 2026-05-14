@@ -609,6 +609,10 @@
       "value": "联网查询"
     },
     {
+      "name": "chat_search_menu_disable",
+      "value": "禁用联网"
+    },
+    {
       "name": "chat_toolbar_tools",
       "value": "工具"
     },

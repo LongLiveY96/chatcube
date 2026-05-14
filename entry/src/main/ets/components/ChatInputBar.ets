@@ -1,4 +1,4 @@
-import { getModelIconPath, buildIconResourcePath } from '../utils/ProviderIconUtils'
+import { getModelIconPath, buildIconResourcePath, isNetworkIconPath, isSandboxIconPath } from '../utils/ProviderIconUtils'
 import { MessageAttachment, AttachmentType } from '../models/ChatModels'
 import {
   BaseItemInfo,
@@ -111,6 +111,14 @@ export struct ChatInputBar {
     return this.getCurrentModelIconResourcePath() !== ''
   }
 
+  // rawfile 相对路径(如 'icons/xiaomi.svg')需要 $rawfile() 包装,
+  // 而 https URL / 沙箱绝对路径可直接传给 Image。
+  // 沿用 ChatNavigationTitleContent 同名 helper 的分支判定, 保持各处显示一致。
+  private isRawfileCurrentModelIcon(): boolean {
+    const resourcePath = this.getCurrentModelIconResourcePath()
+    return resourcePath !== '' && !isNetworkIconPath(resourcePath) && !isSandboxIconPath(resourcePath)
+  }
+
   aboutToAppear(): void {
     this.lastHasContent = this.computeHasContent()
     this.updateBreathing()
@@ -167,10 +175,17 @@ export struct ChatInputBar {
           if (this.currentModelId !== '') {
             if (this.hasCurrentModelIcon()) {
               Column() {
-                Image(this.getCurrentModelIconResourcePath())
-                  .width(18)
-                  .height(18)
-                  .objectFit(ImageFit.Contain)
+                if (this.isRawfileCurrentModelIcon()) {
+                  Image($rawfile(this.getCurrentModelIconResourcePath()))
+                    .width(18)
+                    .height(18)
+                    .objectFit(ImageFit.Contain)
+                } else {
+                  Image(this.getCurrentModelIconResourcePath())
+                    .width(18)
+                    .height(18)
+                    .objectFit(ImageFit.Contain)
+                }
               }
               .width(28)
               .height(28)

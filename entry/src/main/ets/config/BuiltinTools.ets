@@ -11,10 +11,12 @@ import { ToolExecutor, RegisteredTool, getToolRegistry } from '../services/ToolR
 import { getWebSearchService, SearchResult, WebSearchResult } from '../services/WebSearchService'
 import {
   ASK_USER_TOOL_ID,
+  GET_TIME_INFO_TOOL_ID,
   LEGACY_WEB_SEARCH_TOOL_ID,
   SCRAPE_WEB_TOOL_ID,
   SEARCH_WEB_TOOL_ID
 } from '../utils/SearchToolIdentityUtils'
+import { i18n } from '@kit.LocalizationKit'
 
 // search_web 工具参数接口
 interface SearchWebArgs {
@@ -356,6 +358,102 @@ function createAskUserToolConfig(): ToolConfig {
   )
 }
 
+// ===== get_time_info 工具 =====
+// 给模型提供"当前设备本地时间"的能力。无参数, 调用后返回 year/month/day/weekday/datetime/timezone 等字段。
+// 与 rikkahub LocalTools.kt 的 timeTool 对齐, 但用 ArkTS 标准 Date + @kit.LocalizationKit 实现。
+
+class TimeInfoOutput {
+  year: number = 0
+  month: number = 0
+  day: number = 0
+  weekday: string = ''
+  weekday_en: string = ''
+  weekday_index: number = 0
+  date: string = ''
+  time: string = ''
+  datetime: string = ''
+  timezone: string = ''
+  utc_offset: string = ''
+  timestamp_ms: number = 0
+}
+
+const WEEKDAY_NAMES_ZH: string[] = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+const WEEKDAY_NAMES_EN: string[] = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : `${n}`
+}
+
+function buildUtcOffset(now: Date): string {
+  // getTimezoneOffset 返回 UTC - local 的分钟数, 东八区为 -480, 这里取反得到 +480
+  const offsetMinutes = -now.getTimezoneOffset()
+  const sign = offsetMinutes >= 0 ? '+' : '-'
+  const abs = Math.abs(offsetMinutes)
+  return `${sign}${pad2(Math.floor(abs / 60))}:${pad2(abs % 60)}`
+}
+
+function resolveTimezoneId(): string {
+  try {
+    return i18n.getTimeZone().getID()
+  } catch (e) {
+    return ''
+  }
+}
+
+class GetTimeInfoExecutor implements ToolExecutor {
+  async execute(_args: string): Promise<string> {
+    const now = new Date()
+    const output = new TimeInfoOutput()
+    output.year = now.getFullYear()
+    output.month = now.getMonth() + 1
+    output.day = now.getDate()
+    const weekdayJs = now.getDay() // 0=Sunday ... 6=Saturday
+    output.weekday = WEEKDAY_NAMES_ZH[weekdayJs]
+    output.weekday_en = WEEKDAY_NAMES_EN[weekdayJs]
+    // ISO 8601: 1=Monday ... 7=Sunday
+    output.weekday_index = weekdayJs === 0 ? 7 : weekdayJs
+    output.date = `${output.year}-${pad2(output.month)}-${pad2(output.day)}`
+    output.time = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`
+    output.utc_offset = buildUtcOffset(now)
+    output.datetime = `${output.date}T${output.time}${output.utc_offset}`
+    const tzId = resolveTimezoneId()
+    output.timezone = tzId !== '' ? tzId : `UTC${output.utc_offset}`
+    output.timestamp_ms = now.getTime()
+    return JSON.stringify(output)
+  }
+}
+
+function createGetTimeInfoToolDefinition(): ToolDefinition {
+  const parameters = new ToolParameters()
+  // 无参数, 但保留显式 type=object 结构, 避免某些 provider 校验空 schema 抱怨
+  parameters.setRawSchema(JSON.parse('{"type":"object","properties":{}}') as Object)
+
+  const func = new ToolFunction(
+    GET_TIME_INFO_TOOL_ID,
+    'Get the current local date and time from the device. Returns year/month/day, weekday, ISO date/time strings, timezone, UTC offset, and millisecond timestamp. Call this whenever the user asks "what time is it", needs to compute relative dates, or schedules anything tied to "today"/"now".',
+    parameters
+  )
+
+  return new ToolDefinition(func)
+}
+
+function createGetTimeInfoToolConfig(): ToolConfig {
+  // 纯读 + 无副作用, READ 权限即可, 不需要审批; 默认 enabled=true, 仍由助手白名单决定 AI 是否能看到。
+  return new ToolConfig(
+    GET_TIME_INFO_TOOL_ID,
+    '获取当前时间',
+    '返回设备当前本地日期、时间、时区、时间戳等信息, 供模型回答与时间相关的问题。',
+    null,
+    true,
+    false,
+    ToolSourceType.BUILTIN,
+    'builtin',
+    GET_TIME_INFO_TOOL_ID,
+    '内置工具',
+    ToolPermissionLevel.READ
+  )
+}
+
 // 注册所有内置工具
 export function registerBuiltinTools(): void {
   const registry = getToolRegistry()
@@ -405,6 +503,17 @@ export function registerBuiltinTools(): void {
     registeredNow += 1
   }
 
+  if (!registry.isToolRegistered(GET_TIME_INFO_TOOL_ID)) {
+    const getTimeInfoTool = new RegisteredTool(
+      GET_TIME_INFO_TOOL_ID,
+      createGetTimeInfoToolConfig(),
+      createGetTimeInfoToolDefinition(),
+      new GetTimeInfoExecutor()
+    )
+    registry.registerTool(getTimeInfoTool)
+    registeredNow += 1
+  }
+
   console.info(
     'BuiltinTools',
     `Builtin tools ready: total=${registry.getToolCount()}, newlyRegistered=${registeredNow}`
@@ -413,5 +522,5 @@ export function registerBuiltinTools(): void {
 
 // 获取所有内置工具 ID
 export function getBuiltinToolIds(): string[] {
-  return [LEGACY_WEB_SEARCH_TOOL_ID, SEARCH_WEB_TOOL_ID, SCRAPE_WEB_TOOL_ID, ASK_USER_TOOL_ID]
+  return [LEGACY_WEB_SEARCH_TOOL_ID, SEARCH_WEB_TOOL_ID, SCRAPE_WEB_TOOL_ID, ASK_USER_TOOL_ID, GET_TIME_INFO_TOOL_ID]
 }

@@ -609,6 +609,10 @@
       "value": "Web Query"
     },
     {
+      "name": "chat_search_menu_disable",
+      "value": "Disable Web Search"
+    },
+    {
       "name": "chat_toolbar_tools",
       "value": "Tools"
     },
