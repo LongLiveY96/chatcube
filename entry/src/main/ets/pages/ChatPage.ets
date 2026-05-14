@@ -17,6 +17,7 @@ import {
   ToolCall,
   ToolConfig,
   ToolApprovalPolicy,
+  ToolPermissionLevel,
   ToolSourceType,
   SearchEngine
 } from '../models/ChatModels'
@@ -206,6 +207,7 @@ export struct ChatPage {
   @Local showToolPickerSheet: boolean = false
   @Local showToolExecutionApprovalSheet: boolean = false
   @Local toolExecutionApprovalToolId: string = ''
+  @Local toolExecutionApprovalIsWriteTool: boolean = false
   @Local toolExecutionApprovalSourceLabel: string = ''
   @Local toolExecutionApprovalName: string = ''
   @Local toolExecutionApprovalSourceId: string = ''
@@ -365,6 +367,7 @@ export struct ChatPage {
         tool.config.sourceLabel,
         tool.config.sourceType,
         tool.config.sourceId,
+        tool.config.permissionLevel,
         toolCall.arguments
       )
     })
@@ -2640,6 +2643,7 @@ export struct ChatPage {
       argumentsTruncated: this.toolExecutionApprovalArgumentsTruncated,
       showRawArguments: this.showRawToolExecutionApprovalArguments,
       alwaysAllowAvailable: this.toolExecutionApprovalSourceId.trim() !== '',
+      isWriteTool: this.toolExecutionApprovalIsWriteTool,
       themePrimary: this.themePrimary,
       isDarkMode: this.isDarkMode,
       onToggleShowRaw: (): void => {
@@ -3226,6 +3230,7 @@ export struct ChatPage {
     sourceLabel: string,
     sourceType: string,
     sourceId: string,
+    permissionLevel: string,
     argumentsJson: string
   ): Promise<boolean> {
     const preview = buildToolArgumentsPreview(argumentsJson, 4, 800)
@@ -3236,6 +3241,7 @@ export struct ChatPage {
         previousResolver(false)
       }
       this.toolExecutionApprovalToolId = toolId.trim()
+      this.toolExecutionApprovalIsWriteTool = permissionLevel === ToolPermissionLevel.WRITE
       this.toolExecutionApprovalSourceLabel = sourceLabel.trim()
       this.toolExecutionApprovalName = toolName.trim() !== ''
         ? toolName.trim()

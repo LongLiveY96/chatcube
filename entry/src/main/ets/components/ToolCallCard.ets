@@ -20,6 +20,12 @@ function getToolDisplayName(toolCall: ToolCall): string | Resource {
   if (isSearchWebFunctionName(raw)) {
     return $r('app.string.web_search')
   }
+  if (raw.startsWith('mcp__')) {
+    const parts = raw.split('__')
+    if (parts.length >= 3) {
+      return parts[2]
+    }
+  }
   return raw
 }
 

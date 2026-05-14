@@ -13,6 +13,7 @@ export struct ChatToolExecutionApprovalSheetContent {
   @Param argumentsTruncated: boolean = false
   @Param showRawArguments: boolean = false
   @Param alwaysAllowAvailable: boolean = false
+  @Param isWriteTool: boolean = false
   @Param themePrimary: ResourceColor = ''
   @Param isDarkMode: boolean = false
   @Event onToggleShowRaw: () => void = (): void => {}
@@ -59,13 +60,15 @@ export struct ChatToolExecutionApprovalSheetContent {
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
 
-        Text(pickLocalizedText('写操作', 'Write'))
-          .fontSize(11)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(Color.White)
-          .padding({ left: 10, right: 10, top: 5, bottom: 5 })
-          .borderRadius(999)
-          .backgroundColor('#D9485F')
+        if (this.isWriteTool) {
+          Text(pickLocalizedText('写操作', 'Write'))
+            .fontSize(11)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(Color.White)
+            .padding({ left: 10, right: 10, top: 5, bottom: 5 })
+            .borderRadius(999)
+            .backgroundColor('#D9485F')
+        }
       }
       .width('100%')
       .alignItems(VerticalAlign.Top)
@@ -100,25 +103,27 @@ export struct ChatToolExecutionApprovalSheetContent {
       .borderRadius(16)
       .backgroundColor(this.themeSurface)
 
-      Column({ space: 6 }) {
-        Text(pickLocalizedText('风险提醒', 'Risk Notice'))
-          .fontSize(11)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.riskAccentColor)
+      if (this.isWriteTool) {
+        Column({ space: 6 }) {
+          Text(pickLocalizedText('风险提醒', 'Risk Notice'))
+            .fontSize(11)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.riskAccentColor)
 
-        Text(pickLocalizedText(
-          '这是写操作工具。模型只是提出调用，真正执行前仍需要你明确批准。',
-          'This is a write tool. The model only proposes the call, and you still have to explicitly approve it.'
-        ))
-          .fontSize(12)
-          .lineHeight(18)
-          .fontColor(getAppUiState().themeTextSecondary)
-          .width('100%')
+          Text(pickLocalizedText(
+            '这是写操作工具。模型只是提出调用，真正执行前仍需要你明确批准。',
+            'This is a write tool. The model only proposes the call, and you still have to explicitly approve it.'
+          ))
+            .fontSize(12)
+            .lineHeight(18)
+            .fontColor(getAppUiState().themeTextSecondary)
+            .width('100%')
+        }
+        .width('100%')
+        .padding(14)
+        .borderRadius(16)
+        .backgroundColor(this.riskBackgroundColor)
       }
-      .width('100%')
-      .padding(14)
-      .borderRadius(16)
-      .backgroundColor(this.riskBackgroundColor)
 
       Column({ space: 8 }) {
         Row() {
