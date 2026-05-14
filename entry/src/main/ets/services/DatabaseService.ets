@@ -11,7 +11,7 @@ import {
 } from '../models/ChatModels'
 import { Assistant, DEFAULT_ASSISTANT_ID, createDefaultAssistant } from '../models/AssistantModels'
 import { deserializeMessageParts, serializeMessageParts } from '../models/MessageParts'
-import { ensureMessageParts } from '../utils/ChatMessagePartsHelper'
+import { ensureMessageParts, buildMessagePartsFromLegacy } from '../utils/ChatMessagePartsHelper'
 import { DEFAULT_PRIMARY_COLOR } from '../config/ThemeDefaults'
 import { generateDefaultTextIcon } from '../utils/IconGeneratorUtils'
 import { isPresetProvider, getPresetProviderById } from '../config/PresetProviders'
@@ -325,6 +325,8 @@ export class DatabaseService {
 	      // 迁移现有供应商数据
 	      await this.migrateExistingProviders()
 	      await this.ensureDefaultAssistant()
+      // 迁移历史消息: 为 parts_json 为空的助手消息填充 parts
+      await this.migrateMessagePartsIfNeeded()
     } catch (error) {
       console.error('DatabaseService', `Failed to create tables: ${JSON.stringify(error)}`)
       throw new AppError(
@@ -383,6 +385,46 @@ export class DatabaseService {
       await this.rdbStore.executeSql(`ALTER TABLE ${TableNames.MESSAGES} ADD COLUMN parts_json TEXT DEFAULT ''`)
     } catch (error) {
       console.info('DatabaseService', 'parts_json column may already exist')
+    }
+  }
+
+  // 迁移历史消息: 为 parts_json 为空的助手消息从旧字段合成 parts 并持久化
+  private async migrateMessagePartsIfNeeded(): Promise<void> {
+    if (this.rdbStore === null) {
+      return
+    }
+    try {
+      const predicates = new relationalStore.RdbPredicates(TableNames.MESSAGES)
+      predicates.equalTo('role', 'assistant')
+      predicates.equalTo('parts_json', '')
+      const resultSet = await this.rdbStore.query(predicates)
+      let count = 0
+      try {
+        while (resultSet.goToNextRow()) {
+          const message = this.buildChatMessageFromResultSet(resultSet)
+          if (message.content.trim() === '' && message.reasoningContent.trim() === '' &&
+            message.searchReferences.length === 0) {
+            continue
+          }
+          const parts = buildMessagePartsFromLegacy(message)
+          if (parts.length === 0) {
+            continue
+          }
+          const partsJson = serializeMessageParts(parts)
+          const updateBucket: relationalStore.ValuesBucket = { parts_json: partsJson }
+          const updatePredicates = new relationalStore.RdbPredicates(TableNames.MESSAGES)
+          updatePredicates.equalTo('id', message.id)
+          await this.rdbStore.update(updateBucket, updatePredicates)
+          count++
+        }
+      } finally {
+        resultSet.close()
+      }
+      if (count > 0) {
+        console.info('DatabaseService', `Migrated parts for ${count} messages`)
+      }
+    } catch (error) {
+      console.error('DatabaseService', `Failed to migrate message parts: ${JSON.stringify(error)}`)
     }
   }
 

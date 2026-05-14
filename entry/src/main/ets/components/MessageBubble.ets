@@ -13,8 +13,6 @@ import { showToast } from '../utils/ToastUtil'
 import { pickLocalizedText } from '../utils/LocalizedTextUtils'
 import { getModelIconPath, buildIconResourcePath } from '../utils/ProviderIconUtils'
 import { shouldShowAssistantMessageToolbar } from '../utils/MessageBubbleDisplayUtils'
-import { SearchReferenceCard } from './SearchReferenceCard'
-import { ToolCallCard } from './ToolCallCard'
 import { AskUserCard } from './AskUserCard'
 import { HtmlPreviewCard } from './HtmlPreviewCard'
 import { MermaidPreviewCard } from './MermaidPreviewCard'
@@ -131,12 +129,6 @@ export struct MessageBubble {
   @Local expandedReasoningKeys: string[] = []
   // timeline 工具 step 的展开状态; ask_user 已回答后默认收起到标题行。
   @Local expandedToolStepKeys: string[] = []
-  // 点击 tool step 时打开的"本次工具调用结果"sheet
-  @Local showToolDetailSheet: boolean = false
-  @Local toolDetailRefs: SearchReference[] = []
-  @Local toolDetailTitle: string = ''
-  @Local toolDetailQuery: string = ''
-  @Local toolDetailEngine: string = ''
   @Local translatedText: string = ''  // 翻译结果
   @Local isTranslating: boolean = false  // 是否正在翻译
   @Local showTranslation: boolean = false  // 是否显示翻译结果
@@ -414,11 +406,6 @@ export struct MessageBubble {
     this.reasoningShimmerAlpha = 1.0
     this.expandedReasoningKeys = []
     this.expandedToolStepKeys = []
-    this.showToolDetailSheet = false
-    this.toolDetailRefs = []
-    this.toolDetailTitle = ''
-    this.toolDetailQuery = ''
-    this.toolDetailEngine = ''
     this.stopReasoningTimer()
     this.stopReasoningShimmer()
     this.translatedText = ''
@@ -1675,48 +1662,6 @@ export struct MessageBubble {
                   }
                 }, (toolCall: ToolCall, index: number) => 'ask_' + toolCall.id + '_' + index.toString())
               }
-            } else {
-              // ========== 工具调用区域 ==========
-              if (this.message.hasToolCalls()) {
-                ForEach(this.message.toolCalls, (toolCall: ToolCall, index: number) => {
-                  if (!this.shouldHideToolCallCard(toolCall)) {
-                    if (isAskUserFunctionName(toolCall.functionName)) {
-                      AskUserCard({
-                        toolCall: toolCall,
-                        isAnswered: toolCall.approvalState === 'answered' ||
-                          (index < this.message.toolResults.length),
-                        answeredPayload: toolCall.approvalReason,
-                        onAnswer: (toolCallId: string, answerJson: string): void => {
-                          this.onAskUserAnswer(toolCallId, answerJson)
-                        }
-                      })
-                        .margin({ bottom: 6 })
-                    } else {
-                      ToolCallCard({
-                        toolCall: toolCall,
-                        toolResult: index < this.message.toolResults.length ? this.message.toolResults[index] : null,
-                        isExecuting: this.message.isGenerating && index >= this.message.toolResults.length
-                      })
-                        .margin({ bottom: 6 })
-                    }
-                  }
-                }, (toolCall: ToolCall, index: number) => toolCall.id + '_' + index.toString())
-              }
-            }
-
-            // ========== 搜索引用区域 ==========
-            // 走 parts 时搜索结果由对应工具 step 统一展示,气泡上不再重复独立卡片;
-            // 仅无法迁移出 parts 的极端旧数据保持原来的独立卡片
-            if (this.message.hasSearchReferences() && !this.shouldRenderParts()) {
-              SearchReferenceCard({
-                query: this.extractSearchQuery(),
-                searchEngine: this.message.searchEngine || 'Web',
-                references: this.message.searchReferences,
-                sourceLabel: this.getSearchSourceLabel(),
-                // 搜索结果列表是流式热路径里最重的部分:默认只渲染摘要胶囊,用户点开时再渲染完整列表。
-                initialExpanded: false
-              })
-                .margin({ bottom: 6 })
             }
 
             // ========== 附件区域（AI 生成的图片） ==========
@@ -1724,63 +1669,12 @@ export struct MessageBubble {
               this.AssistantAttachments()
             }
 
-            // ========== 推理内容区域(可折叠) ==========
-            // parts 已经把 reasoning 串在一起渲染,这里就跳过,避免重复
-            if (this.message.hasReasoningContent() && !this.shouldRenderParts()) {
-              this.ReasoningSection()
-            }
-
-            // ========== 加载状态或主要内容区域 ==========
-            if (!this.shouldRenderParts()) {
-              if (this.message.content.length === 0) {
-                if (this.message.reasoningContent.length === 0 &&
-                    (this.message.isGenerating || this.message.isSearching)) {
-                  if (this.message.isSearching) {
-                    this.SearchingIndicatorInline()
-                  } else {
-                    this.TypingIndicator()
-                  }
-                }
-              } else if (this.hasPreviewSegments()) {
-                ForEach(this.getContentSegments(),
-                  (segment: ContentSegment) => {
-                    if (segment.type === ContentSegmentType.HTML) {
-                      HtmlPreviewCard({
-                        htmlCode: segment.renderContent,
-                        onCopyCode: (code: string) => {
-                          this.copyToClipboard(code)
-                          showToast(this.getUIContext(), $r('app.string.copy_success'))
-                        }
-                      })
-                    } else if (segment.type === ContentSegmentType.MERMAID) {
-                      MermaidPreviewCard({
-                        mermaidCode: segment.renderContent,
-                        onCopyCode: (code: string) => {
-                          this.copyToClipboard(code)
-                          showToast(this.getUIContext(), $r('app.string.copy_success'))
-                        }
-                      })
-			            } else {
-			              Markdown({
-			                controller: this.markdownController,
-			                text: segment.renderContent
-			              })
-                        .width('100%')
-                        .backgroundColor(Color.Transparent)
-                    }
-                  },
-                  (segment: ContentSegment, index: number) => {
-                    return 'segment_' + this.message.id + '_' + segment.type + '_' + index.toString()
-                  }
-                )
+            // ========== 加载状态（parts 为空且正在生成时） ==========
+            if (this.message.parts.length === 0 && (this.message.isGenerating || this.message.isSearching)) {
+              if (this.message.isSearching) {
+                this.SearchingIndicatorInline()
               } else {
-                Markdown({
-                  controller: this.markdownController,
-                  text: this.getReadonlyMessageContent()
-                })
-                  .width('100%')
-                  .backgroundColor(Color.Transparent)
-                  .transition(TransitionEffect.OPACITY.animation({ duration: 200 }))
+                this.TypingIndicator()
               }
             }
 
@@ -1868,19 +1762,6 @@ export struct MessageBubble {
     .alignItems(VerticalAlign.Top)
     .onTouch((event: TouchEvent) => {
       this.handleMultiSelectTouch(event)
-    })
-    .bindSheet($$this.showToolDetailSheet, this.ToolDetailSheetBuilder(), {
-      height: SheetSize.LARGE,
-      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-      dragBar: true,
-      showClose: true,
-      title: { title: $r('app.string.web_search') },
-      onDisappear: () => {
-        this.toolDetailRefs = []
-        this.toolDetailTitle = ''
-        this.toolDetailQuery = ''
-        this.toolDetailEngine = ''
-      }
     })
     .bindSheet($$this.showLatexPreview, this.LatexPreviewSheetBuilder(), {
       height: SheetSize.MEDIUM,
@@ -2510,18 +2391,6 @@ export struct MessageBubble {
       }
       return
     }
-    // 搜索类: 弹 sheet 列引用。失败/空结果不打开,避免串到同消息内其它搜索结果。
-    if (isSearchWebFunctionName(part.toolName)) {
-      const refs = this.resolveToolStepSearchReferences(part)
-      if (refs.length > 0) {
-        this.toolDetailRefs = refs
-        this.toolDetailTitle = this.buildToolStepTitle(part)
-        this.toolDetailQuery = this.extractToolStepSearchQuery(part)
-        this.toolDetailEngine = this.message.searchEngine || 'Web'
-        this.showToolDetailSheet = true
-      }
-      return
-    }
     // 其它工具: 参数里有 url 就直接打开
     const url = this.extractToolStepUrl(part)
     if (url !== '') {
@@ -3068,120 +2937,6 @@ export struct MessageBubble {
     .backgroundColor(getAppUiState().themeBackground)
   }
 
-  // tool step 点击后弹出的 sheet: 列出本次调用的 references (或老消息聚合 references 兜底)
-  @Builder
-  ToolDetailSheetBuilder() {
-    Column() {
-      // 头部
-      Row({ space: 6 }) {
-        SymbolGlyph($r('sys.symbol.magnifyingglass'))
-          .fontSize(14)
-          .fontColor([this.themePrimary])
-        Text(this.toolDetailTitle)
-          .fontSize(15)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(getAppUiState().themeTextPrimary)
-          .layoutWeight(1)
-          .maxLines(2)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 12, bottom: 8 })
-
-      if (this.toolDetailQuery !== '' || this.toolDetailEngine !== '') {
-        Row({ space: 6 }) {
-          if (this.toolDetailEngine !== '') {
-            Text(this.toolDetailEngine)
-              .fontSize(11)
-              .fontColor(this.themePrimary)
-              .padding({ left: 6, right: 6, top: 1, bottom: 1 })
-              .borderRadius(6)
-              .backgroundColor(this.themePrimarySubtleBackground)
-          }
-          if (this.toolDetailQuery !== '') {
-            Text(this.toolDetailQuery)
-              .fontSize(12)
-              .fontColor(getAppUiState().themeTextTertiary)
-              .layoutWeight(1)
-          }
-        }
-        .width('100%')
-        .padding({ left: 16, right: 16, bottom: 10 })
-      }
-
-      // 列表
-      Scroll() {
-        Column() {
-          ForEach(this.toolDetailRefs, (ref: SearchReference, index: number) => {
-            this.ToolDetailRefItem(ref, index + 1)
-          }, (ref: SearchReference, index: number) => `${ref.id}_${index}`)
-        }
-        .width('100%')
-        .padding({ left: 16, right: 16, bottom: 20 })
-      }
-      .layoutWeight(1)
-      .scrollBar(BarState.Auto)
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundColor(getAppUiState().themeBackground)
-  }
-
-  @Builder
-  ToolDetailRefItem(ref: SearchReference, index: number) {
-    Column({ space: 6 }) {
-      Row({ space: 8 }) {
-        Text(`${index}`)
-          .fontSize(11)
-          .fontColor(Color.White)
-          .fontWeight(FontWeight.Medium)
-          .width(20)
-          .height(20)
-          .textAlign(TextAlign.Center)
-          .borderRadius(10)
-          .backgroundColor(this.themePrimary)
-        Text(ref.title)
-          .fontSize(14)
-          .fontColor(getAppUiState().themeTextPrimary)
-          .fontWeight(FontWeight.Medium)
-          .layoutWeight(1)
-      }
-      .width('100%')
-
-      if (ref.snippet !== '') {
-        Text(ref.snippet)
-          .fontSize(12)
-          .fontColor(getAppUiState().themeTextSecondary)
-          .lineHeight(18)
-          .margin({ left: 28 })
-      }
-
-      Text(ref.url)
-        .fontSize(11)
-        .fontColor(getAppUiState().themeTextTertiary)
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .margin({ left: 28 })
-    }
-    .width('100%')
-    .padding({ left: 12, right: 12, top: 12, bottom: 12 })
-    .borderRadius(14)
-    .margin({ bottom: 8 })
-    .border({ width: 0.5, color: getAppUiState().themeDivider })
-    .stateStyles({
-      normal: {
-        .backgroundColor(getAppUiState().themeSurface)
-      },
-      pressed: {
-        .backgroundColor(getAppUiState().themeDivider)
-      }
-    })
-    .onClick(() => {
-      this.showToolDetailSheet = false
-      this.onOpenLink(ref.title, ref.url)
-    })
-  }
-
   private buildToolStepTitle(part: MessagePart): string {
     if (part.toolDisplayName.trim() !== '' && part.toolDisplayName !== part.toolName) {
       return part.toolDisplayName
@@ -3198,142 +2953,6 @@ export struct MessageBubble {
       part.toolPermissionLevel
     )
     return buildToolTitle(toolCall)
-  }
-
-  // 推理内容区域（可折叠）
-  @Builder
-  ReasoningSection() {
-    Column() {
-      // 推理标题栏（点击可折叠/展开）
-      Row() {
-        // 思考图标
-        SymbolGlyph($r('sys.symbol.lightbulb'))
-          .fontSize(14)
-          .fontColor([this.message.isGenerating ? this.themePrimary : $r('app.color.text_secondary')])
-
-        // 标题文本：根据生成状态显示不同内容
-        if (this.message.isGenerating && this.message.content.length === 0) {
-          // 正在思考状态：显示 “思考中 X.X 秒 + 跳动点 + shimmer”
-          Row({ space: 6 }) {
-            Text(this.getReasoningThinkingLabel())
-              .fontSize(12)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.themePrimary)
-              .opacity(this.reasoningShimmerAlpha)
-
-            TypingDots({ dotSize: 4, spacing: 2 })
-          }
-          .margin({ left: 6 })
-        } else if (this.message.isGenerating) {
-          // 有正文的情况:展示已思考 X.X 秒计数 + shimmer
-          Text(this.getReasoningThinkingLabel())
-            .fontSize(12)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(this.themePrimary)
-            .opacity(this.reasoningShimmerAlpha)
-            .margin({ left: 6 })
-        } else {
-          // 生成结束:展示 “思考过程 · 用时 X.X 秒”
-          Text(this.getReasoningFinishedLabel())
-            .fontSize(12)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.text_secondary'))
-            .margin({ left: 6 })
-        }
-
-        Blank()
-
-        // 展开/折叠状态提示
-        Text(this.isReasoningCardVisible() ? $r('app.string.common_collapse') : $r('app.string.common_expand'))
-          .fontSize(11)
-          .fontColor($r('app.color.text_secondary'))
-
-        // 展开/折叠箭头
-        SymbolGlyph($r('sys.symbol.chevron_down'))
-          .fontSize(12)
-          .fontColor([$r('app.color.text_secondary')])
-          .rotate({ angle: this.isReasoningCardVisible() ? 180 : 0 })
-          .animation({ duration: 200, curve: Curve.EaseOut })
-          .margin({ left: 4 })
-      }
-      .width('100%')
-      .height(36)
-      .padding({ left: 10, right: 10 })
-      .backgroundColor($r('app.color.divider'))
-      .borderRadius(8)
-      .clip(true)
-      .onClick(() => {
-        this.toggleReasoningCard()
-      })
-
-      // 正文渲染:
-      // 1) 用户主动展开 → 完整滚动显示
-      // 2) 流式中自动预览 → 限制 100vp 高度 + 上下渐变蒙版 + 自动滚到底部
-      // 3) 其他情况折叠
-      if (this.isReasoningExpanded) {
-        Column() {
-          Markdown({
-            controller: this.reasoningMarkdownController,
-            text: this.getReadonlyReasoningContent()
-          })
-            .constraintSize({ maxWidth: '100%' })
-            .backgroundColor(Color.Transparent)
-        }
-        .width('100%')
-        .padding({ left: 10, right: 10, top: 8, bottom: 8 })
-        .backgroundColor($r('app.color.divider'))
-        .borderRadius({ topLeft: 0, topRight: 0, bottomLeft: 8, bottomRight: 8 })
-        .clip(true)
-        .margin({ top: -8 })
-        .transition(TransitionEffect.OPACITY.animation({ duration: 200 }))
-      } else if (this.reasoningAutoPreview && this.message.reasoningContent.length > 0) {
-        Stack() {
-          Scroll(this.reasoningScroller) {
-            Markdown({
-              controller: this.reasoningMarkdownController,
-              text: this.getReadonlyReasoningContent()
-            })
-              .constraintSize({ maxWidth: '100%' })
-              .backgroundColor(Color.Transparent)
-          }
-          .scrollable(ScrollDirection.Vertical)
-          .scrollBar(BarState.Off)
-          .edgeEffect(EdgeEffect.None)
-          .width('100%')
-          .height(100)
-
-          // 顶部渐变蒙版:让刚滚出视口的老内容渐隐
-          Column()
-            .width('100%')
-            .height(16)
-            .linearGradient({
-              angle: 180,
-              colors: [[getAppUiState().themeAiBubble, 0.0], ['rgba(0,0,0,0)', 1.0]]
-            })
-            .align(Alignment.Top)
-
-          // 底部渐变蒙版
-          Column()
-            .width('100%')
-            .height(16)
-            .linearGradient({
-              angle: 0,
-              colors: [[getAppUiState().themeAiBubble, 0.0], ['rgba(0,0,0,0)', 1.0]]
-            })
-            .align(Alignment.Bottom)
-        }
-        .alignContent(Alignment.Top)
-        .width('100%')
-        .padding({ left: 10, right: 10, top: 8, bottom: 8 })
-        .backgroundColor($r('app.color.divider'))
-        .borderRadius({ topLeft: 0, topRight: 0, bottomLeft: 8, bottomRight: 8 })
-        .clip(true)
-        .margin({ top: -8 })
-        .transition(TransitionEffect.OPACITY.animation({ duration: 200 }))
-      }
-    }
-    .width('100%')
-    .margin({ bottom: 4 })
   }
 
   // 当前 reasoning 卡片是否处于可见态(完整展开 or 预览)
@@ -3473,17 +3092,6 @@ export struct MessageBubble {
     return isSearchToolFunctionName(functionName)
   }
 
-  private getSearchSourceLabel(): string {
-    const source = this.message.searchSource.trim()
-    if (source === 'tool') {
-      return '工具调用'
-    }
-    if (source === 'manual') {
-      return ''
-    }
-    // 兼容旧数据：没有持久化 searchSource 时，只展示工具调用，不暴露手动执行链路。
-    return this.message.hasToolCalls() ? '工具调用' : ''
-  }
 
   private getSearchingIndicatorText(): string {
     const engine = this.message.searchEngine.trim()
