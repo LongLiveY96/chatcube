@@ -2514,9 +2514,10 @@ export struct MessageBubble {
       .width('100%')
     }
     .width('100%')
-    .padding(12)
+    .padding(10)
     .backgroundColor(this.getTimelineBackgroundColor())
     .borderRadius(12)
+    .border({ width: 0.5, color: this.getTimelineRailColor() })
     .margin({ bottom: 8 })
   }
 
@@ -2547,7 +2548,7 @@ export struct MessageBubble {
         if (hasNextStep) {
           Column()
             .width(1.5)
-            .height(8)
+            .height(4)
             .backgroundColor(this.getTimelineRailColor())
             .margin({ top: 2 })
         }
@@ -2566,7 +2567,7 @@ export struct MessageBubble {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
-    .padding({ top: 3, bottom: 3 })
+    .padding({ top: 1, bottom: 1 })
   }
 
   // reasoning step 内容: 标题行(可点击 toggle) + 正文 (展开时用 Markdown 渲染)
