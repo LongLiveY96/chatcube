@@ -2299,6 +2299,7 @@ export struct ChatPage {
           dragBar: true,
           showClose: false,
           blurStyle: BlurStyle.Thick,
+          backgroundColor: this.themeBackground,
           preferType: SheetType.BOTTOM,
           onDisappear: () => {
             this.isModelSelectorVisible = false

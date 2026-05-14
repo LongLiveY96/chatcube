@@ -100,10 +100,6 @@ export struct ChatNavigationTitleContent {
     return this.isDarkMode ? '#A8212328' : '#BFFFFFFF'
   }
 
-  private hasCurrentModelIdentity(): boolean {
-    return this.currentModelId !== '' || this.currentModelName !== ''
-  }
-
   private getCurrentModelIconPath(): string {
     if (this.currentModelId !== '') {
       const iconById = getModelIconPath(this.currentModelId, this.currentProviderId, '')
@@ -180,6 +176,12 @@ export struct ChatNavigationTitleContent {
     const nextTitle = this.editingTitleInput.trim()
     if (nextTitle !== '' && nextTitle !== this.sessionTitle) {
       this.onTitleChanged(nextTitle)
+    }
+  }
+
+  private openModelSelector(): void {
+    if (!this.isEditingTitle) {
+      this.onModelSelect()
     }
   }
 
@@ -432,15 +434,17 @@ export struct ChatNavigationTitleContent {
               }
               .width('100%')
               .alignItems(VerticalAlign.Center)
-              .onClick(() => {
-                this.onModelSelect()
-              })
             }
             .layoutWeight(1)
             .alignItems(HorizontalAlign.Start)
           }
           .width('100%')
+          .height('100%')
           .alignItems(VerticalAlign.Center)
+          .hitTestBehavior(HitTestMode.Block)
+          .onClick(() => {
+            this.openModelSelector()
+          })
         }
       }
       .layoutWeight(1)

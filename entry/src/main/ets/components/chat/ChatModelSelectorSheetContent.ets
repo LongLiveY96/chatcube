@@ -1,6 +1,7 @@
 import { ModelProvider, ModelInfo, ModelInfoExtendedJson } from '../../models/ChatModels'
 import { ModelSelectorContent } from '../ModelSelector'
 import { ModelEditSheet } from '../ModelEditSheet'
+import { getAppUiState } from '../../state/AppUiState'
 
 @ComponentV2
 export struct ChatModelSelectorSheetContent {
@@ -17,6 +18,14 @@ export struct ChatModelSelectorSheetContent {
   @Event onSaveEdit: (draft: ModelInfoExtendedJson) => Promise<void> =
     async (_draft: ModelInfoExtendedJson): Promise<void> => {}
   @Event onCancelEdit: () => void = (): void => {}
+
+  private get themeBackground(): string {
+    return getAppUiState().themeBackground
+  }
+
+  private get themeTextPrimary(): string {
+    return getAppUiState().themeTextPrimary
+  }
 
   @Builder
   private ModelEditSheetBuilder() {
@@ -44,7 +53,7 @@ export struct ChatModelSelectorSheetContent {
           Text($r('app.string.select_model'))
             .fontSize(17)
             .fontWeight(FontWeight.Bold)
-            .fontColor($r('app.color.text_primary'))
+            .fontColor(this.themeTextPrimary)
             .layoutWeight(1)
             .textAlign(TextAlign.Center)
 
@@ -54,7 +63,7 @@ export struct ChatModelSelectorSheetContent {
         .width('100%')
         .height(56)
         .padding({ left: 16, right: 16 })
-        .backgroundColor($r('app.color.background'))
+        .backgroundColor(this.themeBackground)
 
         ModelSelectorContent({
           providers: this.providers,
@@ -81,5 +90,6 @@ export struct ChatModelSelectorSheetContent {
     }
     .width('100%')
     .height('100%')
+    .backgroundColor(this.themeBackground)
   }
 }
