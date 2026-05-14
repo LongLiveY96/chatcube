@@ -40,6 +40,7 @@ import {
 } from '../utils/ChatMessagePartsHelper'
 import { resolveToolSymbol } from '../utils/ToolIconMapping'
 import { buildToolTitle } from '../utils/ToolTitleBuilder'
+import { image } from '@kit.ImageKit'
 
 const DOMAIN = 0x0002
 const TAG = 'MessageBubble'
@@ -138,6 +139,8 @@ export struct MessageBubble {
   @Local showTranslation: boolean = false  // 是否显示翻译结果
   @Local isTranslationExpanded: boolean = true  // 翻译结果是否展开
   @Local currentTranslateLang: string = ''  // 当前翻译的目标语言
+  @Local showLatexPreview: boolean = false
+  @Local latexPreviewPixelMap: image.PixelMap | null = null
   // 深色模式状态（用于主题适配）
   private get isDarkMode(): boolean {
     return getAppUiState().isDarkMode
@@ -632,6 +635,11 @@ export struct MessageBubble {
       .setImageClickListener((src: string): boolean => {
         return this.openImagePreviewForMarkdownSource(src, this.message.content)
       })
+      .setLatexClickListener((_text: string, pixelMap: image.PixelMap): boolean => {
+        this.latexPreviewPixelMap = pixelMap
+        this.showLatexPreview = true
+        return true
+      })
       .setCodeCopyListener((code: string) => {
         this.copyToClipboard(code)
       })
@@ -673,6 +681,11 @@ export struct MessageBubble {
       .setImageClickListener((src: string): boolean => {
         return this.openImagePreviewForMarkdownSource(src, this.message.reasoningContent)
       })
+      .setLatexClickListener((_text: string, pixelMap: image.PixelMap): boolean => {
+        this.latexPreviewPixelMap = pixelMap
+        this.showLatexPreview = true
+        return true
+      })
       .setCodeCopyListener((code: string) => {
         this.copyToClipboard(code)
       })
@@ -709,6 +722,11 @@ export struct MessageBubble {
       })
       .setImageClickListener((src: string): boolean => {
         return this.openImagePreviewForMarkdownSource(src, this.translatedText)
+      })
+      .setLatexClickListener((_text: string, pixelMap: image.PixelMap): boolean => {
+        this.latexPreviewPixelMap = pixelMap
+        this.showLatexPreview = true
+        return true
       })
       .setCodeCopyListener((code: string) => {
         this.copyToClipboard(code)
@@ -766,6 +784,11 @@ export struct MessageBubble {
       })
       .setImageClickListener((src: string): boolean => {
         return this.openImagePreviewForMarkdownSource(src, this.message.content)
+      })
+      .setLatexClickListener((_text: string, pixelMap: image.PixelMap): boolean => {
+        this.latexPreviewPixelMap = pixelMap
+        this.showLatexPreview = true
+        return true
       })
       .setCodeCopyListener((code: string) => {
         this.copyToClipboard(code)
@@ -1850,6 +1873,16 @@ export struct MessageBubble {
         this.toolDetailEngine = ''
       }
     })
+    .bindSheet($$this.showLatexPreview, this.LatexPreviewSheetBuilder(), {
+      height: SheetSize.MEDIUM,
+      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+      dragBar: true,
+      showClose: true,
+      title: { title: 'LaTeX' },
+      onDisappear: () => {
+        this.latexPreviewPixelMap = null
+      }
+    })
   }
 
   // 等待 AI 响应的跳动点动画
@@ -2823,6 +2856,28 @@ export struct MessageBubble {
     .padding({ left: 10, right: 10, top: 8, bottom: 8 })
     .borderRadius(8)
     .backgroundColor($r('app.color.surface'))
+  }
+
+  @Builder
+  @Builder
+  LatexPreviewSheetBuilder() {
+    Column() {
+      if (this.latexPreviewPixelMap !== null) {
+        Scroll() {
+          Image(this.latexPreviewPixelMap)
+            .objectFit(ImageFit.Contain)
+            .width('100%')
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .scrollable(ScrollDirection.Both)
+        .scrollBar(BarState.Auto)
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .padding(16)
+    .backgroundColor(getAppUiState().themeBackground)
   }
 
   // tool step 点击后弹出的 sheet: 列出本次调用的 references (或老消息聚合 references 兜底)
