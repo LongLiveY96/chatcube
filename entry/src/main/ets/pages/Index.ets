@@ -162,6 +162,12 @@ struct Index {
   @Local assistantFormDefaultModelName: string = ''
   @Local assistantFormTemperatureEnabled: boolean = false
   @Local assistantFormTemperature: number = 0.7
+  @Local assistantFormTopPEnabled: boolean = false
+  @Local assistantFormTopP: number = 1.0
+  @Local assistantFormPresencePenaltyEnabled: boolean = false
+  @Local assistantFormPresencePenalty: number = 0
+  @Local assistantFormFrequencyPenaltyEnabled: boolean = false
+  @Local assistantFormFrequencyPenalty: number = 0
   @Local assistantFormContextMessageCount: number = 0
   @Local assistantFormMaxOutputTokens: number = 0
   @Local currentChatRouteName: string = ''
@@ -2194,6 +2200,12 @@ struct Index {
     this.assistantFormDefaultModelName = ''
     this.assistantFormTemperatureEnabled = false
     this.assistantFormTemperature = 0.7
+    this.assistantFormTopPEnabled = false
+    this.assistantFormTopP = 1.0
+    this.assistantFormPresencePenaltyEnabled = false
+    this.assistantFormPresencePenalty = 0
+    this.assistantFormFrequencyPenaltyEnabled = false
+    this.assistantFormFrequencyPenalty = 0
     this.assistantFormContextMessageCount = 0
     this.assistantFormMaxOutputTokens = 0
     this.editingAssistantReasoningLevelPreference = ''
@@ -2213,6 +2225,12 @@ struct Index {
     this.assistantFormDefaultModelName = assistant.defaultModelName
     this.assistantFormTemperatureEnabled = assistant.temperatureEnabled
     this.assistantFormTemperature = assistant.temperature
+    this.assistantFormTopPEnabled = assistant.topPEnabled
+    this.assistantFormTopP = assistant.topP
+    this.assistantFormPresencePenaltyEnabled = assistant.presencePenaltyEnabled
+    this.assistantFormPresencePenalty = assistant.presencePenalty
+    this.assistantFormFrequencyPenaltyEnabled = assistant.frequencyPenaltyEnabled
+    this.assistantFormFrequencyPenalty = assistant.frequencyPenalty
     this.assistantFormContextMessageCount = assistant.contextMessageCount
     this.assistantFormMaxOutputTokens = assistant.maxOutputTokens
     this.editingAssistantReasoningLevelPreference = assistant.reasoningLevelPreference || ''
@@ -2230,13 +2248,15 @@ struct Index {
   }
 
   private async openAssistantEditorForNew(): Promise<void> {
-    const param = new Map<string, string>(); param.set("action", "new")
-    this.openSettingsDestination(SettingsRouteName.ASSISTANTS, param)
+    this.resetAssistantEditorForm()
+    this.showAssistantEditorSheet = true
+    await this.loadAssistantProvidersIfNeeded()
   }
 
   private async openAssistantEditor(assistant: Assistant): Promise<void> {
-    const param = new Map<string, string>(); param.set("editAssistantId", assistant.id)
-    this.openSettingsDestination(SettingsRouteName.ASSISTANTS, param)
+    this.fillAssistantEditorForm(assistant)
+    this.showAssistantEditorSheet = true
+    await this.loadAssistantProvidersIfNeeded()
   }
 
   private getAssistantEditorTitle(): Resource {
@@ -2287,6 +2307,12 @@ struct Index {
     assistant.defaultModelName = this.assistantFormDefaultModelName
     assistant.temperatureEnabled = this.assistantFormTemperatureEnabled
     assistant.temperature = this.assistantFormTemperature
+    assistant.topPEnabled = this.assistantFormTopPEnabled
+    assistant.topP = this.assistantFormTopP
+    assistant.presencePenaltyEnabled = this.assistantFormPresencePenaltyEnabled
+    assistant.presencePenalty = this.assistantFormPresencePenalty
+    assistant.frequencyPenaltyEnabled = this.assistantFormFrequencyPenaltyEnabled
+    assistant.frequencyPenalty = this.assistantFormFrequencyPenalty
     assistant.contextMessageCount = this.assistantFormContextMessageCount
     assistant.maxOutputTokens = this.assistantFormMaxOutputTokens
     assistant.reasoningLevelPreference = this.editingAssistantReasoningLevelPreference
@@ -2899,6 +2925,10 @@ struct Index {
             this.AssistantPromptEditor()
             this.AssistantDefaultModelRow()
             this.AssistantTemperatureRow()
+            this.AssistantTopPRow()
+            this.AssistantPresencePenaltyRow()
+            this.AssistantFrequencyPenaltyRow()
+            this.AssistantReasoningLevelRow()
             this.AssistantContextMessageCountRow()
             this.AssistantMaxOutputTokensRow()
           }
@@ -3244,6 +3274,165 @@ struct Index {
     .padding(14)
     .backgroundColor(this.themeSurface)
     .borderRadius(16)
+  }
+
+  @Builder
+  private AssistantTopPRow() {
+    Column({ space: 10 }) {
+      Row() {
+        Text('Top P')
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+        Toggle({ type: ToggleType.Switch, isOn: this.assistantFormTopPEnabled })
+          .selectedColor(this.themePrimary)
+          .onChange((value: boolean) => { this.assistantFormTopPEnabled = value })
+      }
+      .width('100%')
+
+      if (this.assistantFormTopPEnabled) {
+        Row({ space: 10 }) {
+          Slider({ value: this.assistantFormTopP, min: 0, max: 1, step: 0.05, style: SliderStyle.InSet })
+            .layoutWeight(1)
+            .selectedColor(this.themePrimary)
+            .onChange((value: number, _mode: SliderChangeMode) => {
+              this.assistantFormTopP = Math.round(value * 100) / 100
+            })
+          Text(this.assistantFormTopP.toFixed(2))
+            .fontSize(13)
+            .fontColor($r('app.color.text_secondary'))
+            .width(40)
+            .textAlign(TextAlign.End)
+        }
+        .width('100%')
+      }
+    }
+    .width('100%')
+    .padding(14)
+    .backgroundColor(this.themeSurface)
+    .borderRadius(16)
+  }
+
+  @Builder
+  private AssistantPresencePenaltyRow() {
+    Column({ space: 10 }) {
+      Row() {
+        Text('存在惩罚')
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+        Toggle({ type: ToggleType.Switch, isOn: this.assistantFormPresencePenaltyEnabled })
+          .selectedColor(this.themePrimary)
+          .onChange((value: boolean) => { this.assistantFormPresencePenaltyEnabled = value })
+      }
+      .width('100%')
+
+      if (this.assistantFormPresencePenaltyEnabled) {
+        Row({ space: 10 }) {
+          Slider({ value: this.assistantFormPresencePenalty, min: -2, max: 2, step: 0.1, style: SliderStyle.InSet })
+            .layoutWeight(1)
+            .selectedColor(this.themePrimary)
+            .onChange((value: number, _mode: SliderChangeMode) => {
+              this.assistantFormPresencePenalty = Math.round(value * 10) / 10
+            })
+          Text(this.assistantFormPresencePenalty.toFixed(1))
+            .fontSize(13)
+            .fontColor($r('app.color.text_secondary'))
+            .width(40)
+            .textAlign(TextAlign.End)
+        }
+        .width('100%')
+      }
+    }
+    .width('100%')
+    .padding(14)
+    .backgroundColor(this.themeSurface)
+    .borderRadius(16)
+  }
+
+  @Builder
+  private AssistantFrequencyPenaltyRow() {
+    Column({ space: 10 }) {
+      Row() {
+        Text('频率惩罚')
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+        Toggle({ type: ToggleType.Switch, isOn: this.assistantFormFrequencyPenaltyEnabled })
+          .selectedColor(this.themePrimary)
+          .onChange((value: boolean) => { this.assistantFormFrequencyPenaltyEnabled = value })
+      }
+      .width('100%')
+
+      if (this.assistantFormFrequencyPenaltyEnabled) {
+        Row({ space: 10 }) {
+          Slider({ value: this.assistantFormFrequencyPenalty, min: -2, max: 2, step: 0.1, style: SliderStyle.InSet })
+            .layoutWeight(1)
+            .selectedColor(this.themePrimary)
+            .onChange((value: number, _mode: SliderChangeMode) => {
+              this.assistantFormFrequencyPenalty = Math.round(value * 10) / 10
+            })
+          Text(this.assistantFormFrequencyPenalty.toFixed(1))
+            .fontSize(13)
+            .fontColor($r('app.color.text_secondary'))
+            .width(40)
+            .textAlign(TextAlign.End)
+        }
+        .width('100%')
+      }
+    }
+    .width('100%')
+    .padding(14)
+    .backgroundColor(this.themeSurface)
+    .borderRadius(16)
+  }
+
+  @Builder
+  private AssistantReasoningLevelRow() {
+    Column({ space: 10 }) {
+      Row() {
+        Text('推理强度')
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+        Text(this.getReasoningLevelDisplayText())
+          .fontSize(13)
+          .fontColor($r('app.color.text_secondary'))
+      }
+      .width('100%')
+
+      Text('新会话默认使用的推理强度，空为跟随全局')
+        .fontSize(11)
+        .fontColor($r('app.color.text_tertiary'))
+        .width('100%')
+    }
+    .width('100%')
+    .padding(14)
+    .backgroundColor(this.themeSurface)
+    .borderRadius(16)
+    .onClick(() => {
+      this.cycleReasoningLevel()
+    })
+  }
+
+  private getReasoningLevelDisplayText(): string {
+    const level = this.editingAssistantReasoningLevelPreference
+    if (level === '' || level === 'off') { return '跟随全局' }
+    if (level === 'auto') { return '自动' }
+    if (level === 'low') { return '低' }
+    if (level === 'medium') { return '中' }
+    if (level === 'high') { return '高' }
+    return level
+  }
+
+  private cycleReasoningLevel(): void {
+    const levels: string[] = ['', 'auto', 'low', 'medium', 'high']
+    const current = levels.indexOf(this.editingAssistantReasoningLevelPreference)
+    this.editingAssistantReasoningLevelPreference = levels[(current + 1) % levels.length]
   }
 
   @Builder
