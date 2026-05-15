@@ -1,7 +1,6 @@
 export enum SettingsRouteName {
   MODEL_MANAGE = 'ModelManagePage',
   DEFAULT_MODEL = 'DefaultModelPage',
-  ASSISTANTS = 'AssistantManagePage',
   TOOLS_CENTER = 'ToolsCenterPage',
   SYSTEM_PROMPT = 'SystemPromptSettingsPage',
   CHAT_INPUT = 'ChatInputSettingsPage',
