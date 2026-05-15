@@ -6,6 +6,7 @@
 import { ReasoningLevel } from '../models/ChatModels'
 import { ReasoningControlMode } from '../services/registry/CompatibilityResolver'
 import { getAppUiState } from '../state/AppUiState'
+import { pickLocalizedText } from '../utils/LocalizedTextUtils'
 
 // 联网菜单中的引擎条目: id = SearchEngine 枚举字符串值, label = 引擎显示名
 export interface SearchEngineMenuOption {
@@ -78,8 +79,23 @@ export struct ChatToolbar {
     return this.isDarkMode ? 'rgba(0, 0, 0, 0.18)' : 'rgba(15, 23, 42, 0.06)'
   }
 
-  // 联网 chip 始终显示"联网"标签, 引擎名通过菜单内的勾选项呈现, 不外露在 chip 上。
-  // 启用与否仅靠 chip 高亮区分, 避免引擎名(如 "Firecrawl")撑宽工具栏导致与右侧 FAB 重合。
+  // 联网 chip 启用时显示当前选中的引擎名(过长省略号截断, 防止撞 FAB),
+  // 禁用 / 找不到匹配 label 时回退到固定文案"联网"。
+  // 单 chip 同时承载"开关 + 当前引擎 + 切换菜单"三个意图, 用户一眼可见当前用什么引擎。
+  private getWebSearchChipText(): string {
+    if (this.webSearchEnabled && this.activeSearchEngineId !== '') {
+      for (let i = 0; i < this.availableSearchEngines.length; i++) {
+        if (this.availableSearchEngines[i].id === this.activeSearchEngineId) {
+          const label = this.availableSearchEngines[i].label.trim()
+          if (label !== '') {
+            return label
+          }
+          break
+        }
+      }
+    }
+    return pickLocalizedText('联网', 'Web search')
+  }
 
   build() {
     Row() {
@@ -90,13 +106,16 @@ export struct ChatToolbar {
               .fontSize(16)
               .fontColor([this.webSearchEnabled ? this.themePrimary : $r('app.color.text_secondary')])
 
-            Text($r('app.string.chat_toolbar_web_search'))
+            Text(this.getWebSearchChipText())
               .fontSize(14)
               .fontColor(this.webSearchEnabled ? this.themePrimary : $r('app.color.text_secondary'))
               .fontWeight(this.webSearchEnabled ? FontWeight.Medium : FontWeight.Regular)
               .margin({ left: 4 })
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .constraintSize({ maxWidth: 96 })
 
-            SymbolGlyph($r('sys.symbol.chevron_up'))
+            SymbolGlyph($r('sys.symbol.chevron_down'))
               .fontSize(12)
               .fontColor([this.webSearchEnabled ? this.themePrimary : $r('app.color.text_secondary')])
               .margin({ left: 2 })
