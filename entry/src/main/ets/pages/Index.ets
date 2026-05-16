@@ -2345,6 +2345,11 @@ struct Index {
   }
 
   private fillAssistantEditorForm(assistant: Assistant): void {
+    // 先重置一次, 把所有 @Local form 字段拉回默认值再覆盖。
+    // 不这么做时, 同一个 sheet 被重复打开 → V2 reactivity 在某些边界 (例如保存后再次进入)
+    // 偶发不会感知到字段从旧值赋同值的"变化", 出现 maxOutputTokens 等数值 Slider 显示
+    // 跟入参 assistant 字段不一致的问题。
+    this.resetAssistantEditorForm()
     this.editingAssistantId = assistant.id
     this.editingAssistantCreatedAt = assistant.createdAt
     this.editingAssistantSortOrder = assistant.sortOrder
@@ -2387,7 +2392,19 @@ struct Index {
   }
 
   private async openAssistantEditor(assistant: Assistant): Promise<void> {
-    this.fillAssistantEditorForm(assistant)
+    // 防御性: 强制从 AssistantService 拉一次最新数据再回填表单, 避免 ForEach 列表里
+    // 因为 buildAssistantListStateKey 指纹差异 / 内存竞争导致拿到的是过期引用,
+    // 出现"用户改了 maxOutputTokens 等字段保存后, 重新打开仍显示旧值"的情况。
+    let target: Assistant = assistant
+    try {
+      const latest = await this.assistantService.getAssistant(assistant.id)
+      if (latest !== null) {
+        target = latest
+      }
+    } catch (error) {
+      console.warn('Index', `openAssistantEditor: refresh failed, fallback to in-memory: ${JSON.stringify(error)}`)
+    }
+    this.fillAssistantEditorForm(target)
     this.showAssistantEditorSheet = true
     await this.loadAssistantProvidersIfNeeded()
   }
