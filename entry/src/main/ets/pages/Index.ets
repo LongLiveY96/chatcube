@@ -1763,12 +1763,9 @@ struct Index {
       this.ExpandedNavigationRail()
 
         Column() {
-          if (this.shouldApplyExpandedContentTopInset()) {
-            Column()
-              .width('100%')
-              .height(this.px2vp(this.topAvoidHeight))
-          }
-
+          // ChatTab 由 HdsNavigation 自己处理 statusBar avoid（默认 expandSafeArea），
+          // 在这里不再让一次 24vp，避免叠加。
+          // AssistantsTab / SettingsTab 自身没有 HdsNavigation 包裹，仍需外层让出 statusBar。
           if (this.currentTabIndex === Index.TAB_CHAT) {
             Column() {
               this.ChatTab()
@@ -1781,8 +1778,14 @@ struct Index {
               bottom: 12
             })
           } else if (this.currentTabIndex === Index.TAB_ASSISTANTS) {
+            Column()
+              .width('100%')
+              .height(this.px2vp(this.topAvoidHeight))
             this.ExpandedAssistantsTab()
           } else {
+            Column()
+              .width('100%')
+              .height(this.px2vp(this.topAvoidHeight))
             this.ExpandedSettingsTab()
           }
         }
@@ -2185,6 +2188,11 @@ struct Index {
   }
 
   private getCompactChatTitleBarMaskExtraHeight(): number {
+    // 大屏分栏下削减模糊蒙版向下渐变带的视觉占位，让 titleBar 与列表更紧凑；
+    // 手机/竖屏维持 HDS 推荐值（横屏 16 / 竖屏 20）。
+    if (this.isChatSplitLayout()) {
+      return 8
+    }
     return getHdsTopNavigationMaskExtraHeight(this.windowWidthVp, this.windowHeightVp)
   }
 

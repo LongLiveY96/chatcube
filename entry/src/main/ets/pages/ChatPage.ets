@@ -82,7 +82,7 @@ import { ChatSelectionFlow, ChatSelectionFlowDependencies } from './chat/ChatSel
 import { ChatPageLoadFlow, ChatPageLoadFlowDependencies, ChatPageLoadResult } from './chat/ChatPageLoadFlow'
 import { ChatTaskAlertFlow, ChatTaskAlertFlowDependencies } from './chat/ChatTaskAlertFlow'
 import { ChatScrollUiFlow, ChatScrollUiFlowDependencies } from './chat/ChatScrollUiFlow'
-import { buildHdsTopNavigationTitleBarOptions, HdsTopNavigationBlurOptions } from '../utils/HdsVisualEffectUtil'
+import { buildHdsTopNavigationTitleBarOptions, getHdsTopNavigationMaskExtraHeight, HdsTopNavigationBlurOptions } from '../utils/HdsVisualEffectUtil'
 import {
   collectTailMessageIds,
   findMessageIndexById,
@@ -2026,7 +2026,10 @@ export struct ChatPage {
   }
 
   private getMessageListTopSpacerHeight(): number {
-    return HDS_NAV_DESTINATION_MINI_TITLE_BAR_HEIGHT + this.getPageTopAvoidHeight()
+    // titleBar 下沿模糊蒙版会向下渐变 maskExtraHeight，列表第一条消息需让出这一段，
+    // 否则会落在半透明渐变带上、视觉被压暗。算法与 Index.ets 左栏 getChatListTopSpacerHeight 对齐。
+    return HDS_NAV_DESTINATION_MINI_TITLE_BAR_HEIGHT + this.getPageTopAvoidHeight() +
+      this.getChatTitleBarMaskExtraHeight()
   }
 
   private getTitleRightActionLaneWidth(): number {
@@ -2065,10 +2068,31 @@ export struct ChatPage {
     options.materialLevel = this.materialLevel
     options.windowWidthVp = this.windowWidthVp
     options.windowHeightVp = this.windowHeightVp
-    options.maskExtraHeightVp = 24
+    options.maskExtraHeightVp = this.getChatTitleBarMaskExtraHeight()
     options.blurEffectiveEndOffsetVp = this.windowWidthVp > this.windowHeightVp ? 20 : 28
     options.stackBuilder = (): void => this.ChatTitleStackBuilder()
     return buildHdsTopNavigationTitleBarOptions(options)
+  }
+
+  // 平板分栏（横屏 + 非 COMPACT）下复用 Index.ets 同名判定，
+  // 此处独立实现以避免引入跨页面依赖。
+  private isChatSplitLayout(): boolean {
+    if (this.layoutSizeClass === LayoutSizeClass.COMPACT) {
+      return false
+    }
+    if (this.windowWidthVp <= 0 || this.windowHeightVp <= 0) {
+      return false
+    }
+    return this.windowWidthVp > this.windowHeightVp
+  }
+
+  // 大屏分栏下削减模糊蒙版向下渐变带的视觉占位，
+  // 让 titleBar 下沿与内容区贴得更紧；手机/竖屏维持 HDS 推荐值。
+  private getChatTitleBarMaskExtraHeight(): number {
+    if (this.isChatSplitLayout()) {
+      return 8
+    }
+    return getHdsTopNavigationMaskExtraHeight(this.windowWidthVp, this.windowHeightVp)
   }
 
   @Builder
@@ -2526,7 +2550,9 @@ export struct ChatPage {
       { statusBarContentColor: this.getStatusBarContentColor() }
     )
     .hideBackButton(true)
-    .ignoreLayoutSafeArea([LayoutSafeAreaType.SYSTEM], [LayoutSafeAreaEdge.TOP])
+    // 注意：不要在 NavDestination 上设置 ignoreLayoutSafeArea([SYSTEM], [TOP])。
+    // HdsNavigation 容器（Index.ets）已经处理了顶部 SafeArea，这里再设一次会被叠加，
+    // 导致分栏右栏 titleBar 顶部出现额外留白。SafeArea 由 Navigation 容器统一管。
     .backgroundColor(this.themeBackground)
     .onReady((context: NavDestinationContext) => {
       this.navPathStack = context.pathStack
