@@ -25,7 +25,11 @@ import { MultiSelectToolbar } from '../components/MultiSelectToolbar'
 import { SharePreviewSheet } from '../components/SharePreviewSheet'
 import { ColorTheme, ThemeColorConfig } from '../models/ThemeColors'
 import { ServiceRegistry } from '../services/ServiceRegistry'
-import { PendingToolInteractionKind, PendingToolInteractionSnapshot } from '../services/ToolExecutionService'
+import {
+  getToolExecutionService,
+  PendingToolInteractionKind,
+  PendingToolInteractionSnapshot
+} from '../services/ToolExecutionService'
 import { AppStorageKeys } from '../config/AppStorageKeys'
 import { SettingsRouteName } from '../config/SettingsRouteName'
 import {
@@ -181,6 +185,7 @@ struct Index {
   // 这里把 SnackBar 串行化, 上一条播完再播下一条。
   private snackBarQueue: SnackBarDisplayOptions[] = []
   private snackBarQueueTimerId: number = -1
+  private pendingToolInteractionAlertTimerId: number = -1
   private static readonly PENDING_TOOL_INTERACTION_PROMPT_COOLDOWN_MS: number = 60_000
   private get activeChatSessionId(): string {
     return getAppUiState().activeChatSessionId
@@ -575,7 +580,17 @@ struct Index {
     if (this.pendingToolInteractionTick <= 0) {
       return
     }
-    this.processPendingToolInteractionAlert(false)
+    this.schedulePendingToolInteractionAlert()
+  }
+
+  private schedulePendingToolInteractionAlert(): void {
+    if (this.pendingToolInteractionAlertTimerId !== -1) {
+      clearTimeout(this.pendingToolInteractionAlertTimerId)
+    }
+    this.pendingToolInteractionAlertTimerId = setTimeout((): void => {
+      this.pendingToolInteractionAlertTimerId = -1
+      this.processPendingToolInteractionAlert(false)
+    }, 0)
   }
 
   onSessionListRefresh(): void {
@@ -608,7 +623,10 @@ struct Index {
       observeAppUiState(AppStorageKeys.PENDING_TOOL_INTERACTION_TICK,
         (): void => this.onPendingToolInteractionTickChanged()),
       observeAppUiState(AppStorageKeys.SETTINGS_HAND_ADAPTIVE_CHANGED_AT,
-        (): void => this.onHandAdaptiveSettingsTickChanged())
+        (): void => this.onHandAdaptiveSettingsTickChanged()),
+      getToolExecutionService().addPendingInteractionChangeCallback((): void => {
+        this.schedulePendingToolInteractionAlert()
+      })
     ]
   }
 
@@ -617,6 +635,14 @@ struct Index {
       this.appUiStateDisposers[i]()
     }
     this.appUiStateDisposers = []
+  }
+
+  private clearPendingToolInteractionAlertTimer(): void {
+    if (this.pendingToolInteractionAlertTimerId === -1) {
+      return
+    }
+    clearTimeout(this.pendingToolInteractionAlertTimerId)
+    this.pendingToolInteractionAlertTimerId = -1
   }
 
   aboutToAppear(): void {
@@ -684,6 +710,7 @@ struct Index {
 
   aboutToDisappear(): void {
     this.unregisterAppUiStateObservers()
+    this.clearPendingToolInteractionAlertTimer()
     this.unsubscribeHoldingHand()
     if (this.settingsCallback !== null) {
       this.settingsManager.unregisterCallback(this.settingsCallback)
@@ -1240,7 +1267,7 @@ struct Index {
     if (interaction.sessionId === '') {
       return false
     }
-    if (this.isChatDetailRouteActive() && this.chatTabTopSessionId === interaction.sessionId) {
+    if (this.activeChatSessionId === interaction.sessionId) {
       return false
     }
     if (forcePrompt) {

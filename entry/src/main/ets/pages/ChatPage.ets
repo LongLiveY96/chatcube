@@ -37,7 +37,11 @@ import { PreferenceKeys, PreferencesService } from '../services/PreferencesServi
 import { TTSService } from '../services/TTSService'
 import { McpService } from '../services/McpService'
 import { ToolRegistry } from '../services/ToolRegistry'
-import { PendingToolInteractionKind, PendingToolInteractionSnapshot } from '../services/ToolExecutionService'
+import {
+  getToolExecutionService,
+  PendingToolInteractionKind,
+  PendingToolInteractionSnapshot
+} from '../services/ToolExecutionService'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { registerBuiltinTools } from '../config/BuiltinTools'
 import { AppStorageKeys } from '../config/AppStorageKeys'
@@ -340,6 +344,7 @@ export struct ChatPage {
   private initialBottomAlignmentRetryTimerIds: number[] = []
   private initialBottomAlignmentCompletionTimerId: number = -1
   private assistantAvatarReloadToken: number = 0
+  private pendingToolInteractionSyncTimerId: number = -1
 
   private showChatSnack(message: string | Resource, duration: number = 2000,
     tone: SnackBarTone = SnackBarTone.DEFAULT): void {
@@ -494,6 +499,7 @@ export struct ChatPage {
     // 释放TTS资源
     this.ttsService.destroy()
     this.clearInitialBottomAlignmentRetries()
+    this.clearPendingToolInteractionSyncTimer()
     this.clearRuntimeStateWatchdog()
     this.flushDraftAutosave(true).catch((error: Error): void => {
       console.error('ChatPage', `Failed to flush draft on disappear: ${JSON.stringify(error)}`)
@@ -676,11 +682,24 @@ export struct ChatPage {
   }
 
   private onPendingToolInteractionChanged(): void {
-    if (this.pendingToolInteractionTick <= 0 || !this.isPageVisible || this.sessionId === '') {
+    if (this.pendingToolInteractionTick <= 0) {
       return
     }
-    this.markMessageListChanged()
-    this.syncPendingToolInteractionFromService()
+    this.schedulePendingToolInteractionSync()
+  }
+
+  private schedulePendingToolInteractionSync(): void {
+    if (this.pendingToolInteractionSyncTimerId !== -1) {
+      clearTimeout(this.pendingToolInteractionSyncTimerId)
+    }
+    this.pendingToolInteractionSyncTimerId = setTimeout((): void => {
+      this.pendingToolInteractionSyncTimerId = -1
+      if (!this.isPageVisible || this.sessionId === '') {
+        return
+      }
+      this.markMessageListChanged()
+      this.syncPendingToolInteractionFromService()
+    }, 0)
   }
 
   private registerAppUiStateObservers(): void {
@@ -694,7 +713,10 @@ export struct ChatPage {
       observeAppUiState(AppStorageKeys.PENDING_TOOL_INTERACTION_TICK,
         (): void => this.onPendingToolInteractionChanged()),
       observeAppUiState(AppStorageKeys.ASSISTANT_AVATAR_REFRESH_AT, (): void => this.onAssistantAvatarRefreshChanged()),
-      observeAppUiState(AppStorageKeys.APP_IN_BACKGROUND, (): void => this.onAppBackgroundChanged())
+      observeAppUiState(AppStorageKeys.APP_IN_BACKGROUND, (): void => this.onAppBackgroundChanged()),
+      getToolExecutionService().addPendingInteractionChangeCallback((): void => {
+        this.schedulePendingToolInteractionSync()
+      })
     ]
   }
 
@@ -709,6 +731,14 @@ export struct ChatPage {
       this.appUiStateDisposers[i]()
     }
     this.appUiStateDisposers = []
+  }
+
+  private clearPendingToolInteractionSyncTimer(): void {
+    if (this.pendingToolInteractionSyncTimerId === -1) {
+      return
+    }
+    clearTimeout(this.pendingToolInteractionSyncTimerId)
+    this.pendingToolInteractionSyncTimerId = -1
   }
 
   private syncActiveSessionBinding(): void {
@@ -1490,6 +1520,7 @@ export struct ChatPage {
         this.clearRuntimeStateWatchdog()
         return
       }
+      this.syncPendingToolInteractionFromService()
       if (this.chatViewModel.hasActiveRequestForSession(this.sessionId)) {
         return
       }

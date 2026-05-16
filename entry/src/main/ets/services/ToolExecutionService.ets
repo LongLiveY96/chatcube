@@ -20,6 +20,7 @@ import { setAppUiStateValue } from '../state/AppUiState'
 
 // 取消检查回调类型
 type CancelCheckCallback = () => boolean
+export type PendingToolInteractionChangeCallback = () => void
 
 export enum PendingToolInteractionKind {
   APPROVAL = 'approval',
@@ -129,6 +130,7 @@ export class ToolExecutionService {
   private cancelCheckCallback: CancelCheckCallback | null = null
   private pendingApprovals: Map<string, PendingToolApprovalRuntime> = new Map()
   private pendingAnswers: Map<string, PendingToolAnswerRuntime> = new Map()
+  private pendingInteractionChangeCallbacks: PendingToolInteractionChangeCallback[] = []
 
   private constructor() {
     this.registry = getToolRegistry()
@@ -161,6 +163,20 @@ export class ToolExecutionService {
 
   private publishPendingInteractionChanged(): void {
     setAppUiStateValue(AppStorageKeys.PENDING_TOOL_INTERACTION_TICK, Date.now())
+    const callbacks = this.pendingInteractionChangeCallbacks.slice()
+    for (let i = 0; i < callbacks.length; i++) {
+      callbacks[i]()
+    }
+  }
+
+  addPendingInteractionChangeCallback(callback: PendingToolInteractionChangeCallback): () => void {
+    this.pendingInteractionChangeCallbacks.push(callback)
+    return (): void => {
+      const index = this.pendingInteractionChangeCallbacks.indexOf(callback)
+      if (index >= 0) {
+        this.pendingInteractionChangeCallbacks.splice(index, 1)
+      }
+    }
   }
 
   private clonePendingSnapshot(snapshot: PendingToolInteractionSnapshot): PendingToolInteractionSnapshot {
