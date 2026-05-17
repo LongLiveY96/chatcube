@@ -1,5 +1,6 @@
 import { ChatMessage, MessageAttachment, SearchReference, ToolCall, ToolResult } from '../../models/ChatModels'
 import { serializeMessageParts } from '../../models/MessageParts'
+import { fingerprintLongString } from '../../utils/MessageSignatureUtils'
 
 function encodeValue(value: string): string {
   return `${value.length}:${value};`
@@ -162,8 +163,8 @@ export function buildChatMessageContentRenderSignature(
     encodeValue(themeRenderKey),
     encodeValue(message.modelId),
     encodeValue(message.modelName),
-    encodeValue(message.content),
-    encodeValue(message.reasoningContent),
+    encodeValue(fingerprintLongString(message.content)),
+    encodeValue(fingerprintLongString(message.reasoningContent)),
     encodeValue(message.searchQuery),
     encodeValue(message.searchEngine),
     encodeValue(message.searchSource),
@@ -171,7 +172,7 @@ export function buildChatMessageContentRenderSignature(
     buildSearchReferenceListSignature(message.searchReferences),
     buildToolCallListSignature(message.toolCalls),
     buildToolResultListSignature(message.toolResults),
-    encodeValue(serializeMessageParts(message.parts)),
+    encodeValue(fingerprintLongString(serializeMessageParts(message.parts))),
     encodeValue(message.toolCallId),
     encodeValue(isEditing ? previewContent : ''),
     isEditing ? buildAttachmentSignature(previewAttachments) : buildAttachmentSignature([])

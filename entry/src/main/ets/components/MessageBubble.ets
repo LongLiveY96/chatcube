@@ -39,6 +39,7 @@ import {
 } from '../utils/ChatMessagePartsHelper'
 import { resolveToolSymbol } from '../utils/ToolIconMapping'
 import { buildToolTitle } from '../utils/ToolTitleBuilder'
+import { fingerprintLongString } from '../utils/MessageSignatureUtils'
 import { image } from '@kit.ImageKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { fileUri } from '@kit.CoreFileKit'
@@ -554,14 +555,14 @@ export struct MessageBubble {
       this.message.timestamp.toString(),
       this.message.modelId,
       this.message.modelName,
-      this.message.content,
-      this.message.reasoningContent,
+      fingerprintLongString(this.message.content),
+      fingerprintLongString(this.message.reasoningContent),
       this.message.isGenerating ? '1' : '0',
       this.message.isSearching ? '1' : '0',
       this.currentModelId,
       this.isEditing ? '1' : '0',
-      this.previewContent,
-      this.translatedText,
+      fingerprintLongString(this.previewContent),
+      fingerprintLongString(this.translatedText),
       this.buildAttachmentSignature(this.previewAttachments),
       this.buildAttachmentSignature(this.message.attachments)
     ].join('\u0001')
