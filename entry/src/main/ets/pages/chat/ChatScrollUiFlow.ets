@@ -238,18 +238,16 @@ export class ChatScrollUiFlow {
     if (this.deps.getIsAtTop() === value) {
       return
     }
-    this.deps.onAnimate(200, Curve.EaseOut, () => {
-      this.deps.onSetIsAtTopState(value)
-    })
+    // 直接赋值, 按钮入退场由 ScrollToBottomButton.transition(opacity+scale) 接管。
+    // fling 期间 onDidScroll 高频, 用 animateTo 会堆叠 200ms 动画造成按钮抖动。
+    this.deps.onSetIsAtTopState(value)
   }
 
   setIsAtBottom(value: boolean): void {
     if (this.deps.getIsAtBottom() === value) {
       return
     }
-    this.deps.onAnimate(200, Curve.EaseOut, () => {
-      this.deps.onSetIsAtBottomState(value)
-    })
+    this.deps.onSetIsAtBottomState(value)
   }
 
   setInputBarVisible(value: boolean): void {

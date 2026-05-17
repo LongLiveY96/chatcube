@@ -90,7 +90,12 @@ export struct ChatMessageListSection {
     if (!this.isEditingMessage) {
       return
     }
-    this.syncMessageRows()
+    // 编辑态下 inputText 只影响"正在编辑那条"的 previewContent 签名,
+    // 走 syncSingleMessageRow 避免对全列表逐条重算 contentRenderSignature。
+    // 失败 fallback 到全量,保证 messageRows 长度与 messages 不一致时仍能纠正。
+    if (!this.syncSingleMessageRow(this.editingMessageId)) {
+      this.syncMessageRows()
+    }
   }
 
   @Monitor('pendingAttachments')
@@ -98,7 +103,9 @@ export struct ChatMessageListSection {
     if (!this.isEditingMessage) {
       return
     }
-    this.syncMessageRows()
+    if (!this.syncSingleMessageRow(this.editingMessageId)) {
+      this.syncMessageRows()
+    }
   }
 
   @Monitor('editingMessageId')
@@ -492,7 +499,6 @@ export struct ChatMessageListSection {
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
         .cachedCount(this.getListCachedCount())
-        .backdropBlur(this.isEditingMessage ? 8 : 0)
         .onAppear(() => {
           this.onListAppear()
         })
