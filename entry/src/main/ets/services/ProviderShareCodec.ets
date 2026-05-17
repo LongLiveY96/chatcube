@@ -51,12 +51,7 @@ class ProviderShareCodec {
       const salt = this.generateRandomBytes(PBKDF2_SALT_BYTES)
       const iv = this.generateRandomBytes(AES_IV_BYTES)
       const symKey = await this.deriveAesKey(password, salt)
-      const ciphertext = await this.runCipher(
-        cryptoFramework.CryptoMode.ENCRYPT_MODE,
-        symKey,
-        iv,
-        plaintextBytes
-      )
+      const ciphertext = await this.runEncrypt(symKey, iv, plaintextBytes)
 
       const envelope: ProviderShareEnvelopeV1 = {
         v: ENVELOPE_VERSION,
@@ -143,12 +138,7 @@ class ProviderShareCodec {
     let plaintextBytes: Uint8Array
     try {
       const symKey = await this.deriveAesKey(password, salt)
-      plaintextBytes = await this.runCipher(
-        cryptoFramework.CryptoMode.DECRYPT_MODE,
-        symKey,
-        iv,
-        ciphertext
-      )
+      plaintextBytes = await this.runDecrypt(symKey, iv, ciphertext)
     } catch (err) {
       // GCM auth tag 不匹配走这里
       console.info('ProviderShareCodec', `decrypt failed (likely wrong password): ${JSON.stringify(err)}`)
@@ -197,11 +187,10 @@ class ProviderShareCodec {
     }
   }
 
-  private async runCipher(
-    mode: cryptoFramework.CryptoMode,
+  private async runEncrypt(
     symKey: cryptoFramework.SymKey,
     iv: Uint8Array,
-    input: Uint8Array
+    plaintext: Uint8Array
   ): Promise<Uint8Array> {
     try {
       const cipher = cryptoFramework.createCipher(AES_CIPHER_TRANSFORMATION)
@@ -212,11 +201,43 @@ class ProviderShareCodec {
         aad: { data: emptyAad },
         authTag: { data: new Uint8Array(GCM_AUTH_TAG_LEN) }
       }
-      await cipher.init(mode, symKey, gcmParams)
-      const result = await cipher.doFinal({ data: input })
+      await cipher.init(cryptoFramework.CryptoMode.ENCRYPT_MODE, symKey, gcmParams)
+      const result = await cipher.doFinal({ data: plaintext })
+      // HarmonyOS GCM 一次性 doFinal 返回 cipher + authTag 拼接 (tag 在末尾 16 字节)
       return result.data
     } catch (err) {
-      throw new Error(`runCipher failed: ${JSON.stringify(err)}`)
+      throw new Error(`runEncrypt failed: ${JSON.stringify(err)}`)
+    }
+  }
+
+  private async runDecrypt(
+    symKey: cryptoFramework.SymKey,
+    iv: Uint8Array,
+    cipherWithTag: Uint8Array
+  ): Promise<Uint8Array> {
+    if (cipherWithTag.length < GCM_AUTH_TAG_LEN) {
+      throw new Error('runDecrypt failed: ciphertext too short to contain auth tag')
+    }
+    try {
+      // HarmonyOS GCM 解密语义: authTag 必须从密文末尾切出来, 通过 GcmParamsSpec.authTag 传入,
+      // doFinal 只接收 cipher 部分(不含 tag)。整段 cipherWithTag 整个塞进 doFinal 会校验失败。
+      // 用 slice 而不是 subarray 拿独立 buffer, 避免 GCM 实现对共享底层 buffer 的兼容性问题。
+      const tagOffset = cipherWithTag.length - GCM_AUTH_TAG_LEN
+      const cipherOnly = cipherWithTag.slice(0, tagOffset)
+      const authTag = cipherWithTag.slice(tagOffset)
+      const cipher = cryptoFramework.createCipher(AES_CIPHER_TRANSFORMATION)
+      const emptyAad = new Uint8Array(0)
+      const gcmParams: cryptoFramework.GcmParamsSpec = {
+        algName: GCM_PARAMS_ALG_NAME,
+        iv: { data: iv },
+        aad: { data: emptyAad },
+        authTag: { data: authTag }
+      }
+      await cipher.init(cryptoFramework.CryptoMode.DECRYPT_MODE, symKey, gcmParams)
+      const result = await cipher.doFinal({ data: cipherOnly })
+      return result.data
+    } catch (err) {
+      throw new Error(`runDecrypt failed: ${JSON.stringify(err)}`)
     }
   }
 
