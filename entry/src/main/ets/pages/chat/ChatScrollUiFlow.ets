@@ -33,12 +33,10 @@ export interface ChatScrollUiFlowDependencies {
 
 export class ChatScrollUiFlow {
   private static readonly BOTTOM_OFFSET_TOLERANCE_VP: number = 8
-  private static readonly PROGRESS_JUMP_THRESHOLD: number = 0.04
   private deps: ChatScrollUiFlowDependencies
   private pinnedBottomAlignmentTimerIds: number[] = []
   private pinnedBottomAlignmentCompletionTimerId: number = -1
   private pendingPinnedBottomAlignment: boolean = false
-  private lastSetProgress: number = 0
 
   constructor(deps: ChatScrollUiFlowDependencies) {
     this.deps = deps
@@ -65,16 +63,10 @@ export class ChatScrollUiFlow {
   }
 
   private setScrollProgress(value: number): void {
-    const clamped = this.clampProgress(value)
-    const delta = Math.abs(clamped - this.lastSetProgress)
-    this.lastSetProgress = clamped
-    if (delta > ChatScrollUiFlow.PROGRESS_JUMP_THRESHOLD) {
-      this.deps.onAnimate(150, Curve.EaseOut, () => {
-        this.deps.onSetScrollProgressState(clamped)
-      })
-    } else {
-      this.deps.onSetScrollProgressState(clamped)
-    }
+    // 直接赋值, 由 Progress 组件自带的 enableSmoothEffect (默认 true) 自动平滑过渡。
+    // 原 onAnimate 150ms + Progress 内置平滑会双重动画, fling 高频时还会堆叠声明式动画;
+    // 与 setIsAtTop/setIsAtBottom 同思路, 让系统平滑接管。
+    this.deps.onSetScrollProgressState(this.clampProgress(value))
   }
 
   private setCurrentScrollOffset(value: number): void {
