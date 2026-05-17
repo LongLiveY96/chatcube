@@ -1720,7 +1720,7 @@ ${limitedSearchContext}
     )
     aiMessage.isGenerating = true
 
-    // 将搜索引用数据复制到 AI 消息，确保 SearchReferenceCard 可以正确显示
+    // 将搜索引用数据复制到 AI 消息，timeline 工具步骤的折叠列表会读这些字段渲染来源
     aiMessage.searchQuery = searchResult.query
     aiMessage.searchEngine = searchResult.searchEngine || 'Web'
     aiMessage.searchSource = 'manual'

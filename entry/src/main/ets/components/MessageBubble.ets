@@ -2591,10 +2591,18 @@ export struct MessageBubble {
 	  PartsTimelineBlock(steps: MessagePart[]) {
 	    Column() {
 	      Stack({ alignContent: Alignment.TopStart }) {
-	        // 竖线 (主题色 alpha, 在 timeline 底色上可见)
+	        // 整条贯穿竖线: 由图标内圆 (20×20) 遮挡, 视觉上形成 "线串珠" 时间线。
+	        // left=11.5 = (图标列 24 - 线宽 1) / 2, 与图标圆心对齐。
+	        // top/bottom=6 让首尾两端不被竖线穿出, 收口更干净。
+	        Column()
+	          .width(1)
+	          .layoutWeight(1)
+	          .margin({ left: 11.5, top: 6, bottom: 6 })
+	          .backgroundColor(this.getTimelineRailColor())
+
 	        Column() {
 	          ForEach(steps, (step: MessagePart, index: number) => {
-	            this.TimelineStepRow(step, index < steps.length - 1)
+	            this.TimelineStepRow(step)
 	          }, (step: MessagePart, index: number) => {
 	            return step.kind === MessagePartKind.TOOL
 	              ? `tool_${step.toolCallId}_${index}`
@@ -2606,7 +2614,7 @@ export struct MessageBubble {
       .width('100%')
     }
     .width('100%')
-    .padding(10)
+    .padding({ left: 10, right: 10, top: 6, bottom: 6 })
     .backgroundColor(this.getTimelineBackgroundColor())
     .borderRadius(12)
     .border({ width: 0.5, color: this.getTimelineRailColor() })
@@ -2614,39 +2622,29 @@ export struct MessageBubble {
   }
 
   // 单条 timeline step 行: 左图标 + 右内容
+  // 紧凑设计: 行间不再画 4vp 短连接线, 而是由 PartsTimelineBlock 的整条贯穿竖线统一串联,
+  // 行 padding 给到 3+3, 图标内圆 20×20 比线宽多出的部分作为遮罩, 形成 "线串珠" 视觉。
   @Builder
-  TimelineStepRow(step: MessagePart, hasNextStep: boolean) {
+  TimelineStepRow(step: MessagePart) {
     Row({ space: 10 }) {
-      Column() {
-        Stack() {
-          Column()
-            .width(22)
-            .height(22)
-            .borderRadius(11)
-            .backgroundColor(this.getTimelineBackgroundColor())
-          if (step.kind === MessagePartKind.REASONING) {
-            SymbolGlyph($r('sys.symbol.lightbulb'))
-              .fontSize(14)
-              .fontColor([$r('app.color.text_secondary')])
-          } else {
-            SymbolGlyph(resolveToolSymbol(step.toolName))
-              .fontSize(14)
-              .fontColor([$r('app.color.text_secondary')])
-          }
-        }
-        .width(24)
-        .height(24)
-
-        if (hasNextStep) {
-          Column()
-            .width(1.5)
-            .height(4)
-            .backgroundColor(this.getTimelineRailColor())
-            .margin({ top: 2 })
+      Stack() {
+        Column()
+          .width(20)
+          .height(20)
+          .borderRadius(10)
+          .backgroundColor(this.getTimelineBackgroundColor())
+        if (step.kind === MessagePartKind.REASONING) {
+          SymbolGlyph($r('sys.symbol.lightbulb'))
+            .fontSize(13)
+            .fontColor([$r('app.color.text_secondary')])
+        } else {
+          SymbolGlyph(resolveToolSymbol(step.toolName))
+            .fontSize(13)
+            .fontColor([$r('app.color.text_secondary')])
         }
       }
       .width(24)
-      .alignItems(HorizontalAlign.Center)
+      .height(24)
 
       Column() {
         if (step.kind === MessagePartKind.REASONING) {
@@ -2659,7 +2657,8 @@ export struct MessageBubble {
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
-    .padding({ top: 1, bottom: 1 })
+    .padding({ top: 3, bottom: 3 })
+    .alignItems(VerticalAlign.Center)
   }
 
   // reasoning step 内容: 标题行(可点击 toggle) + 正文 (展开时用 Markdown 渲染)
