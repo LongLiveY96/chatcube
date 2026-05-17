@@ -53,6 +53,7 @@ class MessageMapDataSource implements IDataSource {
 @ComponentV2
 export struct MessageMapSheet {
   @Param messages: ChatMessage[] = []
+  @Param currentMessageIndex: number = -1
   @Event onClose: () => void = () => {}
   @Event onJumpToMessage: (messageIndex: number) => void = (_idx: number) => {}
 
@@ -63,6 +64,8 @@ export struct MessageMapSheet {
 
   private dataSource: MessageMapDataSource = new MessageMapDataSource()
   private baseItems: MessageMapItem[] = []
+  private scroller: Scroller = new Scroller()
+  private currentItemArrayIndex: number = -1
 
   private get themePrimary(): string {
     return getAppUiState().themePrimary
@@ -79,20 +82,31 @@ export struct MessageMapSheet {
   aboutToAppear(): void {
     this.rebuildBaseItems()
     this.applyFilter()
+    // 打开时把列表滚到当前消息所在位置附近, 让用户立即看到"我在哪"
+    if (this.currentItemArrayIndex >= 0) {
+      setTimeout((): void => {
+        this.scroller.scrollToIndex(this.currentItemArrayIndex, false, ScrollAlign.CENTER)
+      }, 0)
+    }
   }
 
   private rebuildBaseItems(): void {
     const items: MessageMapItem[] = []
+    let currentArrayIdx: number = -1
     for (let i = 0; i < this.messages.length; i++) {
       const msg = this.messages[i]
       if (msg.role !== MessageRole.USER && msg.role !== MessageRole.ASSISTANT) {
         continue
       }
       const summary = extractMessageSummary(msg)
+      if (i === this.currentMessageIndex) {
+        currentArrayIdx = items.length
+      }
       items.push(new MessageMapItem(i, msg, summary))
     }
     this.baseItems = items
     this.baseTotal = items.length
+    this.currentItemArrayIndex = currentArrayIdx
   }
 
   @Monitor('searchQuery')
@@ -161,6 +175,12 @@ export struct MessageMapSheet {
           .onChange((value: string) => {
             this.searchQuery = value
           })
+        Text(this.searchQuery.length > 0
+          ? `${this.visibleTotal} / ${this.baseTotal}`
+          : `${this.baseTotal}`)
+          .fontSize(12)
+          .fontColor($r('app.color.text_tertiary'))
+          .fontWeight(FontWeight.Medium)
         if (this.searchQuery.length > 0) {
           Row() {
             SymbolGlyph($r('sys.symbol.xmark_circle'))
@@ -202,7 +222,7 @@ export struct MessageMapSheet {
         .justifyContent(FlexAlign.Center)
       } else {
         Column() {
-          List({ space: 8 }) {
+          List({ space: 8, scroller: this.scroller }) {
             LazyForEach(this.dataSource, (item: MessageMapItem, _index: number) => {
               ListItem() {
                 this.MessageMapItemBuilder(item)
@@ -226,38 +246,65 @@ export struct MessageMapSheet {
 
   @Builder
   private MessageMapItemBuilder(item: MessageMapItem) {
-    Row() {
-      Text() {
-        ForEach(buildHighlightedSpans(item.summary, this.searchQuery.trim()),
-          (seg: HighlightSegment, _i: number) => {
-            if (seg.hit) {
-              Span(seg.text)
-                .fontColor(this.themePrimary)
-                .fontWeight(FontWeight.Medium)
-            } else {
-              Span(seg.text)
-                .fontColor($r('app.color.text_primary'))
-            }
-          },
-          (seg: HighlightSegment, idx: number): string => `${idx}|${seg.hit ? '1' : '0'}|${seg.text.length}`)
+    Row({ space: 6 }) {
+      if (item.message.role === MessageRole.USER) {
+        this.MessageBubbleBuilder(item)
+        if (item.originalIndex === this.currentMessageIndex) {
+          this.CurrentIndicatorBuilder()
+        }
+      } else {
+        if (item.originalIndex === this.currentMessageIndex) {
+          this.CurrentIndicatorBuilder()
+        }
+        this.MessageBubbleBuilder(item)
       }
-      .fontSize(14)
-      .maxLines(2)
-      .textOverflow({ overflow: TextOverflow.Ellipsis })
-      .lineHeight(20)
-      .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-      .constraintSize({ maxWidth: '78%' })
-      .backgroundColor(item.message.role === MessageRole.USER
-        ? this.userBubbleColor
-        : $r('app.color.divider'))
-      .borderRadius(12)
-      .onClick(() => {
-        this.onJumpToMessage(item.originalIndex)
-      })
     }
     .width('100%')
     .justifyContent(item.message.role === MessageRole.USER
       ? FlexAlign.End
       : FlexAlign.Start)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  private CurrentIndicatorBuilder() {
+    Column()
+      .width(3)
+      .height(20)
+      .borderRadius(1.5)
+      .backgroundColor(this.themePrimary)
+  }
+
+  @Builder
+  private MessageBubbleBuilder(item: MessageMapItem) {
+    Text() {
+      ForEach(buildHighlightedSpans(item.summary, this.searchQuery.trim()),
+        (seg: HighlightSegment, _i: number) => {
+          if (seg.hit) {
+            Span(seg.text)
+              .fontColor(this.themePrimary)
+              .fontWeight(FontWeight.Medium)
+          } else {
+            Span(seg.text)
+              .fontColor($r('app.color.text_primary'))
+          }
+        },
+        (seg: HighlightSegment, idx: number): string => `${idx}|${seg.hit ? '1' : '0'}|${seg.text.length}`)
+    }
+    .fontSize(14)
+    .maxLines(2)
+    .textOverflow({ overflow: TextOverflow.Ellipsis })
+    .lineHeight(20)
+    .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+    .constraintSize({ maxWidth: '78%' })
+    .backgroundColor(item.message.role === MessageRole.USER
+      ? this.userBubbleColor
+      : $r('app.color.divider'))
+    .borderRadius(item.message.role === MessageRole.USER
+      ? { topLeft: 14, topRight: 14, bottomLeft: 14, bottomRight: 4 } as BorderRadiuses
+      : { topLeft: 14, topRight: 14, bottomLeft: 4, bottomRight: 14 } as BorderRadiuses)
+    .onClick(() => {
+      this.onJumpToMessage(item.originalIndex)
+    })
   }
 }

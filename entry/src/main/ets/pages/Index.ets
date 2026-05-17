@@ -2066,43 +2066,6 @@ struct Index {
     return null
   }
 
-  private getCurrentAssistant(): Assistant | null {
-    const assistant = this.findAssistantById(this.currentAssistantId)
-    if (assistant !== null) {
-      return assistant
-    }
-    return this.assistants.length > 0 ? this.assistants[0] : null
-  }
-
-  private getWorkspaceCurrentAssistant(): Assistant {
-    const current = this.getCurrentAssistant()
-    if (current !== null) {
-      return current
-    }
-    return this.assistants[0]
-  }
-
-  private hasOtherAssistantsForWorkspace(): boolean {
-    const currentId = this.getWorkspaceCurrentAssistant().id
-    for (let i = 0; i < this.assistants.length; i++) {
-      if (this.assistants[i].id !== currentId) {
-        return true
-      }
-    }
-    return false
-  }
-
-  private getOtherAssistantsForWorkspace(): Assistant[] {
-    const result: Assistant[] = []
-    const currentId = this.getWorkspaceCurrentAssistant().id
-    for (let i = 0; i < this.assistants.length; i++) {
-      if (this.assistants[i].id !== currentId) {
-        result.push(this.assistants[i])
-      }
-    }
-    return result
-  }
-
   private getCurrentAssistantName(): string {
     return this.currentAssistantName
   }
@@ -2413,16 +2376,6 @@ struct Index {
     return timestamp
   }
 
-  private getTotalAssistantSessionCount(): number {
-    let count = 0
-    for (let i = 0; i < this.sessions.length; i++) {
-      if (this.normalizeSessionAssistantId(this.sessions[i].assistantId) !== '') {
-        count++
-      }
-    }
-    return count
-  }
-
   private getAssistantAccentColor(assistant: Assistant): string {
     return assistant.color !== '' && assistant.color !== TRANSPARENT_BG_COLOR ? assistant.color : this.themePrimary
   }
@@ -2431,19 +2384,9 @@ struct Index {
     return assistant.color !== '' ? assistant.color : this.themePrimary
   }
 
-  private getAssistantPromptStateText(assistant: Assistant): ResourceStr {
-    return assistant.systemPrompt.trim() !== '' ? $r('app.string.assistant_prompt_configured') :
-      $r('app.string.assistant_prompt_empty')
-  }
-
   private getAssistantPromptPreviewText(assistant: Assistant): ResourceStr {
     return assistant.systemPrompt.trim() !== '' ? assistant.systemPrompt.trim() : $r('app.string.assistant_prompt_empty')
   }
-
-  private getAssistantTemperatureText(assistant: Assistant): ResourceStr {
-    return assistant.temperatureEnabled ? assistant.temperature.toFixed(1) : $r('app.string.assistant_temperature_global')
-  }
-
   private getRelativeDiff(timestamp: number): number {
     const now = Date.now()
     return now > timestamp ? now - timestamp : 0
@@ -2798,10 +2741,7 @@ struct Index {
           .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
 
-        Row({ space: 8 }) {
-          this.AssistantHeaderPill(this.assistants.length.toString(), $r('app.string.assistant_total_label'))
-          this.AssistantHeaderPill(this.getTotalAssistantSessionCount().toString(), $r('app.string.assistant_sessions_label'))
-        }
+        this.AssistantHeaderPill(this.assistants.length.toString(), $r('app.string.assistant_total_label'))
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
@@ -2864,43 +2804,31 @@ struct Index {
       .layoutWeight(1)
     } else {
       List({ space: 8, scroller: this.assistantListScroller }) {
-        ListItem() {
-          this.AssistantSectionHeader($r('app.string.assistant_current_section'))
-        }
-        .focusable(false)
-        .selectable(false)
-
-        ForEach([this.getWorkspaceCurrentAssistant()], (assistant: Assistant) => {
+        ForEach(this.assistants, (assistant: Assistant) => {
           ListItem({ style: ListItemStyle.NONE }) {
-            this.AssistantJumpCard(assistant, true)
+            this.AssistantJumpCard(assistant, assistant.id === this.currentAssistantId)
           }
           .swipeAction({
-            start: this.AssistantStartSwipePanel(assistant),
             end: this.AssistantEndSwipePanel(assistant)
           })
-          .borderRadius(12)
+          .borderRadius(16)
           .clip(true)
+          .dragPreview(this.AssistantDragPreview(assistant))
         }, (assistant: Assistant) => this.getAssistantRenderKey(assistant))
-
-        if (this.hasOtherAssistantsForWorkspace()) {
-          ListItem() {
-            this.AssistantSectionHeader($r('app.string.assistant_others_section'))
-          }
-          .focusable(false)
-          .selectable(false)
-        }
-
-        ForEach(this.getOtherAssistantsForWorkspace(), (assistant: Assistant) => {
-          ListItem({ style: ListItemStyle.NONE }) {
-            this.AssistantJumpCard(assistant, false)
-          }
-          .swipeAction({
-            start: this.AssistantStartSwipePanel(assistant),
-            end: this.AssistantEndSwipePanel(assistant)
+          .onMove((from: number, to: number) => {
+            if (from === to || from < 0 || to < 0 || from >= this.assistants.length ||
+              to >= this.assistants.length) {
+              return
+            }
+            this.assistantListScroller.closeAllSwipeActions()
+            const next: Assistant[] = this.assistants.slice()
+            const moved = next.splice(from, 1)[0]
+            next.splice(to, 0, moved)
+            this.assistants = next
+            this.assistantService.reorderAssistants(next).catch((err: Object) => {
+              console.error('Index', `reorderAssistants failed: ${JSON.stringify(err)}`)
+            })
           })
-          .borderRadius(12)
-          .clip(true)
-        }, (assistant: Assistant) => this.getAssistantRenderKey(assistant))
 
         ListItem() {
           Column()
@@ -2920,48 +2848,19 @@ struct Index {
   }
 
   @Builder
-  private AssistantSectionHeader(title: ResourceStr) {
-    Text(title)
-      .fontSize(12)
-      .fontWeight(FontWeight.Medium)
-      .fontColor($r('app.color.text_tertiary'))
-      .width('100%')
-      .padding({ left: 4, right: 4, top: 8, bottom: 2 })
-  }
-
-  @Builder
-  private AssistantStartSwipePanel(assistant: Assistant) {
-    Row() {
-      this.AssistantSwipeButton($r('sys.symbol.plus'), $r('app.string.new_chat'), this.themePrimary, 84, (): void => {
-        this.assistantListScroller.closeAllSwipeActions()
-        this.openAssistantNewChat(assistant)
-      })
-    }
-    .height('100%')
-    .borderRadius({ topLeft: 12, bottomLeft: 12 })
-    .clip(true)
-  }
-
-  @Builder
   private AssistantEndSwipePanel(assistant: Assistant) {
-    Row() {
-      this.AssistantSwipeButton($r('sys.symbol.square_and_pencil'), $r('app.string.edit_assistant_short'),
-        this.themePrimary, 72, (): void => {
-          this.assistantListScroller.closeAllSwipeActions()
-          this.openAssistantEditor(assistant)
-        })
-
-      if (assistant.id !== DEFAULT_ASSISTANT_ID && !assistant.isDefault) {
+    if (assistant.id !== DEFAULT_ASSISTANT_ID && !assistant.isDefault) {
+      Row() {
         this.AssistantSwipeButton($r('sys.symbol.trash'), $r('app.string.delete'), $r('app.color.status_error'),
           72, (): void => {
             this.assistantListScroller.closeAllSwipeActions()
             this.deleteAssistantFromTab(assistant)
           })
       }
+      .height('100%')
+      .borderRadius({ topRight: 12, bottomRight: 12 })
+      .clip(true)
     }
-    .height('100%')
-    .borderRadius({ topRight: 12, bottomRight: 12 })
-    .clip(true)
   }
 
   @Builder
@@ -3032,6 +2931,26 @@ struct Index {
     })
   }
 
+  private getAssistantsDragPreviewWidth(): number {
+    const padding = this.getAssistantsListHorizontalPadding()
+    const inner = this.windowWidthVp - padding * 2
+    return inner > 0 ? inner : 320
+  }
+
+  @Builder
+  private AssistantDragPreview(assistant: Assistant) {
+    Column() {
+      this.AssistantJumpCard(assistant, assistant.id === this.currentAssistantId)
+    }
+    .width(this.getAssistantsDragPreviewWidth())
+    .shadow({
+      radius: 24,
+      color: 'rgba(0,0,0,0.18)',
+      offsetX: 0,
+      offsetY: 8
+    })
+  }
+
   @Builder
   private AssistantJumpCard(assistant: Assistant, featured: boolean = false) {
     Column() {
@@ -3059,106 +2978,108 @@ struct Index {
 
   @Builder
   private AssistantJumpCardContent(assistant: Assistant, featured: boolean) {
-    Column({ space: featured ? 12 : 10 }) {
+    Column({ space: 10 }) {
       Row({ space: 12 }) {
         this.AssistantAvatarBadge(assistant.avatarSymbol, this.getAssistantAvatarColor(assistant), featured ? 48 : 44,
           featured ? 16 : 15, featured ? 25 : 23, assistant.defaultProviderId, assistant.defaultModelId,
           assistant.defaultModelName)
 
-        Column({ space: 5 }) {
-          Row({ space: 6 }) {
-            Text(assistant.name)
-              .fontSize(16)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.text_primary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .layoutWeight(1)
-
-            if (assistant.id === this.currentAssistantId) {
-              this.AssistantStatusBadge($r('app.string.assistant_active_badge'), this.getAssistantAccentColor(assistant))
-            }
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Center)
-
-          Text(this.getAssistantDefaultModelText(assistant))
-            .fontSize(12)
-            .fontColor($r('app.color.text_secondary'))
+        Row({ space: 6 }) {
+          Text(assistant.name)
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.text_primary'))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+
+          if (assistant.id === this.currentAssistantId) {
+            this.AssistantStatusBadge($r('app.string.assistant_active_badge'), this.getAssistantAccentColor(assistant))
+          }
         }
         .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
+        .alignItems(VerticalAlign.Center)
 
-        Column({ space: 5 }) {
-          Row({ space: 3 }) {
-            SymbolGlyph($r('sys.symbol.message'))
-              .fontSize(12)
-              .fontColor([$r('app.color.text_tertiary')])
-            Text(this.getAssistantSessionCount(assistant.id).toString())
-              .fontSize(12)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('app.color.text_secondary'))
-          }
-          .justifyContent(FlexAlign.End)
-
-          this.AssistantRelativeTimeText(this.getAssistantLastChatTimestamp(assistant.id))
+        Button() {
+          SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
+            .fontSize(18)
+            .fontColor([$r('app.color.text_secondary')])
         }
-        .width(74)
-        .alignItems(HorizontalAlign.End)
+        .width(36)
+        .height(36)
+        .borderRadius(18)
+        .padding(0)
+        .backgroundColor(Color.Transparent)
+        .stateEffect(true)
+        .bindMenu(this.AssistantCardMoreMenu(assistant), {
+          placement: Placement.BottomRight,
+          offset: { x: 0, y: 8 },
+          backgroundColor: this.themeSurface,
+          backgroundBlurStyle: BlurStyle.Regular
+        })
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      Row({ space: 8 }) {
-        this.AssistantListMetaItem($r('app.string.assistant_prompt_label'), this.getAssistantPromptStateText(assistant))
-        this.AssistantListMetaItem($r('app.string.assistant_temperature_override'), this.getAssistantTemperatureText(assistant))
-      }
-      .width('100%')
-
       Text(this.getAssistantPromptPreviewText(assistant))
-        .fontSize(12)
+        .fontSize(13)
         .fontColor($r('app.color.text_tertiary'))
-        .maxLines(1)
+        .maxLines(3)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .lineHeight(18)
         .width('100%')
 
-      this.AssistantCardActions(assistant)
+      Row({ space: 8 }) {
+        this.AssistantCardFooterMeta(assistant)
+
+        this.AssistantCardActionButton($r('sys.symbol.message'), $r('app.string.assistant_view_chats'), false,
+          (): void => {
+            this.openAssistantSessions(assistant)
+          })
+
+        this.AssistantCardActionButton($r('sys.symbol.plus'), $r('app.string.new_chat'), true, (): void => {
+          this.openAssistantNewChat(assistant)
+        })
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
   }
 
   @Builder
-  private AssistantCardActions(assistant: Assistant) {
-    Row({ space: 8 }) {
-      this.AssistantCardActionButton($r('sys.symbol.plus'), $r('app.string.new_chat'), true, (): void => {
-        this.openAssistantNewChat(assistant)
-      })
+  private AssistantCardFooterMeta(assistant: Assistant) {
+    Row() {
+      Text(this.getAssistantDefaultModelText(assistant))
+        .fontSize(11)
+        .fontColor($r('app.color.text_tertiary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .layoutWeight(1)
 
-      this.AssistantCardActionButton($r('sys.symbol.message'), $r('app.string.assistant_view_chats'), false, (): void => {
-        this.openAssistantSessions(assistant)
-      })
+      Text(' · ')
+        .fontSize(11)
+        .fontColor($r('app.color.text_tertiary'))
 
-      Button() {
-        SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
-          .fontSize(18)
-          .fontColor([$r('app.color.text_secondary')])
+      Row({ space: 3 }) {
+        Text(this.getAssistantSessionCount(assistant.id).toString())
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
+        Text($r('app.string.assistant_sessions_label'))
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
       }
-      .width(40)
-      .height(34)
-      .borderRadius(17)
-      .padding(0)
-      .backgroundColor(this.themeBackground)
-      .stateEffect(true)
-      .bindMenu(this.AssistantCardMoreMenu(assistant), {
-        placement: Placement.BottomRight,
-        offset: { x: 0, y: 8 },
-        backgroundColor: this.themeSurface,
-        backgroundBlurStyle: BlurStyle.Regular
-      })
+      .alignItems(VerticalAlign.Center)
+
+      if (this.getAssistantLastChatTimestamp(assistant.id) > 0) {
+        Text(' · ')
+          .fontSize(11)
+          .fontColor($r('app.color.text_tertiary'))
+
+        this.AssistantRelativeTimeText(this.getAssistantLastChatTimestamp(assistant.id))
+      }
     }
-    .width('100%')
+    .layoutWeight(1)
     .alignItems(VerticalAlign.Center)
   }
 
@@ -3167,7 +3088,7 @@ struct Index {
     Button() {
       Row({ space: 5 }) {
         SymbolGlyph(symbol)
-          .fontSize(15)
+          .fontSize(14)
           .fontColor([primary ? Color.White : this.themePrimary])
 
         Text(label)
@@ -3179,12 +3100,10 @@ struct Index {
       }
       .justifyContent(FlexAlign.Center)
       .alignItems(VerticalAlign.Center)
-      .width('100%')
     }
-    .layoutWeight(1)
-    .height(34)
-    .borderRadius(17)
-    .padding({ left: 10, right: 10 })
+    .height(32)
+    .borderRadius(16)
+    .padding({ left: 12, right: 12 })
     .backgroundColor(primary ? this.themePrimary : this.themePrimaryLight)
     .stateEffect(true)
     .onClick(() => {
@@ -3216,28 +3135,6 @@ struct Index {
           })
       }
     }
-  }
-
-  @Builder
-  private AssistantListMetaItem(label: ResourceStr, value: ResourceStr) {
-    Row({ space: 4 }) {
-      Text(label)
-        .fontSize(11)
-        .fontColor($r('app.color.text_tertiary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-      Text(value)
-        .fontSize(11)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('app.color.text_secondary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
-    .layoutWeight(1)
-    .height(28)
-    .padding({ left: 10, right: 10 })
-    .backgroundColor(this.themeBackground)
-    .borderRadius(10)
   }
 
   @Builder

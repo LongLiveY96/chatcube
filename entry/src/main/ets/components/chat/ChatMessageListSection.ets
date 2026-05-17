@@ -1,7 +1,7 @@
-import { ChatMessage, MessageAttachment, MessageRole } from '../../models/ChatModels'
+import { ChatMessage, MessageAttachment } from '../../models/ChatModels'
 import { DraftPreviewBubble } from './DraftPreviewBubble'
 import { shouldShowMessageHeader } from '../../utils/MessageListUtils'
-import { CHAT_MESSAGE_LIST_ITEM_REUSE_ID, ChatMessageListItem } from './ChatMessageListItem'
+import { ChatMessageListItem } from './ChatMessageListItem'
 import {
   buildChatMessageContentRenderSignature,
   buildChatMessageRowRenderSignature,
@@ -183,17 +183,10 @@ export struct ChatMessageListSection {
     return 4
   }
 
-  // 按 message role 稳定分桶: USER 与 ASSISTANT 的 build 结构差异较大(头像位置、操作菜单、
-  // markdown 渲染开关、part timeline 等), 合并到同一桶会让 reuse 后 layout 抖动;
-  // 拆成两桶让结构相似的实例复用同类型。原 `_live_${id}` per-message-id 设计会让每条
-  // 流式消息独占复用桶, 复用率为 0 — 改为统一桶后流式消息也走 ASSISTANT 池正常复用。
-  // 复用 reset 走 MessageBubble.aboutToReuse → syncMessageScopedState 完整重置。
-  private getMessageRowReuseId(item: ChatMessageRowData): string {
-    if (item.message.role === MessageRole.USER) {
-      return `${CHAT_MESSAGE_LIST_ITEM_REUSE_ID}_user`
-    }
-    return `${CHAT_MESSAGE_LIST_ITEM_REUSE_ID}_assistant`
-  }
+  // 取消 @ReusableV2 复用: LazyForEach + 手动 DataSource 下精确订阅会失效, 复用瞬间 @Param 不刷新会
+  // 导致 AI 消息内容串到错位气泡上。靠 LazyForEach cachedCount 管理"延迟构造", 不再启用组件级复用。
+  // 长会话快速 fling 时 MessageBubble 会重新构造 (MarkdownController x3 + configureMarkdownStyles),
+  // 视为可接受代价, 后续单独做 Repeat 替代 PoC。
 
   private updateMessageRowData(
     row: ChatMessageRowData,
@@ -464,7 +457,6 @@ export struct ChatMessageListSection {
                   this.onAskUserAnswer(toolCallId, answerJson)
                 }
               })
-                .reuse({ reuseId: (): string => this.getMessageRowReuseId(item) })
                 .width('100%')
             }
           }, (item: ChatMessageRowData): string => item.key)

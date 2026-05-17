@@ -1,4 +1,4 @@
-import { KeyboardAvoidMode, LengthMetrics } from '@kit.ArkUI'
+import { KeyboardAvoidMode } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
 import {
   HdsNavDestination,
@@ -2739,6 +2739,7 @@ export struct ChatPage {
   MessageMapBuilder() {
     MessageMapSheet({
       messages: this.messages,
+      currentMessageIndex: this.computeCurrentVisibleMessageIndex(),
       onClose: () => {
         this.showMessageMapSheet = false
       },
@@ -2746,6 +2747,28 @@ export struct ChatPage {
         this.handleJumpToMessageFromMap(messageIndex)
       }
     })
+  }
+
+  // 估算用户当前视觉焦点对应的 message index — 取首末可见 list index 的中点再减占位 header。
+  // 用于消息地图 Sheet 打开时定位"我在哪"。messages 为空或 list index 异常返回 -1。
+  private computeCurrentVisibleMessageIndex(): number {
+    if (this.messages.length === 0) {
+      return -1
+    }
+    const first = this.firstVisibleListIndex
+    const last = this.lastVisibleListIndex
+    if (first < 0 && last < 0) {
+      return -1
+    }
+    const mid = Math.floor((Math.max(first, 0) + Math.max(last, 0)) / 2)
+    const msgIdx = mid - 1 // toListScrollIndexForMessage = idx + 1 的反函数
+    if (msgIdx < 0) {
+      return 0
+    }
+    if (msgIdx >= this.messages.length) {
+      return this.messages.length - 1
+    }
+    return msgIdx
   }
 
   private handleOpenMessageMap(): void {
@@ -2759,15 +2782,29 @@ export struct ChatPage {
       return
     }
     this.showMessageMapSheet = false
-    const topOffsetVp = this.getMessageListTopSpacerHeight()
+    const targetMessageId = this.messages[messageIndex].id
     setTimeout(() => {
       this.scroller.scrollToIndex(
         toListScrollIndexForMessage(messageIndex),
         true,
-        ScrollAlign.START,
-        { extraOffset: LengthMetrics.vp(-(topOffsetVp + 14)) }
+        ScrollAlign.CENTER
       )
     }, 120)
+    // flash 高亮: 等 sheet 关闭(120) + scrollToIndex 动画(~300) 后触发, 让目标行有时间 mount。
+    // tick 用 Date.now() 单调递增, 写入 messageId 触发 MessageBubble 端动画。
+    setTimeout(() => {
+      if (targetMessageId.length === 0) {
+        return
+      }
+      setAppUiStateValue<string>(AppStorageKeys.FLASH_HIGHLIGHT_MESSAGE_ID, targetMessageId)
+      setAppUiStateValue<number>(AppStorageKeys.FLASH_HIGHLIGHT_TICK, Date.now())
+    }, 420)
+    // 动画结束后清掉 messageId, tick 保持单调不清零(清零会破坏边沿协议)
+    setTimeout(() => {
+      if (getAppUiState().flashHighlightMessageId === targetMessageId) {
+        setAppUiStateValue<string>(AppStorageKeys.FLASH_HIGHLIGHT_MESSAGE_ID, '')
+      }
+    }, 420 + 1500)
   }
 
   private handleToolSelectionToggle(toolId: string, enabled: boolean): void {
