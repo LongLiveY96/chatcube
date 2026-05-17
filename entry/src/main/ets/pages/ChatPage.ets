@@ -59,8 +59,7 @@ import { SearchEngineMenuOption } from '../components/ChatToolbar'
 import { getSearchEngineRegistry, registerAllSearchEngines, SearchEngineDescriptor } from '../services/search/Index'
 import { parseSearchEngineIdListJson } from '../utils/SearchEnginePreferenceUtils'
 import {
-  ChatNavigationTitleContent,
-  CHAT_NAVIGATION_TITLE_STACK_BUILDER_HEIGHT
+  ChatNavigationTitleContent
 } from '../components/ChatNavigationTitleContent'
 import {
   ReasoningControlMode,
@@ -260,15 +259,6 @@ export struct ChatPage {
   }
   private get themeSurface(): string {
     return getAppUiState().themeSurface
-  }
-  private get themeUserBubble(): string {
-    return getAppUiState().themeUserBubble
-  }
-  private get themeUserBubbleText(): string {
-    return getAppUiState().themeUserBubbleText
-  }
-  private get themeAiBubble(): string {
-    return getAppUiState().themeAiBubble
   }
   private get isDarkMode(): boolean {
     return getAppUiState().isDarkMode
@@ -1599,7 +1589,7 @@ export struct ChatPage {
       onMarkAutoTaskCompleted: (): void => {
         // no-op
       },
-      onMarkAutoTaskFailed: (message: string): void => {
+      onMarkAutoTaskFailed: (_message: string): void => {
         // no-op
       },
       onShowError: (message: string | Resource): void => {
@@ -1640,7 +1630,7 @@ export struct ChatPage {
       onClearForcedToolIds: (): void => {
         this.forcedToolIdsOnce = []
       },
-      onMarkAutoTaskFailed: (message: string): void => {
+      onMarkAutoTaskFailed: (_message: string): void => {
         // no-op
       }
     }
@@ -2879,18 +2869,6 @@ export struct ChatPage {
     this.navPathStack.pop()
   }
 
-  private safePushUrl(url: string, params?: Object): void {
-    try {
-      if (params !== undefined) {
-        this.getUIContext().getRouter().pushUrl({ url: url, params: params })
-      } else {
-        this.getUIContext().getRouter().pushUrl({ url: url })
-      }
-    } catch (error) {
-      console.error('ChatPage', `Router pushUrl failed: ${JSON.stringify(error)}`)
-    }
-  }
-
   private safeStopInputSession(): void {
     this.isInputFocused = false
     try {
@@ -3816,7 +3794,7 @@ export struct ChatPage {
 }
 
 @Builder
-export function ChatPageBuilder(name: string, param: Object) {
+export function ChatPageBuilder(_name: string, param: Object) {
   ChatPage({
     routeParamsSeed: param as ChatPageRouteParams
   })
