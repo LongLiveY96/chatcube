@@ -183,12 +183,16 @@ export struct ChatMessageListSection {
     return 4
   }
 
+  // 按 message role 稳定分桶: USER 与 ASSISTANT 的 build 结构差异较大(头像位置、操作菜单、
+  // markdown 渲染开关、part timeline 等), 合并到同一桶会让 reuse 后 layout 抖动;
+  // 拆成两桶让结构相似的实例复用同类型。原 `_live_${id}` per-message-id 设计会让每条
+  // 流式消息独占复用桶, 复用率为 0 — 改为统一桶后流式消息也走 ASSISTANT 池正常复用。
+  // 复用 reset 走 MessageBubble.aboutToReuse → syncMessageScopedState 完整重置。
   private getMessageRowReuseId(item: ChatMessageRowData): string {
-    const message = item.message
-    if (message.role === MessageRole.ASSISTANT && (message.isGenerating || message.isSearching)) {
-      return `${CHAT_MESSAGE_LIST_ITEM_REUSE_ID}_live_${message.id}`
+    if (item.message.role === MessageRole.USER) {
+      return `${CHAT_MESSAGE_LIST_ITEM_REUSE_ID}_user`
     }
-    return CHAT_MESSAGE_LIST_ITEM_REUSE_ID
+    return `${CHAT_MESSAGE_LIST_ITEM_REUSE_ID}_assistant`
   }
 
   private updateMessageRowData(
@@ -460,6 +464,7 @@ export struct ChatMessageListSection {
                   this.onAskUserAnswer(toolCallId, answerJson)
                 }
               })
+                .reuse({ reuseId: (): string => this.getMessageRowReuseId(item) })
                 .width('100%')
             }
           }, (item: ChatMessageRowData): string => item.key)

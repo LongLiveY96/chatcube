@@ -103,6 +103,7 @@ interface AskUserTimelineAnswer {
   skipped: boolean
 }
 
+@ReusableV2
 @ComponentV2
 export struct MessageBubble {
   @Param message: ChatMessage = new ChatMessage('', MessageRole.USER, '')
@@ -350,6 +351,22 @@ export struct MessageBubble {
     this.stopReasoningShimmer()
   }
 
+  // ReusableV2: 从复用池取出时回调, 此时 @Param 已经按官方文档"很可能在重赋值之后"调用,
+  // 但保险起见显式置空 boundMessageId 让 syncMessageScopedState 一定走完整 reset 路径。
+  // 翻译 controller、markdown 样式配置随实例保留无需重建, 显著节省 configureMarkdownStyles 的开销。
+  aboutToReuse(): void {
+    this.boundMessageId = ''
+    this.syncMessageScopedState()
+    this.syncDerivedRenderCaches()
+    this.syncReasoningRuntime()
+  }
+
+  // ReusableV2: 进入复用池前回调, 停掉所有计时器避免在不可见的回收态继续刷帧
+  aboutToRecycle(): void {
+    this.stopReasoningTimer()
+    this.stopReasoningShimmer()
+  }
+
   // 消息状态变化回调（优化跳动点动画性能）
   @Monitor('message')
   onMessageStateChange(): void {
@@ -418,6 +435,17 @@ export struct MessageBubble {
     this.partMarkdownControllers.clear()
     this.partMarkdownControllerTexts.clear()
     this.finalizedMarkdownRenderTextCache.clear()
+    // latex 预览状态: 切换消息时若上一条打开过预览, 必须复位避免新消息加载旧 pixelMap
+    this.showLatexPreview = false
+    this.latexPreviewPixelMap = null
+    this.latexPreviewScale = 1
+    this.latexPreviewLastScale = 1
+    this.latexPreviewOffsetX = 0
+    this.latexPreviewOffsetY = 0
+    this.latexPreviewLastOffsetX = 0
+    this.latexPreviewLastOffsetY = 0
+    // 派生缓存指纹失效, 下一次 ensureDerivedRenderCaches 会重算
+    this.derivedCacheSignature = ''
   }
 
   // 流式拿到第一段 reasoning 时启动定时器,每 120ms 刷新已思考时长,驱动 UI 计数和 shimmer

@@ -4,6 +4,7 @@ import { MessageBubble } from '../MessageBubble'
 
 export const CHAT_MESSAGE_LIST_ITEM_REUSE_ID: string = 'chat_message_list_item'
 
+@ReusableV2
 @ComponentV2
 export struct ChatMessageListItem {
   @Param message: ChatMessage = new ChatMessage('', MessageRole.USER, '')
