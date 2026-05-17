@@ -1057,6 +1057,50 @@
       "value": "Enter header value"
     },
     {
+      "name": "provider_share_title",
+      "value": "Share Provider"
+    },
+    {
+      "name": "provider_share_include_key",
+      "value": "Include API Key"
+    },
+    {
+      "name": "provider_share_include_key_desc",
+      "value": "Off shares metadata only; recipient will fill the key themselves"
+    },
+    {
+      "name": "provider_share_password_label",
+      "value": "Numeric password (4-6 digits)"
+    },
+    {
+      "name": "provider_share_password_placeholder",
+      "value": "Enter digits"
+    },
+    {
+      "name": "provider_share_generate",
+      "value": "Generate QR"
+    },
+    {
+      "name": "provider_share_regenerate",
+      "value": "Regenerate"
+    },
+    {
+      "name": "provider_share_save_album",
+      "value": "Save to Album"
+    },
+    {
+      "name": "provider_share_warning",
+      "value": "Share the password via a private channel. Never send the password together with the QR image."
+    },
+    {
+      "name": "provider_share_saved_album",
+      "value": "Saved to album"
+    },
+    {
+      "name": "provider_share_save_failed",
+      "value": "Failed to save"
+    },
+    {
       "name": "provider_balance_title",
       "value": "Account Balance"
     },

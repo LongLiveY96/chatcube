@@ -18,6 +18,7 @@ import { ProviderIcon } from './ProviderIcon'
 import { generateDefaultTextIcon } from '../utils/IconGeneratorUtils'
 import { applyPresetIconDefaults } from '../config/PresetProviders'
 import { ProviderIconEditSheet, ProviderIconEditConfig } from './ProviderIconEditSheet'
+import { ProviderShareSheet } from './provider/ProviderShareSheet'
 import { ServiceRegistry } from '../services/ServiceRegistry'
 import { ModelCapabilityMatcher } from '../services/ModelCapabilityMatcher'
 import { buildModelIconRenderData, ModelIconRenderData } from '../utils/ModelIconRenderUtils'
@@ -172,6 +173,8 @@ export struct ProviderDetailPanel {
   // 手动添加模型相关状态
   @Local showAddModelInput: boolean = false
   @Local addModelIdText: string = ''
+  // 服务商 QR 分享
+  @Local showShareSheet: boolean = false
 
   private providerViewModel: ProviderViewModel = ServiceRegistry.provider()
   private pageConfigScroller: Scroller = new Scroller()
@@ -214,6 +217,7 @@ export struct ProviderDetailPanel {
     this.showEditSheet = false
     this.editingModel = null
     this.showSheet = false
+    this.showShareSheet = false
     this.activeSheet = 'none'
     this.fetchedModels = []
     this.providerCustomHeaderEntries = []
@@ -1058,6 +1062,7 @@ export struct ProviderDetailPanel {
 
           this.PanelMainContent()
           this.UnifiedSheetHost()
+          this.ShareSheetHost()
         }
         .width('100%')
         .height('100%')
@@ -1081,6 +1086,7 @@ export struct ProviderDetailPanel {
         this.SheetHeader()
         this.PanelMainContent()
         this.UnifiedSheetHost()
+        this.ShareSheetHost()
       }
       .width('100%')
       .height('100%')
@@ -1190,6 +1196,32 @@ export struct ProviderDetailPanel {
         },
         onDisappear: () => {
           this.clearEditState()
+        }
+      })
+  }
+
+  @Builder
+  private ShareSheetBuilder() {
+    ProviderShareSheet({
+      provider: this.provider,
+      onClose: () => {
+        this.showShareSheet = false
+      }
+    })
+  }
+
+  @Builder
+  private ShareSheetHost() {
+    Column()
+      .width(0)
+      .height(0)
+      .bindSheet($$this.showShareSheet, this.ShareSheetBuilder(), {
+        height: SheetSize.LARGE,
+        showClose: false,
+        dragBar: true,
+        blurStyle: BlurStyle.Regular,
+        shouldDismiss: (dismissAction: SheetDismiss) => {
+          dismissAction.dismiss()
         }
       })
   }
@@ -1328,6 +1360,21 @@ export struct ProviderDetailPanel {
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
 
+      if (!this.isCreateMode && this.provider !== null) {
+        Button() {
+          SymbolGlyph($r('sys.symbol.square_and_arrow_up'))
+            .fontSize(18)
+            .fontColor([$r('app.color.text_secondary')])
+        }
+        .type(ButtonType.Circle)
+        .width(36)
+        .height(36)
+        .backgroundColor($r('app.color.divider'))
+        .onClick(() => {
+          this.showShareSheet = true
+        })
+      }
+
       if (!this.isCreateMode && this.provider !== null && !this.provider.isPreset) {
         Button() {
           SymbolGlyph($r('sys.symbol.clean'))
@@ -1400,6 +1447,21 @@ export struct ProviderDetailPanel {
           .alignItems(HorizontalAlign.Start)
           .layoutWeight(1)
 
+          if (!this.isCreateMode && this.provider !== null) {
+            Button() {
+              SymbolGlyph($r('sys.symbol.square_and_arrow_up'))
+                .fontSize(18)
+                .fontColor([$r('app.color.text_secondary')])
+            }
+            .type(ButtonType.Circle)
+            .width(36)
+            .height(36)
+            .backgroundColor($r('app.color.divider'))
+            .onClick(() => {
+              this.showShareSheet = true
+            })
+          }
+
           if (!this.isCreateMode && this.provider !== null && !this.provider.isPreset) {
             Button() {
               SymbolGlyph($r('sys.symbol.clean'))
@@ -1468,6 +1530,21 @@ export struct ProviderDetailPanel {
           .alignItems(HorizontalAlign.Start)
           .layoutWeight(1)
 
+          if (!this.isCreateMode && this.provider !== null) {
+            Button() {
+              SymbolGlyph($r('sys.symbol.square_and_arrow_up'))
+                .fontSize(18)
+                .fontColor([$r('app.color.text_secondary')])
+            }
+            .type(ButtonType.Circle)
+            .width(36)
+            .height(36)
+            .backgroundColor($r('app.color.divider'))
+            .onClick(() => {
+              this.showShareSheet = true
+            })
+          }
+
           if (!this.isCreateMode && this.provider !== null && !this.provider.isPreset) {
             Button() {
               SymbolGlyph($r('sys.symbol.clean'))
@@ -1528,6 +1605,23 @@ export struct ProviderDetailPanel {
           .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
           .textAlign(TextAlign.Center)
+
+        // 分享按钮（非创建模式）
+        if (!this.isCreateMode && this.provider !== null) {
+          Button() {
+            SymbolGlyph($r('sys.symbol.square_and_arrow_up'))
+              .fontSize(18)
+              .fontColor([$r('app.color.text_secondary')])
+          }
+          .type(ButtonType.Circle)
+          .width(36)
+          .height(36)
+          .backgroundColor($r('app.color.divider'))
+          .margin({ right: 8 })
+          .onClick(() => {
+            this.showShareSheet = true
+          })
+        }
 
         // 删除按钮（非创建模式且非预置服务商）
         if (!this.isCreateMode && this.provider !== null && !this.provider.isPreset) {

@@ -1057,6 +1057,50 @@
       "value": "输入 Header Value"
     },
     {
+      "name": "provider_share_title",
+      "value": "分享服务商"
+    },
+    {
+      "name": "provider_share_include_key",
+      "value": "包含 API Key"
+    },
+    {
+      "name": "provider_share_include_key_desc",
+      "value": "关闭则仅分享元数据,接收方需自行填写 Key"
+    },
+    {
+      "name": "provider_share_password_label",
+      "value": "数字密码 (4-6 位)"
+    },
+    {
+      "name": "provider_share_password_placeholder",
+      "value": "请输入数字"
+    },
+    {
+      "name": "provider_share_generate",
+      "value": "生成二维码"
+    },
+    {
+      "name": "provider_share_regenerate",
+      "value": "重新生成"
+    },
+    {
+      "name": "provider_share_save_album",
+      "value": "保存到相册"
+    },
+    {
+      "name": "provider_share_warning",
+      "value": "密码请通过私密渠道告知对方,不要将密码与二维码一同转发。"
+    },
+    {
+      "name": "provider_share_saved_album",
+      "value": "已保存到相册"
+    },
+    {
+      "name": "provider_share_save_failed",
+      "value": "保存失败"
+    },
+    {
       "name": "provider_balance_title",
       "value": "账户余额"
     },
