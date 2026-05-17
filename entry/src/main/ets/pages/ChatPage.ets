@@ -306,9 +306,11 @@ export struct ChatPage {
   private scroller: Scroller = new Scroller()
   private maxScrollOffset: number = 0
   // 浮动按钮"左上角距屏幕底"基线兜底,首屏 inputAreaHeightVp 尚未实测时使用
-  private readonly floatingScrollButtonFallbackVp: number = 128
+  // 兜底值需含按钮自身高度(loading 圆环 48 + 间隙 8)否则首屏按钮会压在输入区里
+  private readonly floatingScrollButtonFallbackVp: number = 172
   // 浮动按钮基线上限,避免被推到手指难以触达的高度
-  private readonly floatingScrollButtonMaxBaselineVp: number = 220
+  // 极端场景(banner + 多行输入)实测可达 240+,放宽到 300 让按钮始终在输入区上方
+  private readonly floatingScrollButtonMaxBaselineVp: number = 300
   private readonly scrollOffsetUiSyncStepVp: number = 96
   private mcpToolAvailabilityRefreshTask: Promise<void> | null = null
   private chatViewModel: ChatViewModel = ServiceRegistry.chat()
@@ -2928,10 +2930,12 @@ export struct ChatPage {
   }
 
   // 浮动按钮的"左上角距屏幕底"基线
-  // 优先跟随实测 ChatInputAreaSection 高度,首屏 inputAreaHeightVp=0 时用 fallback 兜底,
+  // baseline = inputAreaHeightVp + 56(按钮自身 48 + 视觉间隙 8): 按钮 left-top 锚点距屏幕底
+  //   = 输入区高度 + 56, 等价于按钮底部刚好高出输入区顶 8vp, 不再与工具栏 chip 重叠
+  // 首屏 inputAreaHeightVp=0 时用 fallback 兜底,
   // 极端场景(banner + 编辑提示 + 多行 + 附件叠加)封顶到 maxBaseline 避免按钮上漂过头
   private getScrollButtonBaselineVp(): number {
-    const measured = this.inputAreaHeightVp + 12
+    const measured = this.inputAreaHeightVp + 56
     const fallback = this.floatingScrollButtonFallbackVp + this.px2vp(this.bottomAvoidHeight)
     return Math.min(Math.max(measured, fallback), this.floatingScrollButtonMaxBaselineVp)
   }

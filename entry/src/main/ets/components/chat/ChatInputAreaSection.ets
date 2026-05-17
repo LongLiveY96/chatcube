@@ -56,7 +56,7 @@ export struct ChatInputAreaSection {
   }
 
   private getBottomSpacerHeight(): number {
-    return this.bottomAvoidHeight + 4
+    return this.bottomAvoidHeight
   }
 
   build() {
@@ -159,7 +159,7 @@ export struct ChatInputAreaSection {
         }
         .width('100%')
         .justifyContent(FlexAlign.Center)
-        .padding({ top: 6, bottom: 2 })
+        .padding({ top: 3, bottom: 0 })
 
         Column()
           .width('100%')
