@@ -39,7 +39,12 @@ export struct ScrollToBottomLoadingButton {
   // 用 animateTo iterations:-1 让旋转走系统动画线程, 不再依赖 setInterval(16ms) JS 计时器
   // 抢占主线程。组件 if(isVisible) 条件渲染, 销毁时动画自然停, 无需 cancel API。
   // expectedFrameRateRange 在高刷屏 (120Hz) 上限制 expected 60 避免过度刷新。
-  aboutToAppear(): void {
+  // 注意: 必须在 Progress 节点的 onAppear 启动动画。若放在 aboutToAppear, 此时
+  // 父组件 ScrollToBottomLoadingButton 实例已创建但 if(isVisible)=false, UI 树里
+  // 没有 rotate 目标节点, 隐式动画无法绑定; 等 isVisible 变 true 时 aboutToAppear
+  // 不会再触发, 旋转就停在 0°。
+  private startSpinAnimation(): void {
+    this.loadingAngle = 0
     this.getUIContext()?.animateTo({
       duration: 1000,
       curve: Curve.Linear,
@@ -62,6 +67,10 @@ export struct ScrollToBottomLoadingButton {
           .backgroundColor('transparent')
           .style({ strokeWidth: 2.5 })
           .rotate({ angle: this.loadingAngle })
+          .onAppear(() => {
+            // 节点真正挂载到 UI 树时启动旋转, 隐式动画才能绑定到 rotate
+            this.startSpinAnimation()
+          })
 
         // 中心向下箭头按钮
         Button({ type: ButtonType.Circle }) {
