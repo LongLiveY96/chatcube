@@ -1821,26 +1821,6 @@
       "value": "全部功能始终免费,赞助完全自愿,不解锁任何隐藏内容"
     },
     {
-      "name": "sponsor_afdian_title",
-      "value": "爱发电"
-    },
-    {
-      "name": "sponsor_afdian_recommended",
-      "value": "推荐"
-    },
-    {
-      "name": "sponsor_afdian_desc",
-      "value": "一次性赞助,留言可写需求,作者会在 QQ 群联系你"
-    },
-    {
-      "name": "sponsor_afdian_action",
-      "value": "前往爱发电赞助"
-    },
-    {
-      "name": "sponsor_afdian_open_failed",
-      "value": "打开外部页面失败,请稍后再试"
-    },
-    {
       "name": "sponsor_wechat_title",
       "value": "微信打赏"
     },

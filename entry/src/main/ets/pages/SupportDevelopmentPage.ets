@@ -1,4 +1,4 @@
-import { Want, common } from '@kit.AbilityKit'
+import { common } from '@kit.AbilityKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
 import { showToast } from '../utils/ToastUtil'
 import { HdsNavigation, HdsNavigationTitleBarOptions, HdsNavigationTitleMode } from '@kit.UIDesignKit'
@@ -14,7 +14,6 @@ import {
 } from '../utils/HdsVisualEffectUtil'
 
 const TAG = 'SupportDevelopmentPage'
-const AFDIAN_URL = 'https://afdian.com/a/longlive'
 
 let supportDevelopmentPathStack: NavPathStack | null = null
 
@@ -59,7 +58,6 @@ struct SupportDevelopmentPage {
   }
 
   @Local isSaving: boolean = false
-  @Local isOpeningAfdian: boolean = false
   private compactScroller: Scroller = new Scroller()
 
   private px2vp(px: number): number {
@@ -181,65 +179,6 @@ struct SupportDevelopmentPage {
     .width('100%')
     .padding({ top: 24, bottom: 16 })
     .alignItems(HorizontalAlign.Center)
-  }
-
-  @Builder
-  private AfdianCard() {
-    Row({ space: 14 }) {
-      Column() {
-        SymbolGlyph($r('sys.symbol.heart_fill'))
-          .fontSize(22)
-          .fontColor([Color.White])
-      }
-      .width(44)
-      .height(44)
-      .borderRadius(13)
-      .backgroundColor('rgba(255,255,255,0.22)')
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-
-      Column({ space: 6 }) {
-        Row({ space: 8 }) {
-          Text($r('app.string.sponsor_afdian_title'))
-            .fontSize(16)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(Color.White)
-          Text($r('app.string.sponsor_afdian_recommended'))
-            .fontSize(11)
-            .fontColor(Color.White)
-            .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-            .backgroundColor('rgba(255,255,255,0.24)')
-            .borderRadius(8)
-        }
-        .alignItems(VerticalAlign.Center)
-
-        Text($r('app.string.sponsor_afdian_desc'))
-          .fontSize(12)
-          .fontColor('rgba(255,255,255,0.88)')
-          .maxLines(2)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-
-      SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(18)
-        .fontColor([Color.White])
-        .opacity(0.85)
-    }
-    .width('100%')
-    .padding({ left: 18, right: 18, top: 18, bottom: 18 })
-    .borderRadius(20)
-    .linearGradient({
-      direction: GradientDirection.Right,
-      colors: [[this.themePrimary, 0], ['#FF6F91', 1]]
-    })
-    .shadow({ radius: 20, color: 'rgba(99,102,241,0.25)', offsetY: 8 })
-    .alignItems(VerticalAlign.Center)
-    .opacity(this.isOpeningAfdian ? 0.7 : 1)
-    .onClick(() => {
-      this.openAfdian()
-    })
   }
 
   @Builder
@@ -432,7 +371,6 @@ struct SupportDevelopmentPage {
           }
 
           this.HeroBlock()
-          this.AfdianCard()
           this.WechatCard()
           this.UsageCard()
 
@@ -518,30 +456,6 @@ struct SupportDevelopmentPage {
     .width('100%')
     .height('100%')
     .backgroundColor(getAppUiState().themeBackground)
-  }
-
-  private async openAfdian(): Promise<void> {
-    if (this.isOpeningAfdian) {
-      return
-    }
-    this.isOpeningAfdian = true
-    try {
-      const hostContext = this.getUIContext().getHostContext()
-      if (!hostContext) {
-        throw new Error('UI context unavailable')
-      }
-      const want: Want = {
-        action: 'ohos.want.action.viewData',
-        entities: ['entity.system.browsable'],
-        uri: AFDIAN_URL
-      }
-      await (hostContext as common.UIAbilityContext).startAbility(want)
-    } catch (err) {
-      hilog.error(0x0000, TAG, 'Open Afdian failed: %{public}s', JSON.stringify(err))
-      this.pageToast($r('app.string.sponsor_afdian_open_failed'))
-    } finally {
-      this.isOpeningAfdian = false
-    }
   }
 
   private async saveWechatPayCode(): Promise<void> {

@@ -1821,26 +1821,6 @@
       "value": "All features remain free. Sponsorship is voluntary and unlocks nothing hidden."
     },
     {
-      "name": "sponsor_afdian_title",
-      "value": "Afdian"
-    },
-    {
-      "name": "sponsor_afdian_recommended",
-      "value": "Recommended"
-    },
-    {
-      "name": "sponsor_afdian_desc",
-      "value": "One-time sponsorship; leave a note and the author will follow up in the QQ group"
-    },
-    {
-      "name": "sponsor_afdian_action",
-      "value": "Sponsor on Afdian"
-    },
-    {
-      "name": "sponsor_afdian_open_failed",
-      "value": "Failed to open external page. Please try again later."
-    },
-    {
       "name": "sponsor_wechat_title",
       "value": "WeChat Tip"
     },
