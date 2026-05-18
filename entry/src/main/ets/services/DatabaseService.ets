@@ -686,7 +686,6 @@ export class DatabaseService {
 	      presence_penalty: assistant.presencePenalty,
 	      frequency_penalty_enabled: assistant.frequencyPenaltyEnabled ? 1 : 0,
 	      frequency_penalty: assistant.frequencyPenalty,
-	      reasoning_level_preference: assistant.reasoningLevelPreference || '',
 	      enabled_tool_ids_json: JSON.stringify(assistant.enabledToolIds || []),
 	      context_message_count: assistant.contextMessageCount || 0,
 	      max_output_tokens: assistant.maxOutputTokens || 0,
@@ -751,11 +750,6 @@ export class DatabaseService {
 	      assistant.frequencyPenalty = resultSet.getDouble(resultSet.getColumnIndex('frequency_penalty'))
 	    } catch (error) {
 	      assistant.frequencyPenalty = 0
-	    }
-	    try {
-	      assistant.reasoningLevelPreference = this.safeGetString(resultSet, 'reasoning_level_preference')
-	    } catch (error) {
-	      assistant.reasoningLevelPreference = ''
 	    }
 	    try {
 	      const raw = this.safeGetString(resultSet, 'enabled_tool_ids_json')

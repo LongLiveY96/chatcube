@@ -20,9 +20,6 @@ export class Assistant {
   @Trace presencePenalty: number = 0
   @Trace frequencyPenaltyEnabled: boolean = false
   @Trace frequencyPenalty: number = 0
-  // 助手偏好的推理强度,取值为 ReasoningLevel 的枚举字符串 ('off'/'auto'/'low'/'medium'/'high'/'xhigh')。
-  // 空串表示未设置,由会话沿用全局默认或上一次选择;非空则新开会话/切助手时作为默认值。
-  @Trace reasoningLevelPreference: string = ''
   // 上下文消息数量限制。0 = 不限制,发送全部历史;>0 = 仅发送最近 N 条消息
   @Trace contextMessageCount: number = 0
   // 最大输出 token 数。
@@ -56,7 +53,6 @@ export class Assistant {
     this.presencePenalty = 0
     this.frequencyPenaltyEnabled = false
     this.frequencyPenalty = 0
-    this.reasoningLevelPreference = ''
     this.contextMessageCount = 0
     this.maxOutputTokens = 0
     this.enabledToolIds = []

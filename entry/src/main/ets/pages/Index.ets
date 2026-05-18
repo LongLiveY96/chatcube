@@ -179,8 +179,6 @@ struct Index {
   @Local editingAssistantCreatedAt: number = 0
   @Local editingAssistantSortOrder: number = 0
   @Local editingAssistantIsDefault: boolean = false
-  // 简化编辑器不暴露推理偏好 UI,这里仅用于在 save 时把原值回填到新 Assistant 对象避免丢失
-  @Local editingAssistantReasoningLevelPreference: string = ''
   @Local assistantFormName: string = ''
   @Local assistantFormAvatarSymbol: string = 'AI'
   @Local assistantFormColor: string = DEFAULT_PRIMARY_COLOR
@@ -2536,7 +2534,6 @@ struct Index {
     this.assistantFormFrequencyPenalty = 0
     this.assistantFormContextMessageCount = 0
     this.assistantFormMaxOutputTokens = 0
-    this.editingAssistantReasoningLevelPreference = ''
   }
 
   private fillAssistantEditorForm(assistant: Assistant): void {
@@ -2566,7 +2563,6 @@ struct Index {
     this.assistantFormFrequencyPenalty = assistant.frequencyPenalty
     this.assistantFormContextMessageCount = assistant.contextMessageCount
     this.assistantFormMaxOutputTokens = assistant.maxOutputTokens
-    this.editingAssistantReasoningLevelPreference = assistant.reasoningLevelPreference || ''
   }
 
   private setAssistantFormAvatarSymbol(value: string): void {
@@ -2660,7 +2656,6 @@ struct Index {
     assistant.frequencyPenalty = this.assistantFormFrequencyPenalty
     assistant.contextMessageCount = this.assistantFormContextMessageCount
     assistant.maxOutputTokens = this.assistantFormMaxOutputTokens
-    assistant.reasoningLevelPreference = this.editingAssistantReasoningLevelPreference
     assistant.createdAt = this.editingAssistantCreatedAt
     assistant.sortOrder = this.editingAssistantSortOrder
     assistant.isDefault = this.editingAssistantIsDefault
@@ -2804,27 +2799,37 @@ struct Index {
   }
 
   @Builder
-  private AssistantStatusBadge(label: ResourceStr, accentColor: ResourceColor) {
-    // 主题色填充的小药丸: 底层 accentColor 透明叠层做背景, 文字用 accentColor 实色, 深色/浅色下对比都够。
-    Stack({ alignContent: Alignment.Center }) {
-      Column()
-        .width('100%')
-        .height('100%')
-        .backgroundColor(accentColor)
-        .opacity(0.18)
-        .borderRadius(11)
-
+  private AssistantStatusBadge(label: ResourceStr, accentColor: string) {
+    // 主题色填充的小药丸: 用带 alpha 的主题色直接做背景, 文字用主色实色。
+    // 早期实现用 Stack + Column.width('100%') 造透明叠层, 在 Row 中会被同层 layoutWeight=1
+    // 的兄弟元素拉伸成横向填充的胶囊, 把助手名称遮住; 改成 Row 后宽度按内容自适应, 不再覆盖名称。
+    Row() {
       Text(label)
         .fontSize(11)
         .fontWeight(FontWeight.Bold)
         .fontColor(accentColor)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .padding({ left: 10, right: 10 })
     }
     .height(22)
+    .padding({ left: 10, right: 10 })
+    .backgroundColor(this.makeAssistantStatusBadgeBg(accentColor))
     .borderRadius(11)
-    .clip(true)
+    .alignItems(VerticalAlign.Center)
+  }
+
+  /**
+   * 把主题色拼成 18% 透明度的背景色 (#AARRGGBB), 兼容 #RRGGBB / #AARRGGBB 两种输入格式。
+   * 0.18 * 255 ≈ 46 → 0x2E。
+   */
+  private makeAssistantStatusBadgeBg(color: string): string {
+    if (color.startsWith('#') && color.length === 7) {
+      return `#2E${color.slice(1)}`
+    }
+    if (color.startsWith('#') && color.length === 9) {
+      return `#2E${color.slice(3)}`
+    }
+    return color
   }
 
   @Builder
@@ -3278,7 +3283,6 @@ struct Index {
             this.AssistantEditorSectionHeader($r('app.string.assistant_editor_model_section'),
               $r('app.string.assistant_editor_model_desc'))
             this.AssistantDefaultModelRow()
-            this.AssistantReasoningLevelRow()
 
             this.AssistantEditorSectionHeader($r('app.string.assistant_editor_sampling_section'),
               $r('app.string.assistant_editor_sampling_desc'))
@@ -3770,51 +3774,6 @@ struct Index {
     .padding(14)
     .backgroundColor(this.themeSurface)
     .borderRadius(16)
-  }
-
-  @Builder
-  private AssistantReasoningLevelRow() {
-    Column({ space: 10 }) {
-      Row() {
-        Text('推理强度')
-          .fontSize(14)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-          .layoutWeight(1)
-        Text(this.getReasoningLevelDisplayText())
-          .fontSize(13)
-          .fontColor($r('app.color.text_secondary'))
-      }
-      .width('100%')
-
-      Text('新会话默认使用的推理强度，空为跟随全局')
-        .fontSize(11)
-        .fontColor($r('app.color.text_tertiary'))
-        .width('100%')
-    }
-    .width('100%')
-    .padding(14)
-    .backgroundColor(this.themeSurface)
-    .borderRadius(16)
-    .onClick(() => {
-      this.cycleReasoningLevel()
-    })
-  }
-
-  private getReasoningLevelDisplayText(): string {
-    const level = this.editingAssistantReasoningLevelPreference
-    if (level === '' || level === 'off') { return '跟随全局' }
-    if (level === 'auto') { return '自动' }
-    if (level === 'low') { return '低' }
-    if (level === 'medium') { return '中' }
-    if (level === 'high') { return '高' }
-    return level
-  }
-
-  private cycleReasoningLevel(): void {
-    const levels: string[] = ['', 'auto', 'low', 'medium', 'high']
-    const current = levels.indexOf(this.editingAssistantReasoningLevelPreference)
-    this.editingAssistantReasoningLevelPreference = levels[(current + 1) % levels.length]
   }
 
   @Builder
